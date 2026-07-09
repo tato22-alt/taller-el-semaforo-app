@@ -1,0 +1,33 @@
+# Dependencias
+node_modules/
+
+# Builds / cache
+.next/
+out/
+dist/
+build/
+
+# Variables de entorno (nunca commitear)
+.env
+.env.local
+.env*.local
+
+# InsForge / agentes / configuración local
+.insforge/
+.agent/
+.agents/
+.augment/
+.claude/
+.cline/
+.kilocode/
+.qoder/
+.qwen/
+.roo/
+.trae/
+.windsurf/
+
+# Sistema operativo / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
