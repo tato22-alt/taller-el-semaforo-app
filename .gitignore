@@ -1,33 +1,27 @@
+
 # Dependencias
 node_modules/
-
-# Builds / cache
 .next/
-out/
-dist/
-build/
 
 # Variables de entorno (nunca commitear)
-.env
 .env.local
 .env*.local
 
-# InsForge / agentes / configuración local
-.insforge/
-.agent/
-.agents/
-.augment/
-.claude/
-.cline/
-.kilocode/
-.qoder/
-.qwen/
-.roo/
-.trae/
-.windsurf/
+# Build
+out/
+dist/
 
-# Sistema operativo / editor
-.DS_Store
-Thumbs.db
-.vscode/
-.idea/
+# InsForge & AI agent skills
+.insforge
+.agent
+.agents
+.augment
+.claude
+.cline
+.github/copilot*
+.kilocode
+.qoder
+.qwen
+.roo
+.trae
+.windsurf
