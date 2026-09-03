@@ -1,11 +1,31 @@
-# Constitución — El Semáforo
+# Constitución — Modelo de datos de El Semáforo
 
-Principios no negociables de El Semáforo App, el sistema de gestión del Taller El Semáforo.
+Principios no negociables del modelo de datos que sostiene a El Semáforo, el sistema de gestión del
+Taller El Semáforo.
 
-Este documento manda sobre cualquier spec, plan o implementación. Cuando una decisión de diseño lo
-contradiga, se cambia la decisión — o se enmienda la constitución explícitamente, con su justificación.
+Este documento manda sobre cualquier spec, plan o migración de este repositorio. Cuando una decisión de
+diseño lo contradiga, se cambia la decisión — o se enmienda la constitución explícitamente, con su
+justificación.
 
-**Versión:** 1.0.0 · **Ratificada:** 2026-09-03 · **Última enmienda:** 2026-09-03
+**Versión:** 2.0.0 · **Ratificada:** 2026-09-03 · **Última enmienda:** 2026-09-03
+
+---
+
+## Alcance de este repositorio
+
+Acá vive **la base de datos**: esquema, restricciones de integridad, vistas de derivación, y el
+diccionario que las explica. La aplicación se construye por separado y consume esta base.
+
+Motor: **SQL Server / T-SQL**.
+
+Este repositorio es responsable de:
+
+- las entidades, sus relaciones y sus restricciones de integridad;
+- las vistas que derivan magnitudes de negocio a partir de los hechos registrados;
+- la documentación del modelo.
+
+No es responsable de: reglas de proceso, permisos, interfaz, orquestación ni presentación. Todo eso vive
+en la aplicación.
 
 ---
 
@@ -13,17 +33,17 @@ contradiga, se cambia la decisión — o se enmienda la constitución explícita
 
 Estos principios no son preferencias técnicas. Cada uno responde a un problema medido durante el
 relevamiento del taller (`negocio.md`, `REQUISITOS.md`) o a un defecto encontrado auditando el modelo
-SQL previo. La referencia entre paréntesis dice de dónde sale.
+académico previo de este mismo repositorio.
 
 ---
 
 ## I. Un solo campo de estado
 
-El único estado almacenado del sistema es el **estado operativo del trabajo**: dónde está el auto.
+El único estado almacenado del modelo es el **estado operativo del trabajo**: dónde está el auto.
 
 Prohibido agregar columnas de estado financiero, documental o de siniestro. Si aparece la necesidad de
-un campo llamado `estado_cobro`, `documentacion_ok`, `estado_siniestro` o similar, la respuesta correcta
-es una función de lectura, no una columna.
+una columna llamada `estado_cobro`, `documentacion_ok`, `estado_siniestro` o similar, la respuesta
+correcta es una vista, no una columna.
 
 > *Por qué:* el modelo anterior colapsaba tres ejes en `Casos.estado`, y por eso no se podía consultar
 > ninguno. Un trabajo entregado, facturado y esperando pago es un estado real de la realidad y era una
@@ -32,47 +52,67 @@ es una función de lectura, no una columna.
 ## II. Lo que se puede derivar, no se almacena
 
 Saldo, deuda vencida, documentación faltante, repuestos pendientes, listo para turno, listo para
-facturar, días de espera, estado financiero, estado del siniestro y el semáforo mismo **se calculan al
-leer**, a partir de datos que hay que guardar de todos modos.
+facturar, días de espera, estado financiero y estado del siniestro **se calculan al leer**, a partir de
+datos que hay que guardar de todos modos.
 
 Un dato derivado que se almacena es un dato que en algún momento nadie va a actualizar.
 
 > *Por qué:* un sistema de cobranza que miente es peor que no tener sistema. La única defensa estructural
 > es que el número no se pueda desactualizar porque no existe hasta que se lo pide.
 
-## III. El sistema avisa, nunca bloquea
+## III. La base entrega magnitudes; la aplicación interpreta
 
-Ninguna validación impide registrar un hecho que ya ocurrió en la realidad.
+La frontera entre este repositorio y la aplicación es explícita.
 
-Falta la orden firmada y hay que facturar igual: se factura, y el trabajo queda en rojo. Falta el
-teléfono del cliente: se da de alta igual. El semáforo informa qué falta; no es un guardia.
+**La base deriva y expone** hechos y magnitudes deterministas: saldo, importe cobrado, retenciones
+imputadas, días transcurridos desde el envío de una factura, días de vencimiento, documentos faltantes,
+repuestos pendientes, estado financiero y estado del siniestro. Cualquier consumidor —la aplicación, una
+automatización, la capa de IA— obtiene de acá los mismos números.
+
+**La aplicación decide** qué hacer con eso: el color del semáforo, la prioridad de una lista, el texto
+de un aviso, a quién se le muestra qué y cuándo.
+
+> *Por qué:* si la derivación viviera en cada consumidor, en seis meses habría dos definiciones de saldo
+> que no coinciden y ninguna forma de saber cuál rige. Y si la base decidiera el color, cada cambio de
+> criterio de producto sería una migración.
+
+## IV. El esquema no impide registrar la realidad
+
+Ninguna restricción del modelo bloquea el registro de un hecho que ya ocurrió.
+
+En la práctica: los campos que describen etapas posteriores nacen nulos y se sellan cuando el hecho
+ocurre; no existen restricciones que exijan completitud documental para facturar o cobrar; los `CHECK`
+se reservan para dominios cerrados y valores imposibles, nunca para forzar un orden del proceso.
+
+Falta la orden firmada y hay que facturar igual: la base lo acepta, y la vista de faltantes lo reporta.
 
 > *Por qué:* un sistema que impide registrar la realidad se saltea, y a partir de ese día refleja una
 > realidad que no existe. Se abandona en semanas.
 
-## IV. Cada dato se carga una sola vez
+## V. Cada hecho se registra en un solo lugar
 
-Si un dato ya vive en el sistema, ningún formulario lo vuelve a pedir. Cliente, vehículo, patente,
-compañía y montos se leen de donde ya están.
+Sin columnas duplicadas ni denormalización por conveniencia. Si un dato se puede alcanzar por una
+relación, no se copia.
 
-Al proponer un campo nuevo, hay que poder contestar: qué decisión habilita, y qué pasa si no está. Si
-la respuesta es "podría servir algún día", el campo no entra.
+Al proponer una columna nueva hay que poder contestar: qué decisión habilita, y qué pasa si no está. Si
+la respuesta es "podría servir algún día", la columna no entra.
 
-> *Por qué:* la aplicación no debe convertir a las personas en cargadores de datos. El costo de carga es
-> el que decide si el sistema se usa, y ningún beneficio compensa que se abandone.
+> *Por qué:* cada copia es una oportunidad de divergencia, y cada columna de más es carga que alguien
+> tiene que completar. El costo de carga es el que decide si el sistema se usa.
 
-## V. Ningún automatismo escribe estados financieros
+## VI. Ningún automatismo escribe estados financieros
 
-Ni un trigger, ni un procedimiento, ni un job programado, ni un modelo de lenguaje marca algo como
-cobrado, cierra un trabajo o decide un monto.
+Ni un trigger, ni un procedimiento, ni un job programado marca algo como cobrado, cierra un trabajo o
+decide un monto.
 
-Sólo un cobro registrado por una persona baja un saldo.
+Sólo un cobro registrado explícitamente baja un saldo, y el saldo se lee de una vista.
 
-> *Por qué:* no es hipotético. En el modelo anterior, `sp_RegistrarCobro` marcaba el caso como cobrado
-> ante cualquier cobro sin factura, sin comparar montos: una seña cerraba un trabajo entero. El
-> automatismo producía activamente el dato equivocado sobre la prioridad número uno del negocio.
+> *Por qué:* no es hipotético. En el modelo anterior de este repositorio, `sp_RegistrarCobro` marcaba el
+> caso como cobrado ante cualquier cobro sin factura, sin comparar montos: una seña cerraba un trabajo
+> entero. El automatismo producía activamente el dato equivocado sobre la prioridad número uno del
+> negocio.
 
-## VI. Toda deuda tiene un deudor explícito
+## VII. Toda deuda tiene un deudor explícito
 
 Quién debe es un dato propio, nunca una inferencia a partir del origen del trabajo.
 
@@ -83,69 +123,63 @@ y el cliente decide reparar igual.
 > *Por qué:* confirmado por el negocio. Con un solo deudor derivado del origen, esos casos obligan a
 > falsear datos para poder cobrar.
 
-## VII. El saldo tiene que poder llegar a cero
+## VIII. El saldo tiene que poder llegar a cero
 
 Todo lo que cancela deuda se imputa a la deuda, incluso cuando no entra a la cuenta.
 
 Las retenciones bancarias varían por banco y por operación: si se registra sólo lo acreditado, ningún
-trabajo queda saldado nunca y el tablero de deuda se llena de residuos de dos o tres por ciento.
+trabajo queda saldado nunca.
 
-> *Por qué:* un tablero de cobranza con deudas fantasma deja de mirarse, y con eso se pierde exactamente
-> la función que justifica el proyecto.
-
-## VIII. La App es la fuente de verdad
-
-WhatsApp y el email son canales de entrada y evidencia, no archivos. Las plataformas de las compañías
-son la verdad de la autorización y del pago; la App guarda copia y referencia.
-
-Un modelo de lenguaje interpreta, extrae y propone. Nunca escribe sin confirmación de una persona, y
-nunca toca nada que involucre dinero.
-
-Toda regla de negocio vive en la API de El Semáforo. Una regla duplicada en un flujo de automatización
-son dos versiones que en seis meses difieren y nadie sabe cuál rige.
+> *Por qué:* un tablero de cobranza con deudas residuales de dos o tres por ciento deja de mirarse, y con
+> eso se pierde exactamente la función que justifica el proyecto.
 
 ## IX. El alcance se defiende activamente
 
-Fuera del MVP, y no entran sin enmienda a esta constitución: cuenta corriente y pagos a proveedores,
-conciliación bancaria, stock e inventario, RRHH y productividad, planificación de capacidad, integración
-con plataformas de aseguradoras, portal de clientes, agentes autónomos.
+No se crean, y no entran sin enmienda a esta constitución, las estructuras de: cuenta corriente y pagos a
+proveedores, conciliación bancaria, stock e inventario, RRHH y productividad, planificación de capacidad,
+portal de clientes.
 
-Tampoco entran sub-etapas de la reparación (chapa, pintura, pulido, lavado), asignación de tareas por
-operario, ni registro manual de comunicaciones.
+Tampoco: sub-etapas de la reparación (chapa, pintura, pulido, lavado), asignación de tareas por operario,
+ni registro manual de comunicaciones.
 
-> *Por qué:* el problema del taller es administrativo. El taller ya funciona. Cada módulo que modela la
+> *Por qué:* el problema del taller es administrativo. El taller ya funciona. Cada tabla que modela la
 > operación agrega carga sin resolver ninguna de las cuatro dolencias críticas.
 
-## X. La spec precede al código
+## X. La spec precede a la migración
 
-Ninguna implementación arranca sin una spec aprobada. El orden es spec → plan → tasks → implement, y las
-dos primeras las confirma el dueño del negocio antes de escribir código.
+Ninguna migración se escribe sin una spec aprobada. El orden es spec → plan → tasks → implement, y las
+dos primeras las confirma el dueño del negocio antes de que se toque el esquema.
 
-Una spec describe qué y por qué, sin tecnología. El plan elige el cómo. Cuando la implementación
-descubre que la spec estaba equivocada, se corrige la spec — no se deja el código como única verdad.
+Una spec describe qué información hay que poder registrar y responder, sin sintaxis. El plan elige el
+cómo: tablas, tipos, índices, vistas. Cuando la implementación descubre que la spec estaba equivocada, se
+corrige la spec — no se deja el DDL como única verdad.
 
 ---
 
 ## Restricciones heredadas
 
-El repositorio `gestion-taller-sql-server` es un modelo académico previo. Se conserva lo que representa
-correctamente el negocio y se rediseña lo que no. No es autoridad: cuando el modelo previo y el negocio
-real se contradicen, gana el negocio.
+El estado previo de este repositorio es un modelo académico. Se conserva lo que representa correctamente
+el negocio y se rediseña lo que no. No es autoridad: cuando el modelo previo y el negocio real se
+contradicen, gana el negocio.
 
-Quedan derogados de ese modelo, por violar los principios I y V: el enum de nueve estados de `Casos`,
-el estado `cobrada` en `Facturas`, y los dos triggers y el `UPDATE` de estado de `sp_RegistrarCobro`.
+Quedan derogados de ese modelo, por violar los principios I y VI:
+
+- el enum de nueve estados de `Casos`;
+- el estado `cobrada` en `Facturas`;
+- `trg_Casos_ActualizarFecha` y `trg_Cobros_ActualizarFactura`;
+- el `UPDATE` de estado dentro de `sp_RegistrarCobro`.
 
 ---
 
 ## Gobierno
 
-Esta constitución prevalece sobre toda otra práctica del proyecto.
+Esta constitución prevalece sobre toda otra práctica del repositorio.
 
 **Enmiendas.** Se proponen por escrito, con el problema concreto que las motiva, y las aprueba el dueño
 del negocio. Una enmienda que agregue alcance debe nombrar la dolencia que resuelve.
 
-**Versionado.** MAJOR: se quita o se redefine un principio. MINOR: se agrega un principio o una
-restricción. PATCH: aclaraciones que no cambian el significado.
+**Versionado.** MAJOR: se quita o se redefine un principio, o cambia el alcance del repositorio. MINOR:
+se agrega un principio o una restricción. PATCH: aclaraciones que no cambian el significado.
 
 **Cumplimiento.** Toda spec y todo plan se revisan contra estos principios antes de aprobarse. Una
 complejidad que los contradiga tiene que justificarse explícitamente en el plan, o se simplifica.
