@@ -7,7 +7,7 @@ Este documento manda sobre cualquier spec, plan o migración de este repositorio
 diseño lo contradiga, se cambia la decisión — o se enmienda la constitución explícitamente, con su
 justificación.
 
-**Versión:** 2.0.0 · **Ratificada:** 2026-09-03 · **Última enmienda:** 2026-09-03
+**Versión:** 3.0.0 · **Ratificada:** 2026-09-03 · **Última enmienda:** 2026-09-05
 
 ---
 
@@ -16,16 +16,27 @@ justificación.
 Acá vive **la base de datos**: esquema, restricciones de integridad, vistas de derivación, y el
 diccionario que las explica. La aplicación se construye por separado y consume esta base.
 
-Motor: **SQL Server / T-SQL**.
+Motor: **PostgreSQL sobre Supabase**.
 
 Este repositorio es responsable de:
 
 - las entidades, sus relaciones y sus restricciones de integridad;
 - las vistas que derivan magnitudes de negocio a partir de los hechos registrados;
+- las políticas de acceso a los datos (RLS) y los permisos sobre tablas y vistas;
 - la documentación del modelo.
 
-No es responsable de: reglas de proceso, permisos, interfaz, orquestación ni presentación. Todo eso vive
-en la aplicación.
+No es responsable de: reglas de proceso, interfaz, orquestación ni presentación. Todo eso vive en la
+aplicación.
+
+**Por qué Postgres y no SQL Server.** El modelo anterior de este repositorio era SQL Server, y la v2.0.0
+de esta constitución lo declaraba como motor. Se cambió porque SQL Server obligaba a decidir dónde
+correrlo y a escribir a mano la API que la aplicación necesita, y eso bloqueaba conectar el presupuesto
+por semanas. Supabase expone el esquema como API sin código intermedio. El modelo conceptual no cambió;
+cambió su implementación.
+
+**Consecuencia sobre el alcance.** Como la API se genera desde el esquema, quién puede leer y escribir
+cada fila también se define acá. Por eso las políticas de acceso entran al alcance de este repositorio,
+y por eso esta enmienda es MAJOR: en la v2.0.0 los permisos estaban explícitamente fuera.
 
 ---
 
@@ -75,6 +86,10 @@ de un aviso, a quién se le muestra qué y cuándo.
 > *Por qué:* si la derivación viviera en cada consumidor, en seis meses habría dos definiciones de saldo
 > que no coinciden y ninguna forma de saber cuál rige. Y si la base decidiera el color, cada cambio de
 > criterio de producto sería una migración.
+
+Con Supabase esta frontera deja de ser una convención y pasa a ser física: las vistas de derivación
+**son** la API que consumen la aplicación y las automatizaciones. Lo que no está en una vista o una
+tabla expuesta, no existe para ningún consumidor.
 
 ## IV. El esquema no impide registrar la realidad
 
@@ -162,7 +177,9 @@ El estado previo de este repositorio es un modelo académico. Se conserva lo que
 el negocio y se rediseña lo que no. No es autoridad: cuando el modelo previo y el negocio real se
 contradicen, gana el negocio.
 
-Quedan derogados de ese modelo, por violar los principios I y VI:
+Ese modelo era SQL Server; el actual es PostgreSQL. Lo que se rescata de él es el modelado, no el DDL.
+
+Quedan derogados, por violar los principios I y VI:
 
 - el enum de nueve estados de `Casos`;
 - el estado `cobrada` en `Facturas`;
@@ -180,6 +197,9 @@ del negocio. Una enmienda que agregue alcance debe nombrar la dolencia que resue
 
 **Versionado.** MAJOR: se quita o se redefine un principio, o cambia el alcance del repositorio. MINOR:
 se agrega un principio o una restricción. PATCH: aclaraciones que no cambian el significado.
+
+**Historial.** v1.0.0 constitución del sistema completo · v2.0.0 acotada al modelo de datos, motor SQL
+Server · v3.0.0 motor PostgreSQL sobre Supabase, las políticas de acceso entran al alcance.
 
 **Cumplimiento.** Toda spec y todo plan se revisan contra estos principios antes de aprobarse. Una
 complejidad que los contradiga tiene que justificarse explícitamente en el plan, o se simplifica.
