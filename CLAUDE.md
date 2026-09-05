@@ -9,7 +9,7 @@
 - **Nombre:** Tato
 - **Rol:** Administración en taller familiar de chapa y pintura en Argentina (Villa Gesell, Buenos Aires).
 - **Formación:** Segundo año de la carrera Gestión de Tecnología de la Información.
-- **Stack que conozco:** SQL Server (preferencia personal aunque acá usemos Postgres vía Insforge), Python básico, conceptos de modelado relacional, UML, estructuras de datos.
+- **Stack que conozco:** SQL Server (preferencia personal aunque acá usemos Postgres vía Supabase), Python básico, conceptos de modelado relacional, UML, estructuras de datos.
 - **Cómo me gusta trabajar:**
   - Quiero entender el **por qué** de cada decisión técnica, no solo el qué.
   - Prefiero explicaciones con ejemplos concretos del negocio (taller), no abstractos.
@@ -66,7 +66,7 @@ Hay tres tipos de casos que el sistema debe distinguir claramente:
 
 | Capa | Herramienta | Razón |
 |------|-------------|-------|
-| Backend / DB | **Insforge** (Postgres + Auth + Storage) | BaaS diseñado para que agentes de código lo operen vía MCP. Tier gratuito generoso. |
+| Backend / DB | **Supabase** (Postgres + Auth + Storage + RLS) | Postgres de verdad, Row Level Security maduro, documentación enorme. Reemplaza a Insforge (decisión D-1 de la spec 001). |
 | Frontend | **Next.js 14+** (App Router) + TypeScript | Estándar de industria, deploy gratis en Vercel, mobile-friendly con responsive. |
 | Estilos | **Tailwind CSS** + **shadcn/ui** | Componentes copy-paste de buena calidad, sin dependencias raras. |
 | Editor | **VS Code** | Con extensión de Claude Code. |
@@ -74,11 +74,19 @@ Hay tres tipos de casos que el sistema debe distinguir claramente:
 | Sistema operativo | **Windows 11** (Dell Inspiron 16) | Mencionar comandos PowerShell, no bash. |
 | Idioma | **UI en español, código en inglés** | Convención estándar. |
 
-**Project Insforge:**
-- Project ID: `8ba45d55-7398-4015-88dc-076d6f38134d`
-- Region: `us-east`
-- App Key: `76t2363i`
-- Project URL: `https://76t2363i.us-east.insforge.app`
+**Datos del proyecto Supabase:** van a `.env.local`, **no acá**. Este archivo se
+commitea; todo lo que se escriba en él es público. Solo se documenta el nombre de
+las variables:
+
+```
+NEXT_PUBLIC_SUPABASE_URL=      # URL del proyecto (pública, va al navegador)
+NEXT_PUBLIC_SUPABASE_ANON_KEY= # anon key (pública por diseño: la protección es RLS, no el secreto)
+SUPABASE_SERVICE_ROLE_KEY=     # solo servidor. NUNCA con prefijo NEXT_PUBLIC_
+```
+
+> ⚠️ **Pendiente:** las credenciales del proyecto Insforge anterior estuvieron
+> escritas acá, en un repositorio público. Hay que **borrar ese proyecto o rotar
+> sus keys** aunque ya no se use.
 
 ---
 
@@ -118,7 +126,7 @@ El modelo evolucionó desde un diseño de 16 tablas que era demasiado pesado. Fu
 **9. `comunicacion`** — Historial de contactos con peritos/clientes (mails, WhatsApp, llamadas).
 - `id_comunicacion`, `id_caso` (FK), `id_perito` (FK), `tipo` ('email'|'whatsapp'|'llamada'|'presencial'), `direccion` ('entrante'|'saliente'), `asunto`, `cuerpo`, `fecha`
 
-**10. `documento`** — Fotos, PDFs adjuntos. URL al archivo en Drive o Insforge Storage.
+**10. `documento`** — Fotos, PDFs adjuntos. URL al archivo en Drive o Supabase Storage.
 - `id_documento`, `id_caso` (FK), `id_factura` (FK), `tipo` ('foto_ingreso'|'foto_terminado'|'presupuesto_pdf'|'factura_pdf'|'otro'), `nombre`, `url` (not null)
 
 ---
@@ -150,17 +158,36 @@ El modelo evolucionó desde un diseño de 16 tablas que era demasiado pesado. Fu
 
 3. **Nunca loguear datos personales completos** (CUIT, teléfonos completos, etc.) en consola o archivos de log.
 
-4. **Usar variables de entorno con prefijo `NEXT_PUBLIC_` solo para lo que es seguro mostrar al cliente** (URLs públicas, anon key de Insforge). El admin key y secrets NUNCA llevan ese prefijo.
+4. **Usar variables de entorno con prefijo `NEXT_PUBLIC_` solo para lo que es seguro mostrar al cliente** (URLs públicas, anon key de Supabase). El admin key y secrets NUNCA llevan ese prefijo.
 
-5. **Sanitizar inputs antes de queries.** Usar siempre las funciones del SDK de Insforge, nunca concatenar strings SQL.
+5. **Sanitizar inputs antes de queries.** Usar siempre el client de Supabase (`.from().select()`), nunca concatenar strings SQL.
 
-6. **Cuando sume autenticación**, usar la auth nativa de Insforge. Mínimo dos roles: `admin` (Tato) y `operador` (administrativa).
+6. **La autenticación es parte de la Fase 1, no de la Fase 2.** Auth nativa de Supabase, mínimo dos roles: `admin` (Tato) y `operador` (administrativa).
 
-7. **Backup periódico.** Una vez por mes mínimo, exportar la base completa a un archivo SQL y guardar en disco externo. Esto se automatiza después; por ahora dejarlo documentado como tarea.
+7. **RLS activa en toda tabla con datos de personas, sin excepción.** La `anon key` viaja en el JavaScript que baja el navegador: cualquiera la lee del código fuente. Una tabla sin políticas de acceso es una tabla pública. La protección no es esconder la key, es RLS.
+
+8. **Nunca publicar una URL con datos reales de clientes sin login.** Ni "un ratito para probar". Para probar se usan datos ficticios.
+
+9. **Backup periódico.** Una vez por mes mínimo, exportar la base completa a un archivo SQL y guardar en disco externo. Esto se automatiza después; por ahora dejarlo documentado como tarea.
 
 ---
 
 ## 9. Cómo trabajamos juntos (Claude Code y Tato)
+
+### Metodología: SDD (Spec-Driven Development)
+
+Primero se define **qué** tiene que pasar, después **cómo** se hace. El orden de
+autoridad, de arriba hacia abajo:
+
+1. [`.specify/memory/constitution.md`](./.specify/memory/constitution.md) — principios que no se negocian.
+2. [`specs/001-mvp-gestion/spec.md`](./specs/001-mvp-gestion/spec.md) — el QUÉ y, sobre todo, **los límites**.
+3. `specs/001-mvp-gestion/plan.md` — el CÓMO técnico *(pendiente)*.
+4. `specs/001-mvp-gestion/tasks.md` — los pasos *(pendiente)*.
+
+Si una capa de abajo contradice a una de arriba, **gana la de arriba**. Antes de
+implementar algo que no está en la spec, se actualiza la spec.
+
+Cómo se lee y se revisa todo esto está explicado en [`specs/README.md`](./specs/README.md).
 
 ### Tu rol como agente
 
@@ -190,31 +217,34 @@ Reportá:
 ### Optimización de tokens
 
 - No releas archivos que ya leíste en esta sesión salvo que algo haya cambiado.
-- No explores carpetas a ciegas: usá las herramientas de Insforge MCP para consultar el estado de la DB en lugar de adivinar.
+- No explores carpetas a ciegas: consultá el estado real de la DB en Supabase en lugar de adivinar.
 - Cuando edites archivos largos, hacelo en chunks específicos, no reescribas el archivo completo.
 
 ---
 
 ## 10. Fases del proyecto
 
-**Fase actual: 1 — MVP visible**
+> El alcance detallado, con requisitos numerados y **lo que queda explícitamente
+> afuera**, está en [`specs/001-mvp-gestion/spec.md`](./specs/001-mvp-gestion/spec.md).
+> Esto es solo el resumen.
+
+**Fase actual: 1 — MVP en uso real**, en cinco cortes en orden estricto:
 
 - ✅ Modelo de datos definido
-- ⬜ Tablas creadas en Insforge
-- ⬜ Proyecto Next.js inicializado
-- ⬜ Dashboard básico con cards (mock data)
-- ⬜ Carga de caso nuevo (cliente + vehículo + items)
-- ⬜ Listado de casos
-- ⬜ Carga de factura
-- ⬜ Carga de cobro
-- ⬜ Dashboard conectado a datos reales
+- ✅ Proyecto Next.js inicializado
+- ✅ Dashboard visual con datos mock
+- ⬜ **Corte 0 — Cimientos:** esquema en Supabase, RLS, login, roles
+- ⬜ **Corte 1 — Presupuesto en la base:** numeración server-side, PDF, import del CSV
+- ⬜ **Corte 2 — Caso:** alta desde presupuesto, estados, listado con búsqueda y filtros
+- ⬜ **Corte 3 — Factura y cobro:** incluye cobros parciales
+- ⬜ **Corte 4 — Dashboard con datos reales**
 
 **Fase 2 — Operativa real (después)**
-- Autenticación (admin + operador)
-- Estado del caso editable con timeline
+- **Costos por caso** (es lo primero: sin esto no hay margen real)
+- Timeline de cambios de estado
 - Subida de fotos/documentos
-- Búsqueda y filtros avanzados
-- Reportes financieros por período
+- Reportes financieros por período con exportación
+- Auditoría de quién cambió qué
 
 **Fase 3 — Comunicación**
 - Gestión de mails de peritos (Gmail API)
@@ -232,10 +262,11 @@ Reportá:
 
 - Crear un sistema de mensajería propio. Usamos WhatsApp con deep links (`wa.me`).
 - Generar facturas fiscales desde el sistema. Usamos AFIP/servicio externo y solo registramos.
-- Almacenar fotos en la DB. Guardar URL al archivo en Drive o Insforge Storage.
+- Almacenar fotos en la DB. Guardar URL al archivo en Drive o Supabase Storage.
 - Replicar funcionalidades de Google Calendar, Drive o Gmail. Integrar con ellos vía API.
 - Agregar campos "por si acaso". Agregar solo cuando se demuestre que se necesitan.
 
 ---
 
-*Última actualización del contexto: configuración inicial del proyecto, antes de crear las tablas en Insforge.*
+*Última actualización: 2026-09-05 — se adoptó SDD, el backend pasó de Insforge a
+Supabase y la autenticación se movió a la Fase 1. Ver `specs/001-mvp-gestion/spec.md`.*

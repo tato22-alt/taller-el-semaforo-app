@@ -1,3 +1,10 @@
+> ⚠️ **DOCUMENTO REEMPLAZADO (2026-09-05).**
+> El alcance de la Fase 1 ahora se define en
+> [`specs/001-mvp-gestion/spec.md`](./specs/001-mvp-gestion/spec.md).
+> Este archivo se conserva solo como registro de lo que se planeaba antes de
+> adoptar SDD, de mover la autenticación a la Fase 1 y de cambiar Insforge por
+> Supabase. **No lo uses como guía.**
+
 # Próximos pasos sugeridos para Codex
 
 Objetivo: continuar el MVP sin sobredimensionar el proyecto.
