@@ -1,99 +1,80 @@
-# Gestión de Taller — Modelo SQL Server
+# Gestión de Taller — El Semáforo
 
-Proyecto de modelado de base de datos relacional para un sistema de gestión de taller de chapa y pintura.
+Modelo de datos del sistema de gestión del Taller El Semáforo, un taller de chapa y pintura.
 
-El objetivo es representar un flujo operativo básico de taller, incluyendo clientes, vehículos, casos de reparación, compañías de seguro, peritos, facturación, cobros, comunicaciones y documentos asociados.
+**Motor: PostgreSQL sobre Supabase.** Acá vive la base de datos: el esquema, las restricciones de
+integridad, las vistas que derivan las magnitudes del negocio, las políticas de acceso, y el
+diccionario que las explica. La aplicación se construye por separado y consume esta base.
 
-## Estado del proyecto
+## Estado
 
-Proyecto académico / portfolio en desarrollo.
+En desarrollo. El feature 001 (Presupuesto) está implementado y verificado: cuatro tablas, dos
+vistas, RLS, y 49 verificaciones automáticas que corren en una sola consulta.
 
-Este repositorio no corresponde a una aplicación completa ni a un sistema productivo. Es un modelo de base de datos diseñado para practicar y demostrar conceptos fundamentales de SQL Server y modelado relacional.
-
-## Objetivos técnicos
-
-El proyecto busca demostrar:
-
-* Modelado de entidades y relaciones.
-* Uso de claves primarias y claves foráneas.
-* Restricciones de integridad.
-* Consultas SQL con `JOIN`.
-* Vistas para reportes.
-* Procedimientos almacenados.
-* Triggers simples.
-* Documentación básica de modelo de datos.
-
-## Tecnologías utilizadas
-
-* SQL Server
-* T-SQL
-* SQL Server Management Studio
-* Modelado relacional
-
-## Estructura del repositorio
+## Cómo está organizado
 
 ```text
-scripts/
-  01_create_database.sql
-  02_create_tables.sql
-  03_insert_sample_data.sql
-  04_queries_reportes.sql
-  05_views.sql
-  06_stored_procedures.sql
-  07_triggers.sql
-
-docs/
-  diccionario-datos.md
-  mejoras-futuras.md
+.specify/memory/constitution.md    Los principios que mandan sobre todo lo demás
+specs/001-presupuesto/             La spec, el plan, las tareas y la verificación
+supabase/migrations/               EL MODELO VIGENTE — una migración por tarea
+docs/diccionario-datos.md          Qué guarda la base y qué deriva al leer
+scripts/                           Modelo académico SQL Server, superado. Ver scripts/LEGADO.md
 ```
 
-## Cómo ejecutar
+## Cómo se trabaja acá
 
-1. Abrir SQL Server Management Studio.
-2. Ejecutar los scripts en el siguiente orden:
+El orden es **spec → plan → tareas → implementación**, y las dos primeras las confirma el dueño del
+negocio antes de que se toque el esquema. Ninguna migración se escribe sin una spec aprobada. Cuando
+la implementación descubre que la spec estaba equivocada, se corrige la spec — no se deja el DDL como
+única verdad.
 
-```text
-01_create_database.sql
-02_create_tables.sql
-03_insert_sample_data.sql
-04_queries_reportes.sql
-05_views.sql
-06_stored_procedures.sql
-07_triggers.sql
-```
+Las migraciones se ejecutan pegándolas en el editor SQL del panel de Supabase. El criterio para dar
+una tarea por terminada es que **corra**, no que esté escrita.
 
-## Modelo conceptual
+## Verificación
 
-Entidades principales del modelo:
+`specs/001-presupuesto/qa-001-verificacion.sql` es una sola consulta que devuelve 49 filas, una por
+verificación, con PASA o FALLA. Cubre estructura, integridad, derivación y acceso. Se limpia sola.
 
-* Clientes
-* Vehículos
-* Compañías de seguro
-* Peritos
-* Casos
-* Ítems de caso
-* Facturas
-* Cobros
-* Comunicaciones
-* Documentos
+Es la fuente de verdad sobre el estado de la base: responde si el esquema es el que debería ser, que
+es más útil que acordarse de qué migración se corrió.
 
-## Casos de uso representados
+## Principios que explican las decisiones raras
 
-El modelo intenta responder preguntas operativas como:
+Están completos en la constitución. Los tres que más se notan al leer el esquema:
 
-* Qué vehículos se encuentran actualmente en reparación.
-* Qué casos están aprobados, facturados o cobrados.
-* Qué facturas se encuentran pendientes de cobro.
-* Qué ingresos hubo por mes.
-* Qué trabajos corresponden a seguro, particular con factura o efectivo.
-* Qué comunicaciones y documentos están asociados a cada caso.
+- **Lo que se puede derivar, no se almacena.** No hay ninguna columna de total: los totales salen de
+  una vista, calculados al leer. Un dato derivado que se almacena es uno que alguien va a olvidar de
+  actualizar.
+- **El esquema no impide registrar la realidad.** Casi todo es nulo. Un sistema que impide registrar
+  lo que pasó se saltea, y desde ese día refleja una realidad que no existe.
+- **Ningún automatismo escribe estados financieros.** Cero triggers. El modelo anterior tenía un
+  procedimiento que marcaba un trabajo como cobrado ante cualquier seña, sin comparar montos.
 
-## Motivación
+## El modelo, en una línea cada uno
 
-El modelo surge a partir de un problema real de gestión operativa en un taller de chapa y pintura. La intención es representar información que normalmente puede estar dispersa en presupuestos, facturas, conversaciones, documentos y planillas.
+| Tabla | Qué es |
+|---|---|
+| `clientes` | El dueño o responsable. Lo único exigido es el nombre |
+| `vehiculos` | Identificado por patente, única y normalizada por el motor |
+| `trabajos` | El expediente: nace del presupuesto y lleva su número. No se borra |
+| `trabajo_items` | Los conceptos presupuestados, en el orden en que se cargaron |
+| `vw_presupuestos` | Una fila por trabajo, con los totales calculados al leer |
+| `vw_presupuestos_incompletos` | A qué presupuestos les falta algo, y qué |
 
-## Nota
+Deuda, cobranza, facturación, documentos, seguro, siniestro y estado operativo **no existen
+todavía**: son features posteriores, y cada uno necesita su propia spec aprobada antes de tocar el
+esquema.
 
-Los datos utilizados son ficticios. El proyecto tiene fines académicos y de portfolio.
+## Qué preguntas responde hoy
 
+1. Qué presupuesto tiene un número dado.
+2. Qué presupuestos existen para una patente, del más nuevo al más viejo.
+3. Qué presupuestos tiene un cliente, buscándolo por parte del nombre — sin tildes también.
+4. Cuál fue el último presupuesto cargado.
+5. Cuánto suma un presupuesto y qué conceptos lo componen.
+6. Qué presupuestos quedaron sin concretarse.
+7. Cuántos presupuestos se hicieron en un mes y por qué monto.
 
+Cada una se responde con una sola consulta. Están en
+`specs/001-presupuesto/consultas-siete-preguntas.sql`.
