@@ -55,18 +55,19 @@ si no, el login falla igual aunque el usuario y la contraseña estén bien.
 
 ---
 
-## Después de eso: conectar la página
+## La página ya se conectó — falta la verificación real
 
-Es lo único que falta para que el sistema sirva de verdad, y es urgente por una razón concreta: cada
-presupuesto que se cargue en el navegador sin conectar es uno que después habrá que mover a mano.
+Repo `tato22-alt/semaforo-presupuesto`, rama `claude/conectar-base-datos` (pusheada,
+sin PR todavía). Reemplaza `localStorage` por login (Supabase Auth), numeración con
+`fn_proximo_numero_presupuesto()` y guardado/lectura contra
+`clientes`/`vehiculos`/`trabajos`/`trabajo_items`/`vw_presupuestos`. El detalle de
+qué cambió y por qué está en `CONEXION-BASE.md` de ese repo.
 
-Falta, todo del lado de la página (repo `tato22-alt/semaforo-presupuesto`):
-
-1. **Login.** Hoy no tiene ninguno, y sin sesión no se lee ni se escribe nada.
-2. **Pedir el número** con `fn_proximo_numero_presupuesto()` en vez de repartirlo desde el navegador.
-3. **Guardar contra la base** en lugar del `localStorage`.
-
-`verificar-acceso.html` muestra exactamente las llamadas HTTP que hacen falta.
+Probado de punta a punta con Playwright contra un mock de la API — login, campos
+obligatorios, guardar, reeditar, un fallo real a mitad del guardado, historial, CSV,
+persistencia de sesión — pero **no contra el proyecto Supabase real**, porque este
+entorno no tiene salida de red hacia él. Falta que alguien lo abra de verdad y
+confirme la cadena completa (como se hizo con `verificar-acceso.html` para T008).
 
 **Dos cosas que resuelve la página, no la base:**
 
