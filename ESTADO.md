@@ -90,7 +90,7 @@ Falta, todo del lado de la página (repo `tato22-alt/semaforo-presupuesto`):
 
 | Qué | Estado |
 |---|---|
-| ¿En qué número quedó el talonario de papel? | Si ya pasó el 16000, hay que correr `fn_sincronizar_numeracion()` o un `setval` antes de emitir |
+| ~~¿En qué número quedó el talonario de papel?~~ | **CERRADO.** El talonario físico terminó en el **15999**, así que el 16000 digital continúa la serie sin hueco ni superposición. No hay que ajustar nada ni correr `fn_sincronizar_numeracion()` |
 | ¿Alguien usa la otra versión de la herramienta? | Existe una variante que arranca en 16001, no normaliza patentes y exporta 12 columnas. Si corre en algún equipo, sus datos se comportan distinto (H12) |
 | ¿Se borra `scripts/`? | Es el modelo académico superado. El plan del 001 dijo que esas tablas no se tocan en este feature (`scripts/LEGADO.md`) |
 
