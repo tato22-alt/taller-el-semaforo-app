@@ -37,19 +37,21 @@ toca esa secuencia porque es independiente, no de una columna `identity`.)*
 
 ---
 
-## PENDIENTE — un solo paso
+## Feature 001 — CERRADO
 
-### Verificar el acceso con un login real
+Las quince migraciones corridas y verificadas: 57/57 PASA en el QA de SQL, y 8/8 PASA en
+`verificar-acceso.html` con un login real (usuario, contraseña, token, PostgREST, RLS — la cadena
+completa, no sólo el rol). No queda ningún criterio de T007/T008/T009 sin probar.
 
-Abrir `specs/001-presupuesto/verificar-acceso.html` en el navegador (doble clic), poner email y
-contraseña, y darle al botón. Nueve verificaciones, esperado **9 PASA**.
+**Detalle encontrado al verificar el login:** los dos usuarios estaban dados de alta pero sin el
+email confirmado, así que el login fallaba con `Invalid login credentials` hasta confirmarlos:
 
-Es lo único que prueba la cadena completa —usuario, contraseña, token, PostgREST, RLS— y cierra el
-criterio de T008, que pide una llamada REST real. Todo lo demás se verificó con `SET ROLE`, que
-prueba el rol pero no el login.
+```sql
+update auth.users set email_confirmed_at = now() where email_confirmed_at is null;
+```
 
-Si dice **"Failed to fetch"**, es CORS por abrir el archivo directo: pedir la variante para la
-consola del navegador.
+Si en algún momento se agrega un usuario nuevo a mano desde el panel, revisar que quede confirmado —
+si no, el login falla igual aunque el usuario y la contraseña estén bien.
 
 ---
 
