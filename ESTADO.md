@@ -19,38 +19,27 @@ La base está **vacía y con los contadores en cero**, lista para la primera car
 
 ---
 
-## PENDIENTE AHORA — tres pasos, en este orden
+## Las quince migraciones están corridas
 
-Todo lo demás está corrido. Falta esto:
+**57 PASA · 0 FALLA sobre Supabase**, medido. La base quedó vacía y con los contadores en cero.
+El primer presupuesto real sale con el **16000**, justo donde terminó el talonario de papel (15999).
 
-### Paso 1 — Correr dos migraciones en el editor SQL
-
-| Orden | Archivo | Qué hace |
-|---|---|---|
-| 1º | `supabase/migrations/20260907121300_numeracion.sql` | La base empieza a repartir números desde el 16000 |
-| 2º | `supabase/migrations/20260907121400_simplificar.sql` | Saca dos funciones que no se usaban |
-
-Cada una tiene que dar **Success**.
-
-### Paso 2 — Correr el QA
-
-Pegar `specs/001-presupuesto/qa-001-verificacion.sql` entero y ejecutar.
-
-**Esperado: 57 PASA, 0 FALLA.** Si alguna falla, el detalle de esa fila dice qué pasó.
-
-> Usar siempre la última versión del archivo. Una versión anterior gastaba números reales de la
-> serie; la actual guarda el contador y lo restaura, y hay una verificación de cierre que lo comprueba.
-
-Después del QA, dejar la base limpia otra vez:
+Para volver a verificar en cualquier momento: pegar `specs/001-presupuesto/qa-001-verificacion.sql`
+entero y ejecutar. Después conviene dejar la base limpia otra vez:
 
 ```sql
 truncate table trabajo_items, trabajos, vehiculos, clientes restart identity;
 ```
 
-*(El QA borra sus propias filas, pero consume ids. Sin el truncate, el primer cliente real no
-arrancaría en 1. Los números de presupuesto sí quedan intactos: eso lo restaura el propio QA.)*
+*(El QA borra sus propias filas pero consume ids; sin el truncate el próximo cliente no arrancaría
+en 1. Los números de presupuesto sí quedan intactos: eso lo restaura el propio QA, y el truncate no
+toca esa secuencia porque es independiente, no de una columna `identity`.)*
 
-### Paso 3 — Verificar el acceso con un login real
+---
+
+## PENDIENTE — un solo paso
+
+### Verificar el acceso con un login real
 
 Abrir `specs/001-presupuesto/verificar-acceso.html` en el navegador (doble clic), poner email y
 contraseña, y darle al botón. Nueve verificaciones, esperado **9 PASA**.
