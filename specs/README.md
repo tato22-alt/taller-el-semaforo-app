@@ -46,6 +46,7 @@ y acá está escrito por qué".
 |---|---|---|
 | [001](./001-mvp-gestion/spec.md) | MVP de gestión | **Reemplazada** — escrita contra el contexto anterior (Next.js, `caso`, cinco cortes) |
 | [002](./002-alcance/spec.md) | Alcance y límites de la aplicación | Borrador, esperando revisión |
+| [003](./003-tablero/spec.md) | Tablero | Borrador, esperando revisión |
 
 ## Cómo se revisa una spec
 
