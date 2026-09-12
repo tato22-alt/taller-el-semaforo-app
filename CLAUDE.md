@@ -97,8 +97,14 @@ herramienta de presupuesto sigue en producción en `tato22-alt/semaforo-presupue
 mudará acá más adelante, no ahora.
 
 **Gotcha de Pages:** el sitio se sirve en un subpath (`/taller-el-semaforo-app/`), así que un
-router de history API tira 404 al refrescar una ruta profunda. Usá `HashRouter`, o el truco
-de `404.html`. Decidilo una vez y dejalo escrito acá.
+router de history API tira 404 al refrescar una ruta profunda. **Decidido: `HashRouter`.** Es
+una línea, no necesita el archivo `404.html` ni duplicar la app, y para tres pantallas que se
+abren desde el tablero la URL con `#` no le molesta a nadie. El `base` de Vite va igual:
+`/taller-el-semaforo-app/`.
+
+**Estilos: CSS plano, sin Tailwind** (decidido el 2026-09-12). Una dependencia menos, y
+coincide con la herramienta de presupuesto, que es CSS escrito a mano con la hoja de impresión
+calibrada contra el talonario de papel: cuando se mude acá no hay que traducir nada.
 
 ---
 
