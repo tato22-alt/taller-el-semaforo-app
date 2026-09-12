@@ -16,7 +16,7 @@ entre un talonario de papel, WhatsApp y la memoria de quien atendió.
 |---|---|
 | **Base de datos** | ✅ Aplicada y verificada — 15 migraciones, 57/57 verificaciones, RLS activa |
 | **Herramienta de presupuestos** | 🟡 En producción, conectada a la base en una rama sin mergear |
-| **Esta aplicación** | 🔴 Documentación ordenada, código todavía no |
+| **Esta aplicación** | 🟡 Esqueleto en pie — Vite, TypeScript estricto, tres capas, 27 tests en verde |
 
 El detalle honesto de qué funciona y qué no está en **[`ESTADO.md`](./ESTADO.md)**, con el
 orden de trabajo. El alcance y los límites, en

@@ -1,0 +1,66 @@
+/* CSS plano, sin framework (decisión del 2026-09-12).
+ * Mobile primero: los anchos grandes se agregan con media queries, no al revés. */
+
+:root {
+  --tinta: #18181b;
+  --tinta-suave: #71717a;
+  --papel: #fafafa;
+  --tarjeta: #ffffff;
+  --borde: #e4e4e7;
+  --acento: #1d4ed8;
+  color-scheme: light;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--papel);
+  color: var(--tinta);
+  font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  /* El tablero se usa parado, con una mano: nada de texto chico. */
+  -webkit-text-size-adjust: 100%;
+}
+
+.envoltorio {
+  max-width: 46rem;
+  margin: 0 auto;
+  padding: 1rem 1rem 4rem;
+}
+
+.encabezado {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.5rem 0 1.25rem;
+}
+
+.encabezado h1 {
+  margin: 0;
+  font-size: 1.25rem;
+  letter-spacing: -0.01em;
+}
+
+.encabezado a { color: var(--acento); font-size: 0.9rem; }
+
+.tarjeta {
+  background: var(--tarjeta);
+  border: 1px solid var(--borde);
+  border-radius: 0.75rem;
+  padding: 1.25rem;
+}
+
+.apagado { color: var(--tinta-suave); }
+
+.pendiente {
+  display: grid;
+  gap: 0.5rem;
+  text-align: center;
+  padding: 2.5rem 1.25rem;
+}
+
+.pendiente code {
+  font-size: 0.85rem;
+  color: var(--tinta-suave);
+}

@@ -15,7 +15,7 @@ El sistema vive en tres repositorios. Esto es lo que hay en cada uno, medido, no
 |---|---|---|
 | **`gestion-taller-sql-server`**<br>rama `claude/semaforo-taller-system-eroppo` | La base de datos. **Es también la API**, vía PostgREST | ✅ **Funcionando y verificado.** 4 tablas, 2 vistas, 6 funciones, 0 triggers, 15 migraciones corridas. 57/57 verificaciones del QA. RLS activa y forzada, `anon` revocado. Numeración desde el 16000, imposible de repetir. **La base está vacía**, esperando la primera carga real |
 | **`semaforo-presupuesto`** | La herramienta de presupuestos, **en producción** | 🟡 **Funciona en producción** en `localStorage`. En la rama `claude/conectar-base-datos` ya está conectada a Supabase (login, numeración por RPC, lectura y escritura contra las tablas), pero **sin mergear y sin verificar contra el Supabase real**: se probó con Playwright contra un mock |
-| **`taller-el-semaforo-app`**<br>(este repo) | **La aplicación.** Decidido el 2026-09-12 | 🔴 **Verde.** Tiene la documentación ordenada y un andamiaje de Next.js que ya no corresponde al stack decidido (Vite). Cero código útil todavía |
+| **`taller-el-semaforo-app`**<br>(este repo) | **La aplicación.** Decidido el 2026-09-12 | 🟡 **Esqueleto en pie.** Vite + React + TypeScript estricto, las tres capas armadas, 27 tests en verde, 0 vulnerabilidades, y el workflow de Pages. Las pantallas todavía no leen la base |
 
 ---
 
@@ -55,7 +55,7 @@ Uno por vez, y cada uno termina cuando **se vio funcionar**, no cuando está esc
 | # | Qué | Quién | Por qué en este orden |
 |---|---|---|---|
 | 0 | **Borrar el proyecto Insforge** | Tato | Es el único agujero real y cuesta cinco minutos |
-| 1 | **Ordenar este repo:** retirar el andamiaje de Next.js e Insforge, armar Vite + React + las tres capas | Claude, con la estructura confirmada antes de codear | Un repo cuyo README no coincide con su código es lo primero que se nota al abrirlo |
+| 1 | ~~**Ordenar este repo:** retirar el andamiaje de Next.js e Insforge, armar Vite + React + las tres capas~~ | ✅ **Hecho** | Un repo cuyo README no coincide con su código es lo primero que se nota al abrirlo |
 | 2 | **Login + tablero** leyendo `vw_presupuestos` | Claude | Es la Tarea 1 del `CLAUDE.md`: el camino de datos más corto que prueba auth, RLS, PostgREST, build y deploy de punta a punta |
 | 3 | **Verificar la página de presupuesto** contra el Supabase real y mergear | Tato abre, Claude corrige | Independiente de 1 y 2. No se muda nada sin esto |
 | 4 | **Mudar el presupuesto a este repo** | Claude | Recién cuando el tablero probó el stack. Es lo único en producción: se toca último |
@@ -76,7 +76,14 @@ ESTADO.md                        Este archivo
 specs/README.md                  Cómo se trabaja con SDD y cómo se revisa una spec
 specs/002-alcance/spec.md        EL ALCANCE VIGENTE: los límites y qué se puede derivar
 specs/001-mvp-gestion/spec.md    Reemplazada. Se conserva por el razonamiento sobre límites
-app/ components/ lib/            Andamiaje de Next.js — se retira en el paso 1
+index.html                       El único HTML; Vite le inyecta el bundle
+vite.config.ts                   base: '/taller-el-semaforo-app/' para el subpath de Pages
+.github/workflows/pages.yml      Build, tests y publicación. Si los tests fallan, no publica
+src/
+  dominio/                       Funciones puras: plata, fechas, patentes, rutas. Con tests
+  datos/                         La única capa que conoce Supabase
+  ui/                            Pantallas. No conocen Supabase
+  arquitectura.test.ts           Verifica la regla de las capas leyendo los imports
 ```
 
 ---
@@ -85,6 +92,7 @@ app/ components/ lib/            Andamiaje de Next.js — se retira en el paso 1
 
 | Qué | Recomendación |
 |---|---|
-| ¿Se rearma como Vite o se sigue sobre el `index.html` que funciona? | Rearmar **acá** (repo nuevo, sin nada en producción) y dejar el `index.html` intacto en su repo hasta el paso 4 |
-| `HashRouter` o el truco de `404.html` | `HashRouter`: una línea, sin archivos extra, y para tres pantallas la URL fea no molesta a nadie |
+| ~~¿Se rearma como Vite?~~ | **CERRADO.** Rearmado acá. El `index.html` del presupuesto queda intacto en su repo hasta el paso 4 |
+| ~~`HashRouter` o `404.html`~~ | **CERRADO.** Ruteo por hash, escrito a mano en `dominio/ruta.ts`: 25 líneas y una dependencia menos |
+| **Los umbrales del semáforo** | A partir de cuántos días un presupuesto está "frío". Es decisión de negocio, no técnica: la necesito para el paso 2 |
 | ¿Qué pasa con la URL pública del presupuesto cuando se mude? | La de hoy (`/semaforo-presupuesto/`) está en uso. Conviene dejar una redirección antes de apagarla |
