@@ -1,0 +1,63 @@
+# Compila el sitio y lo publica en GitHub Pages.
+#
+# El deploy corre sobre `main`: una rama de trabajo no publica nada.
+
+name: Publicar en GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Un deploy a la vez, sin cancelar el que está corriendo.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  construir:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # Si los tests fallan, no se publica. El tablero de un taller no puede
+      # quedar roto porque un deploy pasó de largo.
+      - run: npm test
+
+      - run: npm run build
+        env:
+          # `vars` y no `secrets`: son valores públicos por diseño. La anon key
+          # viaja en el bundle que baja el navegador, así que guardarla como
+          # secreto sería fingir que está escondida. Lo que protege los datos es
+          # la RLS de la base, no esta clave.
+          # Configurar en: Settings → Secrets and variables → Actions → Variables
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  publicar:
+    needs: construir
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.publicacion.outputs.page_url }}
+    steps:
+      - id: publicacion
+        uses: actions/deploy-pages@v4
