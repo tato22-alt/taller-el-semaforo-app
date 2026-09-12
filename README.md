@@ -74,6 +74,34 @@ y ninguna URL con datos reales queda sin autenticación.
 
 ---
 
+## Cómo correrlo
+
+Primero **entrar a la carpeta del proyecto**. Los comandos de npm se corren siempre
+adentro del proyecto, nunca en la carpeta de usuario: npm trata la carpeta actual como
+raíz y puede tocar lo que encuentre ahí.
+
+```powershell
+cd $HOME\Documents
+git clone https://github.com/tato22-alt/taller-el-semaforo-app.git
+cd taller-el-semaforo-app     # <-- sin este paso, npm install no hace nada útil
+npm install
+npm run dev
+```
+
+| Comando | Qué hace |
+|---|---|
+| `npm run dev` | Levanta el servidor de desarrollo y muestra la dirección en consola |
+| `npm test` | Corre los tests una vez |
+| `npm run test:ver` | Los deja corriendo y re-ejecuta al guardar |
+| `npm run build` | Chequea los tipos y compila a `dist/` |
+
+Para leer la base hace falta un `.env` en la raíz, tomando `.env.example` como referencia.
+Sin él la app levanta igual y avisa que falta configurar la conexión.
+
+Requiere Node 22 o más nuevo.
+
+---
+
 ## Stack
 
 Vite + React + TypeScript (`strict`, sin `any`), compilado a estático y servido por GitHub
