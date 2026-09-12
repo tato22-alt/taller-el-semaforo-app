@@ -213,17 +213,16 @@ Cosas que encontré al cruzar los tres repos y que conviene resolver antes de co
 | **El `CLAUDE.md` describe `src/dominio`, `src/datos`, `src/ui`; la app real es un `index.html` de 1061 líneas** | Esa estructura es el destino del rearmado, no el estado actual. Hay que decidir si se rearma o se sigue sobre el HTML que ya funciona |
 | **La página conectada no se verificó contra el Supabase real** | Está probada con Playwright contra un mock. La cadena real (login, token, PostgREST, RLS) falta confirmarla abriéndola |
 | **La base está vacía** | Nada de la sección 3 da información hasta que haya carga real. La primera decisión útil llega con el primer mes cargado |
-| **El `CLAUDE.md` dice que el sitio se sirve en `/semaforo-presupuesto/`, pero está en este repo** | Ver decisiones abiertas |
+| ~~El subpath de Pages apuntaba al otro repo~~ | **Corregido:** el subpath es `/taller-el-semaforo-app/` |
 
 ---
 
 ## 9. Decisiones abiertas
 
-- [ ] **¿En qué repo vive la app?** Toda la evidencia apunta a `semaforo-presupuesto`: ahí
-      está la herramienta en producción, ahí está la rama que ya conectó la base, y ese es
-      el subpath que nombra el `CLAUDE.md`. Este repo (`taller-el-semaforo-app`) es el
-      intento anterior con Next.js. Si se confirma, estos documentos tienen que mudarse allá
-      y este repo archivarse.
+- [x] **¿En qué repo vive la app?** **CERRADO (2026-09-12): este repo,
+      `taller-el-semaforo-app`.** Consecuencias: el andamiaje de Next.js se retira, el
+      subpath de Pages es `/taller-el-semaforo-app/`, y la herramienta de presupuesto sigue
+      en producción en `semaforo-presupuesto` hasta que el tablero pruebe el stack acá.
 - [ ] **¿Se rearma como Vite o se sigue sobre el `index.html`?** El HTML funciona y está
       calibrado. Rearmar da estructura y tests, pero arriesga lo único que ya sirve.
       Recomendación: rearmar **alrededor**, dejando la hoja de impresión intacta, y no antes
