@@ -1,272 +1,164 @@
-# Taller El Semáforo — Sistema de Gestión
+# El Semáforo — aplicación
 
-> Este archivo es el contexto persistente del proyecto. Claude Code lo lee automáticamente al inicio de cada sesión. **No borrar ni mover de la raíz del proyecto.**
+Taller de chapa y pintura en Villa Gesell. Tres personas cargan datos: Luciano (dueño,
+estudiante de desarrollo), su padre, y una administrativa.
 
----
+**Regla madre:** la aplicación no debe convertir a las personas en cargadores de datos.
+Cada campo que se pide cargar tiene que devolver más valor del esfuerzo que cuesta. Lo que
+se puede derivar, se deriva.
 
-## 1. Quién soy yo (el dueño del proyecto)
-
-- **Nombre:** Tato
-- **Rol:** Administración en taller familiar de chapa y pintura en Argentina (Villa Gesell, Buenos Aires).
-- **Formación:** Segundo año de la carrera Gestión de Tecnología de la Información.
-- **Stack que conozco:** SQL Server (preferencia personal aunque acá usemos Postgres vía Supabase), Python básico, conceptos de modelado relacional, UML, estructuras de datos.
-- **Cómo me gusta trabajar:**
-  - Quiero entender el **por qué** de cada decisión técnica, no solo el qué.
-  - Prefiero explicaciones con ejemplos concretos del negocio (taller), no abstractos.
-  - Soy iterativo: propongo, analizo, refino. Me gusta que me cuestionen si una solución es demasiado compleja para el problema.
-  - Estoy aprendiendo mientras construimos, así que comentá el código y explicá decisiones.
-  - Hablame en **español rioplatense** (vos, no tú).
+El problema real no es "no tenemos un sistema". Es que hoy nadie puede contestar de memoria
+qué autos hay, hace cuánto están, y quién debe plata.
 
 ---
 
-## 2. Qué es este sistema (el por qué)
+## Alcance: tres pantallas
 
-**Negocio:** Taller de chapa y pintura automotriz. Recibe autos de clientes particulares y de compañías de seguro (a través de peritos).
+1. **Presupuesto** — ya existe y está en producción. Migra de `localStorage` a Supabase.
+2. **Tablero** — una fila por trabajo: patente destacada, vehículo, cliente, número, días
+   desde que entró. Se usa parado, con el celular, al lado de un auto.
+3. **Ficha** — un trabajo: sus conceptos, su historia, los presupuestos anteriores de ese
+   mismo auto, y los pocos botones que registran hechos que no se derivan.
 
-**Problema real que resuelve el sistema:** Hoy la información del taller vive dispersa entre talonarios de presupuesto en papel, chats de WhatsApp, mails, memoria de quien atendió. No se puede contestar fácilmente preguntas como "¿cuánto ganamos este mes?", "¿qué facturas están sin cobrar?", "¿en qué se va la plata?".
+Nada más. Si algo no entra en esas tres, no entra. Defendé el alcance activamente: si suena
+a "podría ser útil algún día", no va.
 
-**Pregunta núcleo que el sistema debe contestar:**
-> **¿Dónde se va la plata, caso por caso?**
-
-Todo módulo, campo, automatización o feature que se proponga se valida contra esa pregunta. Si no aporta a contestarla (directa o indirectamente), no entra al MVP.
-
-**Norte de diseño:** El sistema NO debe convertirse en "uno que hace todo pero no hace nada". Tiene que ser un asistente operativo que ahorra tiempo, NO un software burocrático de carga.
-
-**Anti-patrón a evitar:** Hojas de cálculo gigantes con 30 campos por entidad, donde nadie carga nada porque genera más trabajo del que ahorra. Ya intentamos esto y fracasó. Por eso ahora apuntamos a captura mínima y a sumar campos solo cuando duelan.
-
----
-
-## 3. Quiénes lo van a usar
-
-- **Tato** (yo): carga ocasional, consulta de reportes y análisis financiero.
-- **Una administrativa** del taller: carga diaria de casos, presupuestos, facturas, cobros. Usa principalmente el celular, a veces la PC del taller.
-- **Posibles usuarios futuros (no fase 1):** chapistas/pintores para marcar estados, dueño del taller para mirar reportes.
-
-**Implicancia clave:** La UX tiene que ser **mobile-first** y **pensada para alguien no-técnico**. Si cargar un caso completo toma más de 90 segundos, está mal diseñado.
+**Estado del modelo:** hoy la base sólo tiene presupuestos. El tablero arranca mostrando
+presupuestos con sus días. Se vuelve semáforo de verdad cuando el modelo incorpore la plata.
+No inventes columnas de datos que la base todavía no tiene.
 
 ---
 
-## 4. Tipos de operaciones del taller
+## El contrato con la base
 
-Hay tres tipos de casos que el sistema debe distinguir claramente:
+La base vive en otro repo: `tato22-alt/gestion-taller-sql-server`, rama
+`claude/semaforo-taller-system-eroppo`. Su `.specify/memory/constitution.md` es vinculante
+también acá.
 
-| tipo_caso             | Quién paga          | ¿Se factura? | ¿Hay perito/siniestro? |
-|-----------------------|---------------------|--------------|------------------------|
-| `seguro`              | La aseguradora      | Sí (a la compañía) | Sí                |
-| `particular_factura`  | Cliente particular  | Sí (al cliente con CUIT) | No          |
-| `efectivo`            | Cliente particular  | NO (informal) | No                    |
+**No hay backend.** Supabase expone el esquema como REST vía PostgREST. La base *es* la API.
 
-**Importante sobre el efectivo:** Cuando es efectivo, no se factura ("no se blanquea"), pero el cobro **sí debe registrarse en el sistema** como entrada de dinero. El sistema es la verdad operativa interna; lo fiscal es separado.
+Cuatro reglas que salen de ahí y no se negocian:
 
-**Sobre las facturas:** Las facturas se emiten mayormente **a compañías de seguro**, no a los clientes finales. Una misma compañía puede pagar muchos casos distintos de clientes distintos.
+- **La app no recalcula lo que la base deriva.** Los totales salen de `vw_presupuestos`, no
+  se suman en el navegador. Si hace falta un derivado que la base no da, eso es una tarea
+  del repo del modelo: decilo, no lo calcules acá.
+- **La app sí decide colores, prioridades y textos.** La base entrega magnitudes (días,
+  montos, cantidades); interpretarlas es trabajo de la app. Esa frontera es el principio III.
+- **Se lee de vistas, se escribe a tablas.** Las vistas de PostgREST son de sólo lectura
+  salvo que tengan triggers `INSTEAD OF`, y no los tienen.
+- **La numeración de presupuestos la asigna la base, nunca el cliente.** Si la app hace
+  `max + 1`, vuelve el bug que ya tuvimos: dos pestañas sacan el mismo número y una pisa a
+  la otra en silencio. Se pide por RPC o se asigna en el `INSERT`. Nunca del lado del navegador.
+
+### Gotchas de PostgREST que ya nos van a morder
+
+- **`NUMERIC` llega como string**, no como number — PostgREST lo serializa así a propósito
+  para no perder precisión en el float de JS. `"importe": "15000.00"`. No hagas aritmética de
+  plata en el navegador; formateá y mostrá. Si alguna vez hay que sumar del lado del cliente,
+  es señal de que falta una vista.
+- **`DATE` llega como `"2026-09-12"`**, y `new Date("2026-09-12")` lo parsea como medianoche
+  **UTC**, que en Argentina (UTC-3) se muestra como el día anterior. Tratá las fechas de
+  calendario como string, o parseálas a mano. `creado_en` y `modificado_en` son `TIMESTAMPTZ`
+  y vienen con offset: ésos sí son seguros con `new Date()`.
+- **RLS deniega en silencio.** Sin sesión, una lectura devuelve `[]` con HTTP 200, no un
+  error. "Vacío" es ambiguo: distinguí siempre *no hay sesión* de *no hay filas*, o vas a
+  mostrar "no hay trabajos" cuando en realidad se venció el token.
+- **`supabase-js` no tira excepciones.** Devuelve `{ data, error }`. Un `error` ignorado es
+  un `data` en `null` que revienta tres líneas más abajo, lejos de la causa.
+
+### Credenciales
+
+La clave *publishable* es pública por diseño: lo que protege los datos es RLS, que ya está
+puesto y verificado (una llamada sin sesión devuelve 401). Va en `.env` como
+`VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY`.
+
+**Ojo con Vite:** todo lo que empiece con `VITE_` se hornea en el bundle y queda visible en
+el navegador. Ahí adentro no va nunca una `service_role` ni ningún secreto real.
 
 ---
 
-## 5. Stack técnico (decisiones tomadas)
+## Stack
 
-| Capa | Herramienta | Razón |
-|------|-------------|-------|
-| Backend / DB | **Supabase** (Postgres + Auth + Storage + RLS) | Postgres de verdad, Row Level Security maduro, documentación enorme. Reemplaza a Insforge (decisión D-1 de la spec 001). |
-| Frontend | **Next.js 14+** (App Router) + TypeScript | Estándar de industria, deploy gratis en Vercel, mobile-friendly con responsive. |
-| Estilos | **Tailwind CSS** + **shadcn/ui** | Componentes copy-paste de buena calidad, sin dependencias raras. |
-| Editor | **VS Code** | Con extensión de Claude Code. |
-| Agente | **Claude Code** (Anthropic) | Quien escribe la mayoría del código. |
-| Sistema operativo | **Windows 11** (Dell Inspiron 16) | Mencionar comandos PowerShell, no bash. |
-| Idioma | **UI en español, código en inglés** | Convención estándar. |
+Vite + React + TypeScript, compilado a estático, servido por GitHub Pages desde este mismo
+repo. Vitest para los tests.
 
-**Datos del proyecto Supabase:** van a `.env.local`, **no acá**. Este archivo se
-commitea; todo lo que se escriba en él es público. Solo se documenta el nombre de
-las variables:
+`strict: true` en el `tsconfig`, y sin `any`. Si un tipo no cierra, el problema es el
+modelado, no el tipo.
+
+Los tipos de la base no se escriben a mano: se generan con
+`supabase gen types typescript --project-id osslhkvdclrbukjqwpnt` y se guardan en
+`src/datos/tipos-base.ts`. Regeneralos cada vez que el otro repo agregue una migración.
+
+**Gotcha de Pages:** el sitio se sirve en un subpath (`/semaforo-presupuesto/`), así que un
+router de history API tira 404 al refrescar una ruta profunda. Usá `HashRouter`, o el truco
+de `404.html`. Decidilo una vez y dejalo escrito acá.
+
+---
+
+## Estructura y capas
 
 ```
-NEXT_PUBLIC_SUPABASE_URL=      # URL del proyecto (pública, va al navegador)
-NEXT_PUBLIC_SUPABASE_ANON_KEY= # anon key (pública por diseño: la protección es RLS, no el secreto)
-SUPABASE_SERVICE_ROLE_KEY=     # solo servidor. NUNCA con prefijo NEXT_PUBLIC_
+src/
+  dominio/     lógica pura. Sin React, sin supabase, sin fetch.
+  datos/       única capa que conoce supabase. Devuelve tipos del dominio.
+  ui/          componentes y pantallas. No conoce supabase.
+  app.tsx
 ```
 
-> ⚠️ **Pendiente:** las credenciales del proyecto Insforge anterior estuvieron
-> escritas acá, en un repositorio público. Hay que **borrar ese proyecto o rotar
-> sus keys** aunque ya no se use.
+La regla es una sola y se puede verificar leyendo imports:
+
+- `dominio/` no importa nada del proyecto. Funciones puras, testeables sin montar nada.
+- `datos/` importa `dominio/`. Es el único lugar donde se crea el cliente de Supabase y el
+  único que sabe cómo se llaman las tablas.
+- `ui/` importa `dominio/` y `datos/`. **Nunca** `@supabase/supabase-js`.
+
+Si un componente necesita importar el cliente de Supabase, la capa de datos está incompleta.
+
+### Cómo se escribe
+
+- **La lógica de negocio no vive en los componentes.** Un componente pinta y llama; no
+  decide. La decisión de qué color es un trabajo vive en `dominio/semaforo.ts` y se testea
+  sin renderizar nada.
+- **Nombres del dominio, en español**, igual que el esquema: `trabajo`, `presupuesto`,
+  `patente`, `cliente`, `siniestro`. Nada de `utils`, `helpers`, `manager`, `service`.
+- **Archivos chicos.** Pasado el par de cientos de líneas, preguntate si no son dos cosas.
+- **Los errores se manejan en el borde.** `datos/` traduce el `{ data, error }` de Supabase a
+  algo que el llamador esté obligado a mirar — un `Resultado<T>` como unión discriminada
+  sirve, porque TypeScript no te deja leer el dato sin chequear el caso de error primero.
+- **Antes de agregar una dependencia, preguntá.** Cada una es superficie que hay que
+  mantener y actualizar. Para un proyecto de tres pantallas, la respuesta suele ser que no.
+- **Tests donde pagan:** las funciones puras de `dominio/` (normalización de patente,
+  formato de moneda y fechas, la lógica del semáforo). Tests de componentes, sólo si algo se
+  rompió dos veces.
+- **Vocabulario del taller en la interfaz.** Trabajo, presupuesto, patente, siniestro,
+  franquicia. Nunca vocabulario de software.
 
 ---
 
-## 6. Modelo de datos (10 tablas)
+## Método de trabajo
 
-El modelo evolucionó desde un diseño de 16 tablas que era demasiado pesado. Fusionamos `siniestro + presupuesto + trabajo` en una sola entidad `caso` con un campo `estado` y un `tipo_caso`. Esto simplifica MUCHO la lógica.
+SDD, igual que el repo del modelo: la spec precede al código. Las specs van en
+`specs/00X-nombre/spec.md`.
 
-### Entidades principales
-
-**1. `cliente`** — Dueño de un vehículo. Identificado por teléfono (único).
-- `id_cliente`, `telefono` (unique, not null), `nombre`, `email`, `cuit`, `creado_en`
-
-**2. `vehiculo`** — Auto que ingresa al taller. Patente única. Siempre pertenece a un cliente.
-- `id_vehiculo`, `patente` (unique, not null), `marca`, `modelo`, `anio`, `color`, `id_cliente` (FK, not null), `creado_en`
-
-**3. `compania_seguro`** — Aseguradora que paga (cuando aplica).
-- `id_compania`, `nombre` (not null), `email`, `telefono`, `cuit`
-
-**4. `perito`** — Representante de la compañía. Para gestión de mails.
-- `id_perito`, `nombre` (not null), `email`, `telefono`, `id_compania` (FK)
-
-**5. `caso`** — Eje central del sistema. Un caso = un trabajo real sobre un vehículo.
-- `id_caso`, `num_presupuesto`, `id_vehiculo` (FK, not null), `id_compania` (FK, nullable), `id_perito` (FK, nullable), `num_siniestro` (nullable), `tipo_caso` (not null: 'seguro'|'particular_factura'|'efectivo'), `estado` (not null, default 'presupuestado'), `descripcion`, `fecha_ingreso`, `fecha_prometida`, `fecha_entrega`, `creado_en`, `actualizado_en`
-
-**Estados válidos de un caso (flujo lineal):**
-`presupuestado` → `enviado` → `aprobado` → `en_taller` → `en_trabajo` → `terminado` → `entregado` → `facturado` → `cobrado`
-
-**6. `caso_item`** — Líneas del presupuesto. Subtotal calculado automáticamente.
-- `id_item`, `id_caso` (FK, on delete cascade), `descripcion` (not null), `tipo` ('mano_obra'|'repuesto'|'material'|'pintura'|'sublet'|'otro'), `cantidad`, `precio_unitario` (not null), `subtotal` (generated as cantidad*precio_unitario)
-
-**7. `factura`** — Documento fiscal. Apunta a compañía o cliente con CUIT.
-- `id_factura`, `num_factura` (not null), `id_caso` (FK, not null), `id_compania` (FK, nullable), `fecha_emision`, `monto_total` (not null), `estado` ('emitida'|'enviada'|'cobrada'|'anulada'), `url_pdf`, `creado_en`
-
-**8. `cobro`** — Movimiento real de dinero. Puede tener o no factura asociada.
-- `id_cobro`, `id_caso` (FK, not null), `id_factura` (FK, nullable), `monto` (not null), `tipo_cobro` ('facturado'|'efectivo'), `fecha_cobro`, `nota`, `creado_en`
-
-**9. `comunicacion`** — Historial de contactos con peritos/clientes (mails, WhatsApp, llamadas).
-- `id_comunicacion`, `id_caso` (FK), `id_perito` (FK), `tipo` ('email'|'whatsapp'|'llamada'|'presencial'), `direccion` ('entrante'|'saliente'), `asunto`, `cuerpo`, `fecha`
-
-**10. `documento`** — Fotos, PDFs adjuntos. URL al archivo en Drive o Supabase Storage.
-- `id_documento`, `id_caso` (FK), `id_factura` (FK), `tipo` ('foto_ingreso'|'foto_terminado'|'presupuesto_pdf'|'factura_pdf'|'otro'), `nombre`, `url` (not null)
+- Si lo que se pide no está especificado, escribí la spec, confirmala, y recién ahí codeá.
+- **Mejora continua de verdad:** si mientras escribís se nota que la spec está mal, o que hay
+  un camino más simple, **pará y decilo**. Codear alrededor de un problema en silencio es la
+  forma más cara de avanzar.
+- Una tarea termina cuando **funciona y se vio funcionar**, no cuando el código está escrito.
+  Al pedir que se pruebe algo, decí exactamente qué tocar y qué tendría que pasar.
+- Luciano está en segundo año de desarrollo: explicá el *por qué* de una decisión técnica, no
+  sólo el *qué*, y no escondas los trade-offs. Si hay dos caminos razonables, decí cuál
+  elegirías y qué se pierde con el otro.
 
 ---
 
-## 7. Reglas de negocio (encodearlas en la UI)
+## Lo primero
 
-1. Un caso siempre tiene un vehículo. Un vehículo siempre tiene un cliente. No se permite crear vehículos sin cliente.
+No empieces migrando el presupuesto. Está en producción y su hoja de impresión está calibrada
+contra el talonario de papel; tocarlo primero arriesga lo único que ya funciona.
 
-2. El `tipo_caso` determina qué campos se muestran:
-   - `seguro` → mostrar compañía, perito, num_siniestro.
-   - `particular_factura` → mostrar CUIT del cliente.
-   - `efectivo` → mínimos campos, no se genera factura.
+**Tarea 1:** login con Supabase Auth + tablero leyendo presupuestos reales de la base. Es el
+camino de datos más corto que prueba el stack entero de punta a punta — auth, RLS, PostgREST,
+build y deploy.
 
-3. **Teléfono es el identificador único del cliente.** Normalizar al guardar: quitar espacios, guiones y caracteres no numéricos, mantener solo dígitos y un opcional `+` inicial. Si `"2255 41-2737"` y `"+542255412737"` se cargan en distintos momentos, NO deben crear dos clientes.
-
-4. **Patente es el identificador único del vehículo.** Normalizar a mayúsculas sin espacios.
-
-5. Cuando un caso pasa a estado `facturado`, debe existir una factura asociada. Cuando pasa a `cobrado`, debe existir al menos un cobro que cubra el monto.
-
-6. Los cobros `efectivo` NO tienen factura asociada (id_factura es null). Los cobros `facturado` SÍ.
-
----
-
-## 8. Reglas de seguridad (no negociables)
-
-1. **Nunca hardcodear credenciales en código.** Toda API key, secret, token va a `.env.local` (que está en `.gitignore`).
-
-2. **Nunca subir `.env.local` a Git.** Verificar `.gitignore` antes de cada commit.
-
-3. **Nunca loguear datos personales completos** (CUIT, teléfonos completos, etc.) en consola o archivos de log.
-
-4. **Usar variables de entorno con prefijo `NEXT_PUBLIC_` solo para lo que es seguro mostrar al cliente** (URLs públicas, anon key de Supabase). El admin key y secrets NUNCA llevan ese prefijo.
-
-5. **Sanitizar inputs antes de queries.** Usar siempre el client de Supabase (`.from().select()`), nunca concatenar strings SQL.
-
-6. **La autenticación es parte de la Fase 1, no de la Fase 2.** Auth nativa de Supabase, mínimo dos roles: `admin` (Tato) y `operador` (administrativa).
-
-7. **RLS activa en toda tabla con datos de personas, sin excepción.** La `anon key` viaja en el JavaScript que baja el navegador: cualquiera la lee del código fuente. Una tabla sin políticas de acceso es una tabla pública. La protección no es esconder la key, es RLS.
-
-8. **Nunca publicar una URL con datos reales de clientes sin login.** Ni "un ratito para probar". Para probar se usan datos ficticios.
-
-9. **Backup periódico.** Una vez por mes mínimo, exportar la base completa a un archivo SQL y guardar en disco externo. Esto se automatiza después; por ahora dejarlo documentado como tarea.
-
----
-
-## 9. Cómo trabajamos juntos (Claude Code y Tato)
-
-### Metodología: SDD (Spec-Driven Development)
-
-Primero se define **qué** tiene que pasar, después **cómo** se hace. El orden de
-autoridad, de arriba hacia abajo:
-
-1. [`.specify/memory/constitution.md`](./.specify/memory/constitution.md) — principios que no se negocian.
-2. [`specs/001-mvp-gestion/spec.md`](./specs/001-mvp-gestion/spec.md) — el QUÉ y, sobre todo, **los límites**.
-3. `specs/001-mvp-gestion/plan.md` — el CÓMO técnico *(pendiente)*.
-4. `specs/001-mvp-gestion/tasks.md` — los pasos *(pendiente)*.
-
-Si una capa de abajo contradice a una de arriba, **gana la de arriba**. Antes de
-implementar algo que no está en la spec, se actualiza la spec.
-
-Cómo se lee y se revisa todo esto está explicado en [`specs/README.md`](./specs/README.md).
-
-### Tu rol como agente
-
-Sos **ejecutor + mentor**. Hacé el trabajo de implementación pero explicame las decisiones que tomes.
-
-### Antes de actuar
-
-- Si una decisión afecta el modelo de datos, la UX, o el flujo de negocio: **preguntá antes de hacer**.
-- Si es una decisión técnica menor (nombres de variables, estructura interna de un componente, qué librería helper usar): decidí y comentá brevemente por qué.
-
-### Después de cada cambio
-
-Reportá:
-1. Qué hiciste.
-2. Qué decisiones tomaste y por qué.
-3. Qué tengo que probar/verificar.
-4. Cuál es el siguiente paso lógico.
-
-### Estilo de código
-
-- Comentarios en español, código en inglés.
-- TypeScript estricto (no `any` salvo justificación).
-- Componentes pequeños, una responsabilidad cada uno.
-- Nombres descriptivos (`crearNuevoCaso` mejor que `submit`).
-- Manejo de errores explícito, no try/catch vacíos.
-
-### Optimización de tokens
-
-- No releas archivos que ya leíste en esta sesión salvo que algo haya cambiado.
-- No explores carpetas a ciegas: consultá el estado real de la DB en Supabase en lugar de adivinar.
-- Cuando edites archivos largos, hacelo en chunks específicos, no reescribas el archivo completo.
-
----
-
-## 10. Fases del proyecto
-
-> El alcance detallado, con requisitos numerados y **lo que queda explícitamente
-> afuera**, está en [`specs/001-mvp-gestion/spec.md`](./specs/001-mvp-gestion/spec.md).
-> Esto es solo el resumen.
-
-**Fase actual: 1 — MVP en uso real**, en cinco cortes en orden estricto:
-
-- ✅ Modelo de datos definido
-- ✅ Proyecto Next.js inicializado
-- ✅ Dashboard visual con datos mock
-- ⬜ **Corte 0 — Cimientos:** esquema en Supabase, RLS, login, roles
-- ⬜ **Corte 1 — Presupuesto en la base:** numeración server-side, PDF, import del CSV
-- ⬜ **Corte 2 — Caso:** alta desde presupuesto, estados, listado con búsqueda y filtros
-- ⬜ **Corte 3 — Factura y cobro:** incluye cobros parciales
-- ⬜ **Corte 4 — Dashboard con datos reales**
-
-**Fase 2 — Operativa real (después)**
-- **Costos por caso** (es lo primero: sin esto no hay margen real)
-- Timeline de cambios de estado
-- Subida de fotos/documentos
-- Reportes financieros por período con exportación
-- Auditoría de quién cambió qué
-
-**Fase 3 — Comunicación**
-- Gestión de mails de peritos (Gmail API)
-- Generador de mensajes WhatsApp (deep link wa.me)
-- Tabla de comunicaciones poblada
-
-**Fase 4 — Automatización**
-- Agentes vía Claude API (presupuestos a partir de fotos/voz)
-- n8n para recordatorios automáticos
-- Backup automático
-
----
-
-## 11. Cosas que NUNCA hay que hacer
-
-- Crear un sistema de mensajería propio. Usamos WhatsApp con deep links (`wa.me`).
-- Generar facturas fiscales desde el sistema. Usamos AFIP/servicio externo y solo registramos.
-- Almacenar fotos en la DB. Guardar URL al archivo en Drive o Supabase Storage.
-- Replicar funcionalidades de Google Calendar, Drive o Gmail. Integrar con ellos vía API.
-- Agregar campos "por si acaso". Agregar solo cuando se demuestre que se necesitan.
-
----
-
-*Última actualización: 2026-09-05 — se adoptó SDD, el backend pasó de Insforge a
-Supabase y la autenticación se movió a la Fase 1. Ver `specs/001-mvp-gestion/spec.md`.*
+Antes de codear, proponé la estructura del proyecto y esperá confirmación.
