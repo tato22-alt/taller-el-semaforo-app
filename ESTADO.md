@@ -14,7 +14,7 @@ El sistema vive en tres repositorios. Esto es lo que hay en cada uno, medido, no
 | Repo | Qué es | Estado real |
 |---|---|---|
 | **`gestion-taller-sql-server`**<br>rama `claude/semaforo-taller-system-eroppo` | La base de datos. **Es también la API**, vía PostgREST | ✅ **Funcionando y verificado.** 4 tablas, 2 vistas, 6 funciones, 0 triggers, 15 migraciones corridas. 57/57 verificaciones del QA. RLS activa y forzada, `anon` revocado. Numeración desde el 16000, imposible de repetir. **La base está vacía**, esperando la primera carga real |
-| **`semaforo-presupuesto`** | La herramienta de presupuestos, **en producción** | 🟡 **Funciona en producción** en `localStorage`. En la rama `claude/conectar-base-datos` ya está conectada a Supabase (login, numeración por RPC, lectura y escritura contra las tablas), pero **sin mergear y sin verificar contra el Supabase real**: se probó con Playwright contra un mock |
+| **`semaforo-presupuesto`** | La herramienta de presupuestos, **en producción** | ✅ **Conectada y en uso.** `main` (commit `2d1374c`) emite contra Supabase: login real, numeración por `fn_proximo_numero_presupuesto()`, y lectura/escritura contra `clientes`/`vehiculos`/`trabajos`/`trabajo_items`/`vw_presupuestos`. De `localStorage` sólo queda la clave de sesión |
 | **`taller-el-semaforo-app`**<br>(este repo) | **La aplicación.** Decidido el 2026-09-12 | 🟡 **Esqueleto en pie.** Vite + React + TypeScript estricto, las tres capas armadas, 27 tests en verde, 0 vulnerabilidades, y el workflow de Pages. Las pantallas todavía no leen la base |
 
 ---
@@ -57,10 +57,9 @@ Uno por vez, y cada uno termina cuando **se vio funcionar**, no cuando está esc
 | 0 | **Borrar el proyecto Insforge** | Tato | Es el único agujero real y cuesta cinco minutos |
 | 1 | ~~**Ordenar este repo:** retirar el andamiaje de Next.js e Insforge, armar Vite + React + las tres capas~~ | ✅ **Hecho** | Un repo cuyo README no coincide con su código es lo primero que se nota al abrirlo |
 | 2 | **Login + tablero** leyendo `vw_presupuestos` | Claude | Es la Tarea 1 del `CLAUDE.md`: el camino de datos más corto que prueba auth, RLS, PostgREST, build y deploy de punta a punta |
-| 3 | **Verificar la página de presupuesto** contra el Supabase real y mergear | Tato abre, Claude corrige | Independiente de 1 y 2. No se muda nada sin esto |
-| 4 | **Mudar el presupuesto a este repo** | Claude | Recién cuando el tablero probó el stack. Es lo único en producción: se toca último |
-| 5 | **Ficha + botón de "no concretado"** | Claude | La columna ya existe en la base y nadie la escribe. Un botón desbloquea la tasa de conversión |
-| 6 | **Vistas de derivación** en el repo del modelo | Spec allá | Conversión, mix mano de obra, ticket promedio. Cero carga extra. Ver `specs/002-alcance/spec.md` §3.2 |
+| 3 | **Ficha + botón de "no concretado"** | Spec primero | La columna existe en la base y **nadie la escribe**: la herramienta lo dejó explícitamente "para una próxima vuelta". Es el primer hecho que sólo esta app puede registrar |
+| 4 | **Mudar el presupuesto a este repo** | Claude | Es lo único en producción: se toca último, y con la hoja de impresión verificada contra el papel |
+| 5 | **Vistas de derivación** en el repo del modelo | Spec allá | Empezando por los días del tablero, que son una magnitud y por el principio III salen de la base. Ver `specs/002-alcance/spec.md` §3.2 |
 
 **Lo que NO se hace todavía:** gráficos (hasta seis meses de datos reales), facturas y cobros
 (son varias tablas y una spec del repo del modelo), fotos, IA.
