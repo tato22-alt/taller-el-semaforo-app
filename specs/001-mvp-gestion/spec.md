@@ -1,3 +1,19 @@
+> ⚠️ **SPEC REEMPLAZADA (2026-09-12).** Escrita contra un contexto que ya no rige:
+> Next.js sobre Vercel, entidad `caso`, modelo de 10 tablas documentado en el `CLAUDE.md`,
+> y un MVP de cinco cortes que arrancaba migrando el presupuesto.
+>
+> Hoy el stack es Vite servido por GitHub Pages, la entidad se llama `trabajo`, el modelo
+> vive en el repo `gestion-taller-sql-server` (y ya está aplicado y verificado), y el
+> alcance son tres pantallas. **El alcance vigente está en
+> [`specs/002-alcance/spec.md`](../002-alcance/spec.md).**
+>
+> Se conserva porque el razonamiento sobre los límites sigue sirviendo —qué queda afuera y
+> por qué— y porque dos de sus decisiones se sostuvieron: los renglones se modelan como el
+> papel (detalle e importe, sin tipo ni cantidad) y los costos por caso quedan fuera del
+> primer alcance. La base terminó implementando exactamente eso.
+>
+> **No la uses como guía.**
+
 # Especificación 001 — MVP de gestión
 
 | | |
