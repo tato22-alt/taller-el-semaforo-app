@@ -14,7 +14,10 @@ qué autos hay, hace cuánto están, y quién debe plata.
 
 ## Alcance: tres pantallas
 
-1. **Presupuesto** — ya existe y está en producción. Migra de `localStorage` a Supabase.
+1. **Presupuesto** — ya existe y está en producción, en el repo `semaforo-presupuesto`. Ya
+   migró de `localStorage` a Supabase en la rama `claude/conectar-base-datos`, sin mergear y
+   sin verificar contra el Supabase real. Se muda a este repo recién cuando el tablero
+   pruebe el stack.
 2. **Tablero** — una fila por trabajo: patente destacada, vehículo, cliente, número, días
    desde que entró. Se usa parado, con el celular, al lado de un auto.
 3. **Ficha** — un trabajo: sus conceptos, su historia, los presupuestos anteriores de ese
@@ -89,7 +92,11 @@ Los tipos de la base no se escriben a mano: se generan con
 `supabase gen types typescript --project-id osslhkvdclrbukjqwpnt` y se guardan en
 `src/datos/tipos-base.ts`. Regeneralos cada vez que el otro repo agregue una migración.
 
-**Gotcha de Pages:** el sitio se sirve en un subpath (`/semaforo-presupuesto/`), así que un
+**Este repo es la app:** `tato22-alt/taller-el-semaforo-app` (decidido el 2026-09-12). La
+herramienta de presupuesto sigue en producción en `tato22-alt/semaforo-presupuesto` y se
+mudará acá más adelante, no ahora.
+
+**Gotcha de Pages:** el sitio se sirve en un subpath (`/taller-el-semaforo-app/`), así que un
 router de history API tira 404 al refrescar una ruta profunda. Usá `HashRouter`, o el truco
 de `404.html`. Decidilo una vez y dejalo escrito acá.
 
