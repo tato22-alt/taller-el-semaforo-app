@@ -60,3 +60,21 @@ describe('datos/', () => {
     expect(conSupabase.length).toBeGreaterThan(0)
   })
 })
+
+describe('lo que esta app no escribe', () => {
+  // Regla del CLAUDE.md: los conceptos y el texto tal como se imprimió son de quien emite
+  // el papel. Si esta app también los escribiera, habría dos implementaciones de lo mismo.
+  const capasQueTocanLaBase = () => [...archivosDe('datos'), ...archivosDe('ui'), join(RAIZ, 'app.tsx')]
+
+  it('no menciona trabajo_items: los conceptos los escribe quien emite el presupuesto', () => {
+    for (const archivo of capasQueTocanLaBase()) {
+      expect(readFileSync(archivo, 'utf8'), archivo).not.toContain('trabajo_items')
+    }
+  })
+
+  it('no menciona las columnas txt_: son el snapshot de lo que decía el papel', () => {
+    for (const archivo of capasQueTocanLaBase()) {
+      expect(readFileSync(archivo, 'utf8'), archivo).not.toMatch(/txt_(cliente|direccion|telefono|vehiculo|patente)/)
+    }
+  })
+})
