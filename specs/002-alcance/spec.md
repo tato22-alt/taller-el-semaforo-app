@@ -4,7 +4,7 @@
 |---|---|
 | **Estado** | Borrador para revisión |
 | **Fecha** | 2026-09-12 |
-| **Reemplaza a** | `specs/001-mvp-gestion/spec.md` |
+| **Reemplaza a** | La spec 001, retirada del repo el 2026-09-13 (queda en el historial) |
 | **Constitución vinculante** | Repo del modelo, `.specify/memory/constitution.md` v3.0.0 |
 | **Base de datos** | `gestion-taller-sql-server`, rama `claude/semaforo-taller-system-eroppo` |
 
@@ -208,26 +208,21 @@ Cosas que encontré al cruzar los tres repos y que conviene resolver antes de co
 
 | Qué | Por qué importa |
 |---|---|
-| **El `CLAUDE.md` dice "días desde que entró"; la base no tiene fecha de ingreso** | Ver §5. Hay que rotular el dato por lo que es, o registrar el hecho #2 |
-| **`no_concretado` existe en la base y nadie lo escribe** | La página conectada (rama `claude/conectar-base-datos`) no lo menciona. Hasta que haya un botón, la tasa de conversión es 0% por falta de dato, no porque se cierre todo |
-| **El `CLAUDE.md` describe `src/dominio`, `src/datos`, `src/ui`; la app real es un `index.html` de 1061 líneas** | Esa estructura es el destino del rearmado, no el estado actual. Hay que decidir si se rearma o se sigue sobre el HTML que ya funciona |
-| **La página conectada no se verificó contra el Supabase real** | Está probada con Playwright contra un mock. La cadena real (login, token, PostgREST, RLS) falta confirmarla abriéndola |
-| **La base está vacía** | Nada de la sección 3 da información hasta que haya carga real. La primera decisión útil llega con el primer mes cargado |
-| ~~El subpath de Pages apuntaba al otro repo~~ | **Corregido:** el subpath es `/taller-el-semaforo-app/` |
+| **El tablero no puede mostrar "días en el taller"; la base no tiene fecha de ingreso** | Lo único que hay es `fecha_presupuesto`. Queda resuelto en la spec 003: la pantalla dice "días desde que se presupuestó", con esas palabras |
+| **`no_concretado` existe en la base y nadie lo escribe** | La herramienta de presupuesto lo dejó explícitamente "para una próxima vuelta". Hasta que haya un botón, la tasa de conversión es 0% por falta de dato, no porque se cierre todo. **Es el primer hecho que sólo esta app puede registrar** |
+| **`origen` (particular/siniestro) existe y nadie lo escribe** | La herramienta guarda `origen_carga` y nada más. El corte mensual por tipo de trabajo va a salir vacío hasta que esta app pueda marcarlo |
+| **La base está vacía** | Confirmado por Luciano el 2026-09-13: cero presupuestos cargados. Nada de la sección 3 da información hasta que haya carga real. La primera decisión útil llega con el primer mes |
 
 ---
 
 ## 9. Decisiones abiertas
 
-- [x] **¿En qué repo vive la app?** **CERRADO (2026-09-12): este repo,
-      `taller-el-semaforo-app`.** Consecuencias: el andamiaje de Next.js se retira, el
-      subpath de Pages es `/taller-el-semaforo-app/`, y la herramienta de presupuesto sigue
-      en producción en `semaforo-presupuesto` hasta que el tablero pruebe el stack acá.
-- [ ] **¿Se rearma como Vite o se sigue sobre el `index.html`?** El HTML funciona y está
-      calibrado. Rearmar da estructura y tests, pero arriesga lo único que ya sirve.
-      Recomendación: rearmar **alrededor**, dejando la hoja de impresión intacta, y no antes
-      de que la página conectada esté verificada contra el Supabase real.
-- [ ] **¿Se pide primero el botón de "no concretado"?** Es el hecho #1 de §4 y cuesta casi
-      nada. Habilita el único número de negocio que hoy no existe.
-- [ ] **`HashRouter` o el truco de `404.html`** para el subpath de Pages. El `CLAUDE.md`
-      pide decidirlo una vez y dejarlo escrito.
+- [x] **¿En qué repo vive la app?** **CERRADO (2026-09-12):** este repo. El presupuesto se
+      queda en `semaforo-presupuesto` y **no se muda acá** (Luciano, 2026-09-13).
+- [x] **¿Vite o seguir sobre el `index.html`?** **CERRADO:** rearmado en Vite, con las tres
+      capas y tests. La herramienta de presupuesto no se tocó.
+- [x] **Ruteo del subpath de Pages.** **CERRADO:** por hash, escrito a mano en
+      `dominio/ruta.ts`. Sin librería de ruteo.
+- [ ] **¿El botón de "no concretado" es lo primero que hace esta app?** Es el hecho más
+      barato de §4 y habilita el único número de negocio que hoy no existe. Mi recomendación
+      es que vaya justo después del tablero.

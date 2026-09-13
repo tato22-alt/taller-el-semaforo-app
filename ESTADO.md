@@ -13,8 +13,8 @@ El sistema vive en tres repositorios. Esto es lo que hay en cada uno, medido, no
 
 | Repo | Qué es | Estado real |
 |---|---|---|
-| **`gestion-taller-sql-server`**<br>rama `claude/semaforo-taller-system-eroppo` | La base de datos. **Es también la API**, vía PostgREST | ✅ **Funcionando y verificado.** 4 tablas, 2 vistas, 6 funciones, 0 triggers, 15 migraciones corridas. 57/57 verificaciones del QA. RLS activa y forzada, `anon` revocado. Numeración desde el 16000, imposible de repetir. **La base está vacía**, esperando la primera carga real |
-| **`semaforo-presupuesto`** | La herramienta de presupuestos, **en producción** | ✅ **Conectada y en uso.** `main` (commit `2d1374c`) emite contra Supabase: login real, numeración por `fn_proximo_numero_presupuesto()`, y lectura/escritura contra `clientes`/`vehiculos`/`trabajos`/`trabajo_items`/`vw_presupuestos`. De `localStorage` sólo queda la clave de sesión |
+| **`gestion-taller-sql-server`**<br>rama `claude/semaforo-taller-system-eroppo` | La base de datos. **Es también la API**, vía PostgREST | ✅ **Funcionando y verificado.** 4 tablas, 2 vistas, 0 triggers, 16 migraciones corridas. 57/57 verificaciones del QA. RLS activa y forzada, `anon` revocado. **Vacía y confirmada vacía** el 2026-09-13: cero presupuestos. El talonario de papel terminó en el 15999 y no se emitió ninguno más, así que el 16000 sale limpio y **no hay que ajustar la numeración** |
+| **`semaforo-presupuesto`** | La herramienta de presupuestos, **en producción**. Se queda acá: no se muda a la app | ✅ **Conectada y en uso.** `main` (commit `2d1374c`) emite contra Supabase: login real, numeración por `fn_proximo_numero_presupuesto()`, y lectura/escritura contra `clientes`/`vehiculos`/`trabajos`/`trabajo_items`/`vw_presupuestos`. De `localStorage` sólo queda la clave de sesión |
 | **`taller-el-semaforo-app`**<br>(este repo) | **La aplicación.** Decidido el 2026-09-12 | 🟡 **Esqueleto en pie.** Vite + React + TypeScript estricto, las tres capas armadas, 27 tests en verde, 0 vulnerabilidades, y el workflow de Pages. Las pantallas todavía no leen la base |
 
 ---
@@ -58,8 +58,10 @@ Uno por vez, y cada uno termina cuando **se vio funcionar**, no cuando está esc
 | 1 | ~~**Ordenar este repo:** retirar el andamiaje de Next.js e Insforge, armar Vite + React + las tres capas~~ | ✅ **Hecho** | Un repo cuyo README no coincide con su código es lo primero que se nota al abrirlo |
 | 2 | **Login + tablero** leyendo `vw_presupuestos` | Claude | Es la Tarea 1 del `CLAUDE.md`: el camino de datos más corto que prueba auth, RLS, PostgREST, build y deploy de punta a punta |
 | 3 | **Ficha + botón de "no concretado"** | Spec primero | La columna existe en la base y **nadie la escribe**: la herramienta lo dejó explícitamente "para una próxima vuelta". Es el primer hecho que sólo esta app puede registrar |
-| 4 | **Mudar el presupuesto a este repo** | Claude | Es lo único en producción: se toca último, y con la hoja de impresión verificada contra el papel |
-| 5 | **Vistas de derivación** en el repo del modelo | Spec allá | Empezando por los días del tablero, que son una magnitud y por el principio III salen de la base. Ver `specs/002-alcance/spec.md` §3.2 |
+| 4 | **Vistas de derivación** en el repo del modelo | Spec allá | Empezando por los días del tablero, que son una magnitud y por el principio III salen de la base. Ver `specs/002-alcance/spec.md` §3.2 |
+
+**Lo que NO se hace:** mudar la herramienta de presupuesto a este repo — vive en su repo y
+esta app no emite presupuestos, sólo los lee.
 
 **Lo que NO se hace todavía:** gráficos (hasta seis meses de datos reales), facturas y cobros
 (son varias tablas y una spec del repo del modelo), fotos, IA.
@@ -74,7 +76,7 @@ ESTADO.md                        Este archivo
 .specify/memory/constitution.md  Puntero: la constitución vinculante vive en el repo del modelo
 specs/README.md                  Cómo se trabaja con SDD y cómo se revisa una spec
 specs/002-alcance/spec.md        EL ALCANCE VIGENTE: los límites y qué se puede derivar
-specs/001-mvp-gestion/spec.md    Reemplazada. Se conserva por el razonamiento sobre límites
+specs/003-tablero/spec.md        La primera pantalla, esperando tu visto bueno
 index.html                       El único HTML; Vite le inyecta el bundle
 vite.config.ts                   base: '/taller-el-semaforo-app/' para el subpath de Pages
 .github/workflows/pages.yml      Build, tests y publicación. Si los tests fallan, no publica
