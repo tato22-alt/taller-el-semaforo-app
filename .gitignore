@@ -1,7 +1,5 @@
-
 # Dependencias
 node_modules/
-.next/
 
 # Variables de entorno (nunca commitear)
 .env
@@ -9,21 +7,8 @@ node_modules/
 .env*.local
 
 # Build
-out/
 dist/
 coverage/
 
-# InsForge & AI agent skills
-.insforge
-.agent
-.agents
-.augment
+# Configuración local del editor / agente
 .claude
-.cline
-.github/copilot*
-.kilocode
-.qoder
-.qwen
-.roo
-.trae
-.windsurf

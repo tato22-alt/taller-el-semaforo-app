@@ -14,10 +14,10 @@ qué autos hay, hace cuánto están, y quién debe plata.
 
 ## Alcance: tres pantallas
 
-1. **Presupuesto** — ya existe y está en producción, en el repo `semaforo-presupuesto`. Ya
-   migró de `localStorage` a Supabase en la rama `claude/conectar-base-datos`, sin mergear y
-   sin verificar contra el Supabase real. Se muda a este repo recién cuando el tablero
-   pruebe el stack.
+1. **Presupuesto** — ya está, conectado a Supabase y en producción, y **vive en su propio
+   repo** (`semaforo-presupuesto`). **No se muda acá** (decidido el 2026-09-13). Esta
+   aplicación lo lee, no lo emite: emitir son cuatro escrituras encadenadas sin transacción,
+   y esa lógica duplicada en dos aplicaciones termina comportándose distinto en cada una.
 2. **Tablero** — una fila por trabajo: patente destacada, vehículo, cliente, número, días
    desde que entró. Se usa parado, con el celular, al lado de un auto.
 3. **Ficha** — un trabajo: sus conceptos, su historia, los presupuestos anteriores de ese
