@@ -40,7 +40,7 @@ también acá.
 
 **No hay backend.** Supabase expone el esquema como REST vía PostgREST. La base *es* la API.
 
-Cuatro reglas que salen de ahí y no se negocian:
+Cinco reglas que salen de ahí y no se negocian:
 
 - **La app no recalcula lo que la base deriva.** Los totales salen de `vw_presupuestos`, no
   se suman en el navegador. Si hace falta un derivado que la base no da, eso es una tarea
@@ -52,6 +52,12 @@ Cuatro reglas que salen de ahí y no se negocian:
 - **La numeración de presupuestos la asigna la base, nunca el cliente.** Si la app hace
   `max + 1`, vuelve el bug que ya tuvimos: dos pestañas sacan el mismo número y una pisa a
   la otra en silencio. Se pide por RPC o se asigna en el `INSERT`. Nunca del lado del navegador.
+- **Esta app nunca escribe `trabajo_items` ni las columnas `txt_*` de `trabajos`.** Los
+  conceptos del presupuesto y el texto tal como se imprimió son de quien emite el papel; si
+  esta app también los escribiera, habría dos implementaciones de lo mismo comportándose
+  distinto. La app escribe sólo hechos posteriores: `no_concretado`, `origen`, y más adelante
+  el estado operativo y los cobros. **Lo verifica `src/arquitectura.test.ts`**, así que deja
+  de depender de que alguien se acuerde.
 
 ### Gotchas de PostgREST que ya nos van a morder
 
