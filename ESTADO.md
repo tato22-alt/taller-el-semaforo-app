@@ -12,16 +12,16 @@ el QA, que es la fuente de verdad.
 Cuatro tablas, dos vistas, seis funciones, cero triggers. La base reparte los números desde el 16000
 y no puede repetir ninguno. RLS puesto: el rol anónimo no lee, no escribe y no pide números.
 
-**Verificado:** 57 comprobaciones en una sola consulta, sobre Supabase y sobre PostgreSQL local, en
+**Verificado:** 58 comprobaciones en una sola consulta, sobre Supabase y sobre PostgreSQL local, en
 base vacía, en base poblada, y aplicando las migraciones dos veces seguidas.
 
 La base está **vacía y con los contadores en cero**, lista para la primera carga real.
 
 ---
 
-## Las quince migraciones están corridas
+## Las diecinueve migraciones están corridas
 
-**57 PASA · 0 FALLA sobre Supabase**, medido. La base quedó vacía y con los contadores en cero.
+**58 PASA · 0 FALLA**, medido. La base quedó vacía y con los contadores en cero.
 El primer presupuesto real sale con el **16000**, justo donde terminó el talonario de papel (15999).
 
 Para volver a verificar en cualquier momento: pegar `specs/001-presupuesto/qa-001-verificacion.sql`
@@ -39,7 +39,7 @@ toca esa secuencia porque es independiente, no de una columna `identity`.)*
 
 ## Feature 001 — CERRADO
 
-Las quince migraciones corridas y verificadas: 57/57 PASA en el QA de SQL, y 8/8 PASA en
+Las migraciones corridas y verificadas: 58/58 PASA en el QA de SQL, y 8/8 PASA en
 `verificar-acceso.html` con un login real (usuario, contraseña, token, PostgREST, RLS — la cadena
 completa, no sólo el rol). No queda ningún criterio de T007/T008/T009 sin probar.
 
@@ -78,6 +78,13 @@ confirme la cadena completa (como se hizo con `verificar-acceso.html` para T008)
 
 ---
 
+## Decisiones cerradas en el feature 006
+
+| Qué | Decidido |
+|---|---|
+| ¿Un pendiente tiene número desde que se guarda? | **No.** El número se pide recién al emitirlo. Un pendiente abandonado no puede dejar un hueco en el talonario (RF-502) |
+| ¿Se puede borrar un pendiente? | **Sí**, y sólo un pendiente. `delete` vuelve sobre `trabajos` acotado por una política restrictiva a las filas sin número (RF-507/RF-508). RF-023 sigue intacto para todo lo emitido |
+
 ## Decisiones abiertas
 
 | Qué | Estado |
@@ -96,16 +103,19 @@ ESTADO.md                                    Este archivo
 README.md                                    Qué es el proyecto y cómo se trabaja
 docs/diccionario-datos.md                    Qué guarda la base y qué deriva al leer
 docs/mejoras-futuras.md                      Qué sigue, qué está en pausa, qué no se va a construir
-supabase/migrations/                          EL MODELO — 15 migraciones, una por tarea
+supabase/migrations/                          EL MODELO — 19 migraciones
 specs/001-presupuesto/
   spec.md · plan.md · tasks.md               El feature, con sus enmiendas
-  qa-001-verificacion.sql                    EL QA — 57 verificaciones en una consulta
+  qa-001-verificacion.sql                    EL QA — 58 verificaciones en una consulta
   verificar-acceso.html                      Verificación del login real, desde el navegador
   verificacion-criterios.md                  Los siete criterios y cómo se probó cada uno
   qa-hallazgos.md                            Los 16 hallazgos, con lo decidido y por qué
   consultas-siete-preguntas.sql              Las siete preguntas de la spec
   limpieza-datos-prueba.sql                  Dejar la base en cero
 specs/002-numeracion/spec.md                 La numeración
+specs/004-chasis-observaciones/spec.md       Chasis y observaciones en el presupuesto
+specs/005-detalle-mano-obra/spec.md          Qué dice el renglón de mano de obra
+specs/006-pendientes/                        Presupuestos pendientes, con su propio QA
 scripts/                                     Modelo académico superado — ver LEGADO.md
 ```
 
