@@ -191,6 +191,19 @@ cosas distintas lo garantizan, y conviene no confundirlas:
 
   El mail tiene que ser el de la cuenta de GitHub: es lo que hace que el commit quede
   atribuido al perfil y no a un nombre suelto.
+- **La firma del commit.** El contenedor de una sesión web trae una clave SSH de firma que está
+  registrada a nombre de Claude, y firma con ella por defecto. Si el autor es Luciano y la firma
+  es de otro, GitHub muestra **Unverified** con cartelito amarillo — peor que no tener nada. Así
+  que en cada sesión web va también:
+
+  ```
+  git config commit.gpgsign false
+  ```
+
+  Los commits quedan **sin firma**, que es el estado normal de la enorme mayoría de los commits
+  de GitHub: no muestran badge y no muestran advertencia. Para que aparezca el "Verified" verde
+  hace falta firmar con una clave propia de Luciano registrada en su cuenta, y eso sólo se puede
+  hacer desde su máquina: la clave privada no tiene que estar acá.
 
 ---
 
