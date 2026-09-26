@@ -10,5 +10,7 @@ node_modules/
 dist/
 coverage/
 
-# Configuración local del editor / agente
-.claude
+# Configuración del agente: la del proyecto SÍ se commitea (.claude/settings.json),
+# la personal no
+.claude/settings.local.json
+.claude/*.local.json

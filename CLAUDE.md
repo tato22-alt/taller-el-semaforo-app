@@ -171,6 +171,29 @@ SDD, igual que el repo del modelo: la spec precede al código. Las specs van en
 
 ---
 
+### Autoría de los commits
+
+Los commits van a nombre de Luciano y **no llevan ninguna línea de atribución a Claude**. Dos
+cosas distintas lo garantizan, y conviene no confundirlas:
+
+- **Las líneas del mensaje** (`Co-Authored-By` y el link a la sesión) las apaga
+  `.claude/settings.json`, que está versionado: `attribution` con `commit` y `pr` en vacío y
+  `sessionUrl` en `false`. Vale en cualquier máquina que clone el repo.
+- **El autor del commit** sale del `git config` de donde se corra. Desde tu terminal es el
+  tuyo y no hay nada que hacer. **En una sesión de Claude Code en la web el contenedor arranca
+  con el autor en `Claude <noreply@anthropic.com>`**, así que antes del primer commit de cada
+  sesión hay que correr:
+
+  ```
+  git config user.name "Luciano"
+  git config user.email "<el mail de la cuenta de GitHub>"
+  ```
+
+  El mail tiene que ser el de la cuenta de GitHub: es lo que hace que el commit quede
+  atribuido al perfil y no a un nombre suelto.
+
+---
+
 ## Lo primero
 
 No empieces migrando el presupuesto. Está en producción y su hoja de impresión está calibrada
