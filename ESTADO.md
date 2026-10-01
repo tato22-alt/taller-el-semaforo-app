@@ -3,7 +3,7 @@
 Punto de entrada cuando volvés. Misma convención que el repo del modelo. Si esto y el código
 se contradicen, gana el código.
 
-**Fecha:** 2026-09-12 · **Rama de trabajo:** `claude/presupuesto-app-limits-dea467`
+**Fecha:** 2026-10-01 · **Rama de trabajo:** `claude/presupuesto-app-limits-dea467`
 
 ---
 
@@ -56,15 +56,31 @@ Uno por vez, y cada uno termina cuando **se vio funcionar**, no cuando está esc
 |---|---|---|---|
 | 0 | **Borrar el proyecto Insforge** | Tato | Es el único agujero real y cuesta cinco minutos |
 | 1 | ~~**Ordenar este repo:** retirar el andamiaje de Next.js e Insforge, armar Vite + React + las tres capas~~ | ✅ **Hecho** | Un repo cuyo README no coincide con su código es lo primero que se nota al abrirlo |
-| 2 | **Login + tablero** leyendo `vw_presupuestos` | Claude | Es la Tarea 1 del `CLAUDE.md`: el camino de datos más corto que prueba auth, RLS, PostgREST, build y deploy de punta a punta |
-| 3 | **Ficha + botón de "no concretado"** | Spec primero | La columna existe en la base y **nadie la escribe**: la herramienta lo dejó explícitamente "para una próxima vuelta". Es el primer hecho que sólo esta app puede registrar |
-| 4 | **Vistas de derivación** en el repo del modelo | Spec allá | Empezando por los días del tablero, que son una magnitud y por el principio III salen de la base. Ver `specs/002-alcance/spec.md` §3.2 |
+| 2 | **Contestar las cuatro preguntas que bloquean** la spec 005 (P1 a P4) | Tato | Son choques con decisiones ya escritas. Hasta que estén resueltos, cualquier código de cobranzas se construye sobre un alcance que todavía no se abrió |
+| 3 | **Fase 0 de cobranzas:** extender el Apps Script que ya baja los PDF para que guarde `gmail_message_id`, remitente, asunto y **texto extraído** | Claude, con tu cuenta | Ya funciona. Es lo único que se puede avanzar sin tocar la base, y es lo que convierte los doce parsers en código testeado contra 21 meses en vez de contra una muestra |
+| 4 | **Fase 1:** el libro de ARCA y las fichas de compañía (A1, A5 datos) | Spec allá, pantalla acá | Sin comprobantes no hay a qué imputar. Es la fase que no depende de ningún parser |
+| 5 | **Fase 2:** los parsers y las imputaciones (A2, A3) + la pantalla **Revisar** | Claude | El núcleo. Acá entra la plata |
+| 6 | **Fase 3:** el semáforo y las tareas (A8, A7) | Claude | Es donde se contesta la pregunta de los diez segundos. No estrena tablas: son vistas |
+| 7 | **Fase 4:** antes de emitir (A4, A5, A6) | Claude | Previene; no recupera. Por eso va después |
+| 8 | **Fase 5:** banco y libro de retenciones (A9, A10) | Enmienda primero | A9 necesita enmendar el principio IX (ver spec 005 C2) |
+
+**Lo que queda en espera, y no se perdió:** login + tablero leyendo `vw_presupuestos`, el
+resumen del mes de la spec 004, y las vistas de derivación de la spec 002 §3.2. Siguen siendo
+correctas; **cobranzas se puso adelante** porque es lo único del sistema que no pide cargar
+ningún dato nuevo: el dato ya está escrito en ARCA y en Gmail.
 
 **Lo que NO se hace:** mudar la herramienta de presupuesto a este repo — vive en su repo y
 esta app no emite presupuestos, sólo los lee.
 
-**Lo que NO se hace todavía:** gráficos (hasta seis meses de datos reales), facturas y cobros
-(son varias tablas y una spec del repo del modelo), fotos, IA.
+**Lo que NO se hace todavía:** gráficos (hasta seis meses de datos reales), fotos, IA sobre
+los mails.
+
+**Lo que cambió de lugar (decisión de Luciano, 2026-10-01):** facturas y cobros ya **no** están
+en la lista de "todavía no". Pasaron a ser el MVP, y están especificados en
+[`specs/005-cobranzas/spec.md`](./specs/005-cobranzas/spec.md). El argumento es que son el
+único hecho del sistema que no cuesta carga: los otros dos candidatos —marcar no concretado y
+las fechas de ingreso y entrega— piden que alguien toque un botón; éste sale de 470
+comprobantes que ya están escritos en ARCA y en Gmail.
 
 ---
 
@@ -76,7 +92,9 @@ ESTADO.md                        Este archivo
 .specify/memory/constitution.md  Puntero: la constitución vinculante vive en el repo del modelo
 specs/README.md                  Cómo se trabaja con SDD y cómo se revisa una spec
 specs/002-alcance/spec.md        EL ALCANCE VIGENTE: los límites y qué se puede derivar
-specs/003-tablero/spec.md        La primera pantalla, esperando tu visto bueno
+specs/003-tablero/spec.md        El tablero. La spec 004 propone retirarlo
+specs/004-frontera/spec.md       La frontera entre los tres repos. Cinco decisiones abiertas
+specs/005-cobranzas/spec.md      COBRANZAS: A1 a A10, el modelo, y 15 preguntas para vos
 index.html                       El único HTML; Vite le inyecta el bundle
 vite.config.ts                   base: '/taller-el-semaforo-app/' para el subpath de Pages
 .github/workflows/pages.yml      Build, tests y publicación. Si los tests fallan, no publica
@@ -95,5 +113,7 @@ src/
 |---|---|
 | ~~¿Se rearma como Vite?~~ | **CERRADO.** Rearmado acá. El `index.html` del presupuesto queda intacto en su repo hasta el paso 4 |
 | ~~`HashRouter` o `404.html`~~ | **CERRADO.** Ruteo por hash, escrito a mano en `dominio/ruta.ts`: 25 líneas y una dependencia menos |
-| **Los umbrales del semáforo** | A partir de cuántos días un presupuesto está "frío". Es decisión de negocio, no técnica: la necesito para el paso 2 |
+| **Las cuatro de la spec 005 que bloquean** | P1 a P4: el principio VI, la conciliación bancaria, el alcance de tres pantallas, y RF-601. Están en [`specs/005-cobranzas/spec.md`](./specs/005-cobranzas/spec.md) §8 y §9 |
+| **La planilla de la conciliación manual** | Si existe, es el juego de datos de prueba: es con lo que se verifica que el sistema llegue a tus $171 M al peso (P12) |
+| **Los umbrales del semáforo** | A partir de cuántos días un presupuesto está "frío". Es decisión de negocio, no técnica |
 | ¿Qué pasa con la URL pública del presupuesto cuando se mude? | La de hoy (`/semaforo-presupuesto/`) está en uso. Conviene dejar una redirección antes de apagarla |
