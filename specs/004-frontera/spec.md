@@ -1,6 +1,10 @@
 # Feature 004 — La frontera entre las tres piezas
 
 **Estado:** borrador, esperando decisión de Luciano
+**Leer después:** la [spec 005 — Cobranzas](../005-cobranzas/spec.md) contesta la pregunta de
+este documento por otro lado: esta app **sí** tiene contenido propio, y es cobranzas. Eso
+retira el RF-601 de §5 (ver 005 §8, C4) y le quita urgencia a la decisión #5 de §8 — pausar la
+app ya no está sobre la mesa. Las decisiones #1 a #4 siguen abiertas tal como están escritas acá.
 **Fecha:** 2026-09-26
 **Método:** comparación de los tres repositorios en su estado real, no en el recordado
 **Constitución vinculante:** la del repo del modelo, v3.0.0

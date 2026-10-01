@@ -46,7 +46,8 @@ y acá está escrito por qué".
 |---|---|---|
 | [002](./002-alcance/spec.md) | Alcance y límites de la aplicación | Borrador, esperando revisión |
 | [003](./003-tablero/spec.md) | Tablero | **En revisión** — la spec 004 propone retirarla: duplica el historial de la herramienta |
-| [004](./004-frontera/spec.md) | La frontera entre las tres piezas | Borrador, esperando decisión |
+| [004](./004-frontera/spec.md) | La frontera entre las tres piezas | Borrador. La 005 retira su RF-601 y le quita urgencia a su decisión #5 |
+| [005](./005-cobranzas/spec.md) | **Cobranzas: automatizaciones sobre evidencia** | **Borrador. Es el MVP.** Tiene cuatro choques con decisiones ya escritas (§8) y quince preguntas (§9) |
 
 ## Cómo se revisa una spec
 
