@@ -8,17 +8,31 @@ diccionario que las explica. La aplicación se construye por separado y consume 
 
 ## Estado
 
-En desarrollo. El feature 001 (Presupuesto) está implementado y verificado: cuatro tablas, dos
-vistas, RLS, y 49 verificaciones automáticas que corren en una sola consulta.
+En desarrollo y ya en uso real. Diecinueve migraciones corridas: cuatro tablas, dos vistas, seis
+funciones, cero triggers, RLS puesto, y **58 verificaciones automáticas** que corren en una sola
+consulta. La base reparte los números de presupuesto desde el 16000 y no puede repetir ninguno.
+
+| Feature | Estado |
+|---|---|
+| 001 Presupuesto | Cerrado. 58/58 en el QA de SQL, 8/8 en la verificación de acceso con login real |
+| 002 Numeración | Implementado. La base reparte los números, arrancando en 16000 |
+| 003 Verificación del impreso | En pausa: el código de verificación no se imprime |
+| 004 Chasis y observaciones | Implementado |
+| 005 Detalle de mano de obra | Implementado |
+| 006 Presupuestos pendientes | Implementado. Un trabajo todavía sin número |
+| 007 El borrador no se pierde | Especificado, sin aprobar. No toca la base |
+
+El estado al día está en `ESTADO.md`, que es el punto de entrada cuando se vuelve al proyecto.
 
 ## Cómo está organizado
 
 ```text
 .specify/memory/constitution.md    Los principios que mandan sobre todo lo demás
-specs/001-presupuesto/             La spec, el plan, las tareas y la verificación
-supabase/migrations/               EL MODELO VIGENTE — una migración por tarea
+specs/                             Una carpeta por feature: spec, plan, tareas y verificación
+supabase/migrations/               EL MODELO VIGENTE — diecinueve migraciones
+ESTADO.md                          Dónde está todo. El punto de entrada
 docs/diccionario-datos.md          Qué guarda la base y qué deriva al leer
-scripts/                           Modelo académico SQL Server, superado. Ver scripts/LEGADO.md
+docs/legado-modelo-academico.md    Qué se derogó del modelo académico, y por qué
 ```
 
 ## Cómo se trabaja acá
@@ -33,7 +47,7 @@ una tarea por terminada es que **corra**, no que esté escrita.
 
 ## Verificación
 
-`specs/001-presupuesto/qa-001-verificacion.sql` es una sola consulta que devuelve 49 filas, una por
+`specs/001-presupuesto/qa-001-verificacion.sql` es una sola consulta que devuelve 58 filas, una por
 verificación, con PASA o FALLA. Cubre estructura, integridad, derivación y acceso. Se limpia sola.
 
 Es la fuente de verdad sobre el estado de la base: responde si el esquema es el que debería ser, que
