@@ -2,10 +2,10 @@
 
 | | |
 |---|---|
-| **Estado** | Borrador para revisión |
+| **Estado** | Vigente para el **módulo de presupuestos**. Desde el 2026-10-07 la app tiene un segundo módulo, cobranzas, con su propia frontera en la spec 005. Lo que la spec 004 §4 corrigió de este documento, vale |
 | **Fecha** | 2026-09-12 |
 | **Reemplaza a** | La spec 001, retirada del repo el 2026-09-13 (queda en el historial) |
-| **Constitución vinculante** | Repo del modelo, `.specify/memory/constitution.md` v3.0.0 |
+| **Constitución vinculante** | `base/.specify/memory/constitution.md` |
 | **Base de datos** | `gestion-taller-sql-server`, rama `claude/semaforo-taller-system-eroppo` |
 
 > **Qué contesta este documento.** Dos preguntas: **dónde termina la app**, y **cómo se
@@ -223,6 +223,6 @@ Cosas que encontré al cruzar los tres repos y que conviene resolver antes de co
       capas y tests. La herramienta de presupuesto no se tocó.
 - [x] **Ruteo del subpath de Pages.** **CERRADO:** por hash, escrito a mano en
       `dominio/ruta.ts`. Sin librería de ruteo.
-- [ ] **¿El botón de "no concretado" es lo primero que hace esta app?** Es el hecho más
-      barato de §4 y habilita el único número de negocio que hoy no existe. Mi recomendación
-      es que vaya justo después del tablero.
+- [x] **¿El botón de "no concretado" es lo primero que hace esta app?** **CERRADO
+      (2026-10-07): no lo hace esta app.** La herramienta de presupuesto ya lo marca desde su
+      ficha interna (spec 004 §4), y escribirlo de nuevo acá sería duplicarlo.

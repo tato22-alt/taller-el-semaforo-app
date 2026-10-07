@@ -23,7 +23,7 @@ pueden viajar en el mismo commit, y la definición de un número vive en un solo
 |---|---|
 | **Base de datos** (`base/`) | ✅ Aplicada y verificada — 19 migraciones, 57/57 verificaciones, RLS activa y forzada |
 | **Herramienta de presupuestos** | ✅ En producción, emitiendo contra la base |
-| **Esta aplicación** (raíz) | 🟡 Esqueleto en pie — Vite, TypeScript estricto, tres capas, 29 tests en verde. Todavía no lee la base |
+| **Esta aplicación** (raíz) | 🟡 Login y tablero leyendo la base, probados de punta a punta. 44 tests en verde. Todavía no está publicada |
 
 El detalle honesto de qué funciona y qué no está en **[`ESTADO.md`](./ESTADO.md)**, con el
 orden de trabajo. El alcance y los límites, en
@@ -31,15 +31,18 @@ orden de trabajo. El alcance y los límites, en
 
 ---
 
-## Alcance: tres pantallas, y nada más
+## Alcance: dos módulos, y nada más
 
-1. **Presupuesto** — armar, numerar e imprimir un presupuesto. Ya existe y está en producción.
-2. **Tablero** — una fila por trabajo. Se usa parado, con el celular, al lado de un auto.
-3. **Ficha** — un trabajo, su historia, y los presupuestos anteriores del mismo auto.
+**Presupuestos.** La herramienta que arma, numera e imprime vive en su propio repo y está en
+producción. Acá hay un tablero que los lee, construido como prueba del stack.
 
-Si algo no entra en esas tres, no entra. El alcance se defiende activamente: el riesgo real de
-un proyecto así no es quedarse corto, es convertirse en "uno que hace todo pero no hace nada",
-y eso pasa de a un feature razonable por vez.
+**Cobranzas.** Cuánto deben, quién, desde cuándo, y qué hay que hacer hoy para cobrarlo, a
+partir de lo que ya está escrito en ARCA y en Gmail. Especificado en
+[`specs/005-cobranzas/spec.md`](./specs/005-cobranzas/spec.md); todavía no construido.
+
+Lo que no entra en esos dos módulos, no entra. El alcance se defiende activamente: el riesgo
+real de un proyecto así no es quedarse corto, es convertirse en "uno que hace todo pero no hace
+nada", y eso pasa de a un feature razonable por vez.
 
 ---
 
