@@ -160,7 +160,7 @@ Una tarea termina cuando **funciona y se vio funcionar**, no cuando el código e
 | [`semaforo-presupuesto`](https://github.com/tato22-alt/semaforo-presupuesto) | La herramienta de presupuestos, en producción. **No se muda acá:** emitir un presupuesto son cuatro escrituras encadenadas sin transacción, y esa lógica duplicada en dos aplicaciones termina comportándose distinto en cada una |
 
 El modelo de datos estaba en
-[`gestion-taller-sql-server`](https://github.com/tato22-alt/gestion-taller-sql-server) y se
+[`semaforo-modelo-datos`](https://github.com/tato22-alt/semaforo-modelo-datos) y se
 mudó a `base/` el 2026-10-07, conservando sus 52 commits.
 
 ---
