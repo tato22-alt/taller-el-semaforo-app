@@ -66,15 +66,31 @@ describe('lo que esta app no escribe', () => {
   // el papel. Si esta app también los escribiera, habría dos implementaciones de lo mismo.
   const capasQueTocanLaBase = () => [...archivosDe('datos'), ...archivosDe('ui'), join(RAIZ, 'app.tsx')]
 
+  // tipos-base.ts describe el esquema COMPLETO porque lo genera Supabase a partir de la base:
+  // nombra todas las tablas y todas las columnas, incluidas las que esta app no toca. Nombrar
+  // no es escribir, y exigirle que no las nombre sería pedirle que mienta sobre el esquema.
+  // Lo que sí tiene que seguir siendo imposible es *usarlas*, y de eso se encargan los tres
+  // tests de abajo, que miran llamadas y no palabras sueltas.
+  const esElArchivoDeTipos = (a: string) => a.endsWith('tipos-base.ts')
+  const codigoQueActua = () => capasQueTocanLaBase().filter((a) => !esElArchivoDeTipos(a))
+
   it('no menciona trabajo_items: los conceptos los escribe quien emite el presupuesto', () => {
-    for (const archivo of capasQueTocanLaBase()) {
+    for (const archivo of codigoQueActua()) {
       expect(readFileSync(archivo, 'utf8'), archivo).not.toContain('trabajo_items')
     }
   })
 
   it('no menciona las columnas txt_: son el snapshot de lo que decía el papel', () => {
-    for (const archivo of capasQueTocanLaBase()) {
+    for (const archivo of codigoQueActua()) {
       expect(readFileSync(archivo, 'utf8'), archivo).not.toMatch(/txt_(cliente|direccion|telefono|vehiculo|patente)/)
+    }
+  })
+
+  // El que de verdad cierra el agujero: no alcanza con no nombrarlas en prosa, no se puede
+  // consultar la tabla desde ningún lado, ni siquiera desde el archivo exento de arriba.
+  it('nunca abre trabajo_items ni para leer', () => {
+    for (const archivo of capasQueTocanLaBase()) {
+      expect(readFileSync(archivo, 'utf8'), archivo).not.toMatch(/\.from\(\s*['"`]trabajo_items/)
     }
   })
 })
