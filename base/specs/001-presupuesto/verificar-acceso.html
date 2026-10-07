@@ -1,0 +1,173 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Verificación de acceso — El Semáforo</title>
+<style>
+  :root { color-scheme: light dark; }
+  body { font: 15px/1.5 system-ui, -apple-system, sans-serif; max-width: 46rem;
+         margin: 0 auto; padding: 1.5rem 1rem 4rem; }
+  h1 { font-size: 1.25rem; margin: 0 0 .25rem; }
+  p.sub { color: #666; margin: 0 0 1.5rem; }
+  fieldset { border: 1px solid #ccc8; border-radius: .5rem; padding: 1rem; margin: 0 0 1rem; }
+  legend { padding: 0 .4rem; font-weight: 600; font-size: .85rem; }
+  label { display: block; font-size: .8rem; color: #666; margin: .6rem 0 .2rem; }
+  input { width: 100%; padding: .55rem .6rem; font: inherit; border: 1px solid #ccc8;
+          border-radius: .35rem; background: transparent; color: inherit; box-sizing: border-box; }
+  button { margin-top: 1rem; padding: .6rem 1.1rem; font: inherit; font-weight: 600;
+           border: 0; border-radius: .35rem; background: #2563eb; color: #fff; cursor: pointer; }
+  button:disabled { opacity: .5; cursor: default; }
+  table { border-collapse: collapse; width: 100%; margin-top: 1rem; font-size: .85rem; }
+  th, td { text-align: left; padding: .45rem .5rem; border-bottom: 1px solid #ccc4;
+           vertical-align: top; }
+  th { font-size: .75rem; text-transform: uppercase; letter-spacing: .04em; color: #666; }
+  .PASA  { color: #15803d; font-weight: 700; white-space: nowrap; }
+  .FALLA { color: #b91c1c; font-weight: 700; white-space: nowrap; }
+  .obs { color: #666; }
+  #resumen { margin-top: 1rem; padding: .8rem 1rem; border-radius: .4rem;
+             background: #8881; font-weight: 600; }
+  code { font-size: .85em; background: #8881; padding: .1em .35em; border-radius: .25em; }
+</style>
+
+<h1>Verificación de acceso</h1>
+<p class="sub">
+  Prueba la cadena completa que el editor SQL no puede probar: usuario real → contraseña →
+  token → PostgREST → RLS. Cierra el criterio de T008, que pide una llamada REST de verdad.
+</p>
+
+<fieldset>
+  <legend>Datos</legend>
+  <label>URL del proyecto</label>
+  <input id="url" value="https://osslhkvdclrbukjqwpnt.supabase.co">
+  <label>Clave publishable (es pública por diseño — lo que protege los datos es RLS)</label>
+  <input id="key" value="sb_publishable_MV1IZ770uuRM2bUmZqmuWA_mdicKzXw">
+  <label>Email del usuario que diste de alta</label>
+  <input id="email" type="email" autocomplete="username" placeholder="vos@ejemplo.com">
+  <label>Contraseña</label>
+  <input id="pass" type="password" autocomplete="current-password">
+  <button id="correr">Correr las verificaciones</button>
+</fieldset>
+
+<div id="salida"></div>
+
+<script>
+const $ = id => document.getElementById(id);
+const filas = [];
+let n = 0;
+
+function anotar(ref, queVerifica, ok, obs){
+  filas.push({ n: ++n, ref, queVerifica, estado: ok ? 'PASA' : 'FALLA', obs });
+}
+
+function pintar(){
+  const cuerpo = filas.map(f => `<tr>
+      <td>${f.n}</td><td><code>${f.ref}</code></td><td>${f.queVerifica}</td>
+      <td class="${f.estado}">${f.estado}</td><td class="obs">${f.obs}</td></tr>`).join('');
+  const fallas = filas.filter(f => f.estado === 'FALLA').length;
+  $('salida').innerHTML =
+    `<table><thead><tr><th>#</th><th>Ref</th><th>Qué verifica</th><th></th><th>Detalle</th></tr></thead>
+     <tbody>${cuerpo}</tbody></table>
+     <div id="resumen">${filas.length - fallas} PASA · ${fallas} FALLA${
+       fallas ? ' — mirá el detalle de las que fallaron' : ' — la cadena completa funciona'}</div>`;
+}
+
+async function pedir(ruta, opciones, token){
+  const cabeceras = { apikey: $('key').value.trim(), 'Content-Type': 'application/json' };
+  if(token) cabeceras.Authorization = 'Bearer ' + token;
+  const r = await fetch($('url').value.trim().replace(/\/$/, '') + ruta,
+                        { ...opciones, headers: { ...cabeceras, ...(opciones?.headers || {}) } });
+  let cuerpo = null;
+  try { cuerpo = await r.json(); } catch(e) { cuerpo = null; }
+  return { status: r.status, cuerpo };
+}
+
+async function correr(){
+  filas.length = 0; n = 0;
+  $('correr').disabled = true;
+  $('salida').innerHTML = '<p class="sub">Corriendo…</p>';
+
+  try {
+    // ---- 1. La clave publishable sola no puede leer nada (T008, D8) ----
+    const anonLee = await pedir('/rest/v1/vw_presupuestos?select=numero_presupuesto&limit=1',
+                                { method: 'GET' }, $('key').value.trim());
+    anotar('T008 / D8', 'Sin login, la clave publishable NO lee presupuestos',
+           anonLee.status !== 200 || (Array.isArray(anonLee.cuerpo) && anonLee.cuerpo.length === 0),
+           anonLee.status === 200 && Array.isArray(anonLee.cuerpo) && anonLee.cuerpo.length
+             ? '¡LEYÓ ' + anonLee.cuerpo.length + ' fila(s)! La base está expuesta'
+             : 'HTTP ' + anonLee.status + ' — ' + (anonLee.cuerpo?.message || 'sin datos'));
+
+    // ---- 2. Ni escribir ----
+    const anonEscribe = await pedir('/rest/v1/clientes', {
+      method: 'POST', body: JSON.stringify({ nombre: 'ZZQA anon no deberia' })
+    }, $('key').value.trim());
+    anotar('T008 / D8', 'Sin login, la clave publishable NO escribe',
+           anonEscribe.status >= 400,
+           'HTTP ' + anonEscribe.status + ' — ' + (anonEscribe.cuerpo?.message || ''));
+
+    // ---- 3. Login con usuario y contraseña reales ----
+    const login = await pedir('/auth/v1/token?grant_type=password', {
+      method: 'POST',
+      body: JSON.stringify({ email: $('email').value.trim(), password: $('pass').value })
+    });
+    const token = login.cuerpo?.access_token;
+    anotar('Auth', 'El usuario puede iniciar sesión con su contraseña', !!token,
+           token ? 'token recibido, sesión válida'
+                 : 'HTTP ' + login.status + ' — ' + (login.cuerpo?.error_description ||
+                     login.cuerpo?.msg || 'sin token'));
+
+    if(!token){ pintar(); $('correr').disabled = false; return; }
+
+    // ---- 4. Con sesión, lee la vista ----
+    const lee = await pedir('/rest/v1/vw_presupuestos?select=numero_presupuesto,monto_total&limit=5',
+                            { method: 'GET' }, token);
+    anotar('D8 / T009', 'Con sesión iniciada, SÍ lee vw_presupuestos', lee.status === 200,
+           lee.status === 200 ? 'HTTP 200 — ' + (lee.cuerpo?.length ?? 0) + ' fila(s)'
+                              : 'HTTP ' + lee.status + ' — ' + (lee.cuerpo?.message || ''));
+
+    // ---- 5. Con sesión, escribe y limpia ----
+    const crea = await pedir('/rest/v1/clientes', {
+      method: 'POST', headers: { Prefer: 'return=representation' },
+      body: JSON.stringify({ nombre: 'ZZQA prueba de acceso' })
+    }, token);
+    const id = crea.cuerpo?.[0]?.id_cliente;
+    anotar('D8 / T007', 'Con sesión iniciada, SÍ escribe', crea.status === 201 && !!id,
+           id ? 'creó el cliente ' + id + ' (se borra al final)'
+              : 'HTTP ' + crea.status + ' — ' + (crea.cuerpo?.message || ''));
+
+    // ---- 6. No puede borrar un trabajo (RF-023 / D9) ----
+    const borra = await pedir('/rest/v1/trabajos?id_trabajo=eq.999999999',
+                              { method: 'DELETE' }, token);
+    anotar('RF-023 / D9', 'NO puede borrar un trabajo: es registro histórico',
+           borra.status >= 400,
+           borra.status >= 400 ? 'HTTP ' + borra.status + ' — rechazado, como corresponde'
+                               : 'HTTP ' + borra.status + ' — ¡la app puede borrar presupuestos!');
+
+    // ---- 7. anon no puede pedir números ----
+    const numeroAnon = await pedir('/rest/v1/rpc/fn_proximo_numero_presupuesto',
+                                   { method: 'POST', body: '{}' }, $('key').value.trim());
+    anotar('D8 / RF-101', 'Sin login, NO se pueden pedir números de presupuesto',
+           numeroAnon.status >= 400,
+           numeroAnon.status >= 400 ? 'HTTP ' + numeroAnon.status + ' — rechazado'
+             : '¡entregó un número! Cualquiera podría quemar la serie');
+
+    // Limpieza del cliente de prueba
+    if(id){
+      const limpia = await pedir('/rest/v1/clientes?id_cliente=eq.' + id, { method: 'DELETE' }, token);
+      anotar('limpieza', 'El cliente de prueba se borró', limpia.status < 300,
+             'HTTP ' + limpia.status);
+    }
+  } catch(e){
+    anotar('error', 'La verificación se cortó', false, String(e) +
+      ' — si dice "Failed to fetch", puede ser CORS: probá sirviendo el archivo en vez de abrirlo directo');
+  }
+
+  pintar();
+  $('correr').disabled = false;
+}
+
+$('correr').onclick = correr;
+</script>
+
+<p class="sub" style="margin-top:2rem">
+  <strong>Qué NO prueba:</strong> no llama a <code>fn_proximo_numero_presupuesto()</code> con sesión
+  iniciada, a propósito — cada llamada gasta un número de verdad y no se puede devolver. Que el rol
+  autenticado puede pedirlo se verifica en el QA de SQL.
+</p>
