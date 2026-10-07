@@ -121,7 +121,8 @@ De ahí salen tres reglas verificables:
   contra ninguna tabla. Hoy no tiene un solo hecho propio que registrar, y el día que lo tenga
   (el estado del auto, un cobro) se agrega a esta spec con su nombre.~~
   **Reemplazado el 2026-10-07 por:** esta aplicación **no escribe lo que es de la herramienta**
-  —`trabajos` y `trabajo_items`, incluidas `no_concretado`, `origen` y las `txt_*`—. Las tablas
+  —`trabajos`, `trabajo_items`, `clientes` y `vehiculos`, incluidas `no_concretado`, `origen` y
+  las `txt_*`—. Las tablas
   del módulo de cobranzas sí son suyas. Hasta que exista la primera escritura de cobranzas, el
   test sigue midiendo "no escribe nada"; se cambia en ese mismo commit, no antes.
 - **RF-602** — Esta aplicación **no muestra listas de presupuestos**. Si hace falta encontrar un

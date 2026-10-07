@@ -43,7 +43,8 @@ Fuera de esos dos módulos no entra nada. Defendé el alcance activamente: si su
 ser útil algún día", no va.
 
 **Estado del modelo:** hoy la base sólo tiene presupuestos. No inventes columnas de datos que
-la base todavía no tiene: las de cobranzas se especifican en `base/specs/` y se migran ahí.
+la base todavía no tiene: las de cobranzas se especifican en `specs/005-cobranzas/` (una sola
+spec y un solo plan para todo el bloque) y se migran en `base/supabase/migrations/`.
 
 ---
 
@@ -74,8 +75,8 @@ Cinco reglas que salen de ahí y no se negocian:
 - **La numeración de presupuestos la asigna la base, nunca el cliente.** Si la app hace
   `max + 1`, vuelve el bug que ya tuvimos: dos pestañas sacan el mismo número y una pisa a
   la otra en silencio. Se pide por RPC o se asigna en el `INSERT`. Nunca del lado del navegador.
-- **Esta app no escribe lo que es de la herramienta de presupuestos:** `trabajos` y
-  `trabajo_items`, incluidas `no_concretado` y `origen`, que la
+- **Esta app no escribe lo que es de la herramienta de presupuestos:** `trabajos`,
+  `trabajo_items`, `clientes` y `vehiculos`, incluidas `no_concretado` y `origen`, que la
   herramienta ya marca desde su ficha interna (spec 004 §4). Los conceptos, el texto tal como
   se imprimió y los hechos sobre el trabajo tienen un solo dueño; si esta app también los
   escribiera, habría dos implementaciones de lo mismo comportándose distinto. Lo que esta app

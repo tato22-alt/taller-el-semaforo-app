@@ -63,6 +63,17 @@ generado.
 2. **Las credenciales de Insforge** siguen legibles en el historial de git (commit `6c5252b`).
    Borrar ese proyecto en Insforge las vuelve inútiles sin reescribir la historia.
 
+**🟠 Pendiente, antes de que entre cobranzas** (detalle en la
+auditoría del 2026-10-07, que está fuera del repo hasta contestar N3):
+
+3. **H5 — un presupuesto numerado se puede borrar en dos pasos.** La política de borrado sólo
+   deja borrar trabajos sin número, pero el `UPDATE` de `numero_presupuesto` a nulo está
+   permitido; después, el `DELETE` también. El número queda libre y el presupuesto emitido
+   desaparece. Se arregla con una regla de integridad (rechazar que un número ya puesto cambie),
+   con su spec chica. *Leído en las migraciones, no probado contra la base.*
+4. **H6 — el usuario robot heredaría acceso total.** Se resuelve con roles, en la primera
+   migración de cobranzas (plan, D2). Hasta entonces, **no crear el usuario `robot@`**.
+
 ---
 
 ## El orden de trabajo
@@ -78,8 +89,8 @@ Uno por vez, y cada uno termina cuando **se vio funcionar**, no cuando está esc
 | 1.7 | ~~Las cuatro preguntas que bloqueaban la spec 005 (P1 a P4)~~ | ✅ **Contestadas el 2026-10-07** | Ver la spec 005 §8 y §9 |
 | 2 | **Prender Pages** | Luciano | Settings → Pages → Source: *GitHub Actions*. Settings → Secrets and variables → Actions → **Variables**: `VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY`. **Después del paso 0** |
 | 3 | **Pasar la planilla de la conciliación manual** (P12) | Luciano | Es el juego de datos de prueba: sin ella, "llega a los $171 M al peso" no se puede verificar contra nada |
-| 4 | **Fase 1 de cobranzas:** spec en `base/specs/` del libro de ARCA (A1) y las fichas de compañía (A5 datos), después la migración | Claude, spec → tu OK → plan → tu OK | **Va antes que la fase 0** (decisión del 2026-10-07): no depende de nada y da el total contra el que se mide todo lo demás |
-| 5 | **Fase 0:** extender el Apps Script para que guarde `gmail_message_id`, remitente, asunto y **texto extraído**. El código vive en `robot/` de este repo | Claude, con tu cuenta | Es el corpus contra el que se escriben los doce parsers |
+| 4 | **Fase 1 de cobranzas:** contestar **N1** (quién emite las facturas: define la clave del comprobante) y **N10** (CLI de Supabase), aprobar el plan de cobranzas, y recién ahí las migraciones M1 a M4 y la pantalla Importar. La spec y el plan del bloque van en `specs/005-cobranzas/`, no en `base/specs/` | Luciano decide, Claude construye | **Va antes que la fase 0** (decisión del 2026-10-07): no depende de nada y da el total contra el que se mide todo lo demás |
+| 5 | **Fase 0:** extender el Apps Script para que guarde `gmail_message_id`, remitente, asunto y **texto extraído**. El código vive en `robot/` de este repo, **sin datos reales** | Claude, con tu cuenta. **Antes: N3** (repo público y datos de terceros) | Es el corpus contra el que se escriben los doce parsers |
 | 6 | **Fase 2:** parsers e imputaciones (A2, A3) + pantalla **Revisar** | Claude | El núcleo. Acá entra la plata |
 | 7 | **Fase 3:** el semáforo y las tareas (A8, A7) | Claude | No estrena tablas: son vistas |
 | 8 | **Fase 4:** antes de emitir (A4, A5, A6) | Claude | Previene; no recupera |
@@ -127,7 +138,8 @@ src/
 | Qué | Recomendación |
 |---|---|
 | **Los días del tablero se calculan en el navegador** | Volver a mostrar la fecha: es un cambio de tres líneas y no pide migración. Los días entran cuando haya una vista que los derive |
-| **P5 a P16 de la spec 005** | No bloquean la fase 1. Las que tocan su modelo (P8, P9, P10, P11) se contestan antes de aprobar su spec; **P16** (¿lo que escribe el robot suma sin confirmación?) antes de la fase 2 |
+| **N1 y N3 a N10 del plan** | Cada una dice qué bloquea (plan §7). Las primeras: **N1** antes de M3, **N10** antes de M1, **N3** antes de la fase 0 |
+| **P5 a P15 de la spec 005** | No bloquean la fase 1. Las que tocan su modelo (P8, P9, P10, P11) se contestan antes de aprobar las migraciones de la fase 1 |
 | **Los umbrales del semáforo** | Decisión de negocio, no técnica. Se necesita recién en la fase 3 |
 | **La planilla de la conciliación manual** | Es el paso 3 de arriba |
 
@@ -142,4 +154,7 @@ src/
 | P4 — RF-601 | Se reemplaza por "la app no escribe lo que es de la herramienta". El test sigue diciendo "no escribe nada" hasta el commit de la primera escritura de cobranzas |
 | ¿Dónde vive el Apps Script? | En `robot/`, en este repo |
 | ¿Fase 0 o fase 1 primero? | Fase 1 |
+| P16 / N2 — ¿el robot escribe imputaciones? | No. Escribe `aviso_linea` y una vista hace el cruce exacto con el comprobante (plan, D4). Lo que decide una persona va en `imputacion` |
+| ¿Dónde viven la spec y el plan de cobranzas? | En `specs/005-cobranzas/`, una sola vez. No se duplican en `base/specs/` |
+| ¿Qué tablas no escribe esta app? | Las cuatro de la herramienta: `trabajos`, `trabajo_items`, `clientes` y `vehiculos` |
 | Los commits de `main` a nombre de Claude | Se quedan como están: reescribir `main` cuesta más de lo que arregla. De acá en adelante, a nombre de Luciano y sin firma |
