@@ -2,10 +2,10 @@
 
 | | |
 |---|---|
-| **Estado** | Borrador. **Tiene cuatro choques con decisiones ya escritas** (§8). No se codea nada hasta resolverlos |
+| **Estado** | Borrador. **Los cuatro choques de §8 se resolvieron el 2026-10-07** (P1 a P4 en §9). Sigue la spec de la fase 1, en `base/specs/` |
 | **Fecha** | 2026-10-01 |
 | **Origen de los datos** | Conciliación manual de **470 comprobantes** (ene-2025 → sep-2026, ~20 deudores), hecha a mano contra ARCA, Gmail y los PDF de las compañías |
-| **Constitución vinculante** | Repo del modelo, `.specify/memory/constitution.md` v3.0.0 |
+| **Constitución vinculante** | `base/.specify/memory/constitution.md` (v3.0.1) |
 | **Relación con la 004** | La contesta: esta app **sí tiene contenido propio**, y no es el que la 004 proponía |
 
 > **Qué contesta este documento.** Cómo la aplicación llega a contestar en diez segundos
@@ -413,12 +413,12 @@ fase 1.
 
 ### Bloquean
 
-| # | Pregunta | Mi recomendación |
-|---|---|---|
-| **P1** | **C1**: ¿aceptás la lectura de que el robot escribe evidencia y no estado, o hay que enmendar el principio VI? | Aceptarla y **dejarla escrita en la constitución como aclaración**, no como enmienda. Una interpretación que no está escrita se vuelve a discutir en marzo |
-| **P2** | **C2**: ¿se enmienda el principio IX para que entre la conciliación bancaria (A9)? | Sí, pero **recién en la fase 5**. No bloquea nada hasta entonces, y para entonces vas a saber si hace falta |
-| **P3** | **C3**: ¿se abre el alcance de tres pantallas, como **módulo de cobranzas declarado** con su propia frontera? | Sí, como módulo. Si se abre sin frontera nueva, el alcance deja de defenderse |
-| **P4** | **C4**: ¿se retira RF-601 y se reemplaza por "no escribe las tablas de la herramienta"? | Sí |
+| # | Pregunta | Mi recomendación | Decisión |
+|---|---|---|---|
+| **P1** | **C1**: ¿aceptás la lectura de que el robot escribe evidencia y no estado, o hay que enmendar el principio VI? | Aceptarla y **dejarla escrita en la constitución como aclaración**, no como enmienda. Una interpretación que no está escrita se vuelve a discutir en marzo | ✅ **Aceptada (2026-10-07).** Escrita en la constitución v3.0.1, principio VI |
+| **P2** | **C2**: ¿se enmienda el principio IX para que entre la conciliación bancaria (A9)? | Sí, pero **recién en la fase 5**. No bloquea nada hasta entonces, y para entonces vas a saber si hace falta | ✅ **Todavía no (2026-10-07).** Se decide al llegar a la fase 5 |
+| **P3** | **C3**: ¿se abre el alcance de tres pantallas, como **módulo de cobranzas declarado** con su propia frontera? | Sí, como módulo. Si se abre sin frontera nueva, el alcance deja de defenderse | ✅ **Sí (2026-10-07).** Escrito en el `CLAUDE.md`, "Alcance: dos módulos" |
+| **P4** | **C4**: ¿se retira RF-601 y se reemplaza por "no escribe las tablas de la herramienta"? | Sí | ✅ **Sí (2026-10-07).** Reemplazado en la spec 004 §5. El test cambia en el commit de la primera escritura |
 
 ### El robot
 
@@ -439,6 +439,7 @@ fase 1.
 | **P12** | **¿La conciliación manual existe como planilla?** | Es lo más valioso que podés pasarme: es el **juego de datos de prueba del criterio 2**. Sin ella, el sistema no se puede verificar contra nada |
 | **P13** | **Plazos por compañía**: ¿los tenés declarados, o se infieren del histórico? | Inferir del histórico (sale gratis de A3) y dejar el declarado como override manual. Lo que importa para reclamar es el plazo real |
 | **P14** | **¿Quién usa la pantalla de cobranzas**: vos o la administrativa? | Cambia A6: si el que arma el borrador no es el que lo manda, hace falta un paso de "listo para enviar" |
+| **P16** | **¿Una imputación que escribe el robot suma al cobrado sin que nadie la confirme?** §4.3 dice que `confirmado_por` nulo es "una sugerencia y no suma", pero R4 dice que **N5** nace sin confirmar, lo que sugiere que N1–N4 no. Las dos lecturas no pueden ser verdad a la vez. *(Agregada el 2026-10-07, al escribir la aclaración del principio VI)* | Que **N2 y N3 escritas por el robot sumen sin confirmación** —nombran la factura, son prueba— y que **N5 nunca sume sin una persona**. Si toda imputación pide confirmación, el robot no le ahorra trabajo a nadie y se rompe la regla madre. Hay que decidirlo antes de aprobar la spec de la fase 2 |
 | **P15** | **El monto autorizado de A5** es el único dato de todo el bloque que hay que **cargar a mano**. ¿Se carga para los nuevos, o también hacia atrás? | Sólo de acá en adelante, y por excepción: es la única carga nueva que este módulo pide, y conviene que se note |
 
 ---

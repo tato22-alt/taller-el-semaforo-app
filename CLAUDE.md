@@ -12,23 +12,38 @@ qué autos hay, hace cuánto están, y quién debe plata.
 
 ---
 
-## Alcance: tres pantallas
+## Alcance: dos módulos, cada uno con su frontera
+
+El alcance se abrió una sola vez, el 2026-10-07, y de una forma precisa: **no "ahora son ocho
+pantallas", sino un segundo módulo declarado** con su propia lista de lo que hace y lo que no.
+Si el alcance se abre sin redefinirlo, el principio IX deja de poder decir no a nada.
+
+### Módulo 1 — Presupuestos (spec 002)
 
 1. **Presupuesto** — ya está, conectado a Supabase y en producción, y **vive en su propio
    repo** (`semaforo-presupuesto`). **No se muda acá** (decidido el 2026-09-13). Esta
    aplicación lo lee, no lo emite: emitir son cuatro escrituras encadenadas sin transacción,
    y esa lógica duplicada en dos aplicaciones termina comportándose distinto en cada una.
-2. **Tablero** — una fila por trabajo: patente destacada, vehículo, cliente, número, días
-   desde que entró. Se usa parado, con el celular, al lado de un auto.
-3. **Ficha** — un trabajo: sus conceptos, su historia, los presupuestos anteriores de ese
-   mismo auto, y los pocos botones que registran hechos que no se derivan.
+2. **Tablero** — hecho como prueba del stack (spec 003) y **cerrado: no se amplía**. La
+   herramienta ya tiene historial con buscador y ficha interna; agrandar el tablero sería
+   escribir lo mismo dos veces (spec 004 §3). Vuelve a crecer recién cuando la base tenga el
+   estado operativo del auto, que es lo único que ninguna otra pieza muestra.
+3. **Ficha** — en espera, por el mismo motivo. Marcar no concretado y particular/seguro ya lo
+   hace la ficha interna de la herramienta.
 
-Nada más. Si algo no entra en esas tres, no entra. Defendé el alcance activamente: si suena
-a "podría ser útil algún día", no va.
+### Módulo 2 — Cobranzas (spec 005)
 
-**Estado del modelo:** hoy la base sólo tiene presupuestos. El tablero arranca mostrando
-presupuestos con sus días. Se vuelve semáforo de verdad cuando el modelo incorpore la plata.
-No inventes columnas de datos que la base todavía no tiene.
+Contesta en diez segundos **cuánto me deben, quién, desde cuándo, y qué tengo que hacer hoy
+para cobrarlo**, con datos que ya están escritos en ARCA y en Gmail. Sus pantallas son las de
+la spec 005 §6: **Cobranzas, Ficha de factura, Revisar, Ficha de compañía y Antes de emitir**,
+y nada más. Lo que este módulo no hace está en la spec 005 §10, y se defiende igual que el
+resto.
+
+Fuera de esos dos módulos no entra nada. Defendé el alcance activamente: si suena a "podría
+ser útil algún día", no va.
+
+**Estado del modelo:** hoy la base sólo tiene presupuestos. No inventes columnas de datos que
+la base todavía no tiene: las de cobranzas se especifican en `base/specs/` y se migran ahí.
 
 ---
 
@@ -43,6 +58,9 @@ sincronizar con él. **Las migraciones se escriben ahí, no en `src/`**, y se si
 mano en el editor SQL del panel de Supabase — tener el archivo en el repo no las despliega.
 
 **No hay backend.** Supabase expone el esquema como REST vía PostgREST. La base *es* la API.
+El robot de cobranzas (un Apps Script que lee Gmail, en `robot/`) no es un backend de la app:
+es otro consumidor de la base, que escribe **evidencia** con su propio usuario y su propia RLS,
+nunca con la `service_role` (spec 005 §3).
 
 Cinco reglas que salen de ahí y no se negocian:
 
@@ -56,12 +74,15 @@ Cinco reglas que salen de ahí y no se negocian:
 - **La numeración de presupuestos la asigna la base, nunca el cliente.** Si la app hace
   `max + 1`, vuelve el bug que ya tuvimos: dos pestañas sacan el mismo número y una pisa a
   la otra en silencio. Se pide por RPC o se asigna en el `INSERT`. Nunca del lado del navegador.
-- **Esta app nunca escribe `trabajo_items` ni las columnas `txt_*` de `trabajos`.** Los
-  conceptos del presupuesto y el texto tal como se imprimió son de quien emite el papel; si
-  esta app también los escribiera, habría dos implementaciones de lo mismo comportándose
-  distinto. La app escribe sólo hechos posteriores: `no_concretado`, `origen`, y más adelante
-  el estado operativo y los cobros. **Lo verifica `src/arquitectura.test.ts`**, así que deja
-  de depender de que alguien se acuerde.
+- **Esta app no escribe lo que es de la herramienta de presupuestos:** `trabajos` y
+  `trabajo_items`, incluidas `no_concretado` y `origen`, que la
+  herramienta ya marca desde su ficha interna (spec 004 §4). Los conceptos, el texto tal como
+  se imprimió y los hechos sobre el trabajo tienen un solo dueño; si esta app también los
+  escribiera, habría dos implementaciones de lo mismo comportándose distinto. Lo que esta app
+  sí va a escribir son las tablas del módulo de cobranzas. **Hoy no escribe nada, y lo
+  verifica `src/arquitectura.test.ts`.** Ese test cambia de "no escribe nada" a "no escribe
+  las tablas de la herramienta" en el mismo commit que haga la primera escritura de
+  cobranzas, no antes: un test que se afloja por adelantado no protege nada.
 
 ### Gotchas de PostgREST que ya nos van a morder
 
@@ -103,16 +124,19 @@ Los tipos de la base no se escriben a mano: se generan con
 `src/datos/tipos-base.ts`. **Regeneralos cada vez que se agregue una migración a
 `base/supabase/migrations/`** — ahora que están en el mismo repo, un cambio de esquema y el
 código que lo usa pueden ir en el mismo commit, que es la mitad del motivo de haberlos juntado.
+**Hoy el archivo es provisorio:** se escribió a partir de las migraciones porque el generador no
+corre en la máquina de Luciano. Está marcado así en su encabezado; cuando el generador corra,
+gana el generado.
 
 **Este repo es la app y la base:** `tato22-alt/taller-el-semaforo-app`. La app en la raíz,
 el modelo de datos en `base/`. La herramienta de presupuesto **no se muda**: sigue en
 producción en `tato22-alt/semaforo-presupuesto` y se queda ahí (decidido el 2026-09-13).
 
 **Gotcha de Pages:** el sitio se sirve en un subpath (`/taller-el-semaforo-app/`), así que un
-router de history API tira 404 al refrescar una ruta profunda. **Decidido: `HashRouter`.** Es
-una línea, no necesita el archivo `404.html` ni duplicar la app, y para tres pantallas que se
-abren desde el tablero la URL con `#` no le molesta a nadie. El `base` de Vite va igual:
-`/taller-el-semaforo-app/`.
+router de history API tira 404 al refrescar una ruta profunda. **Decidido: ruteo por hash**,
+escrito a mano en `src/dominio/ruta.ts` — 25 líneas y una dependencia menos que `HashRouter`.
+No necesita el archivo `404.html` ni duplicar la app, y la URL con `#` no le molesta a nadie.
+El `base` de Vite va igual: `/taller-el-semaforo-app/`.
 
 **Estilos: CSS plano, sin Tailwind** (decidido el 2026-09-12). Una dependencia menos, y
 coincide con la herramienta de presupuesto, que es CSS escrito a mano con la hoja de impresión
@@ -129,6 +153,7 @@ src/             LA APP
   ui/          componentes y pantallas. No conoce supabase.
   app.tsx
 specs/           las specs de la app
+robot/           el Apps Script de cobranzas (fase 0; todavía no existe)
 base/            LA BASE (subtree, con su propia historia)
   supabase/migrations/   el esquema. 19 migraciones
   specs/                 las specs del modelo de datos
@@ -222,13 +247,12 @@ cosas distintas lo garantizan, y conviene no confundirlas:
 
 ---
 
-## Lo primero
+## Por dónde seguir
 
-No empieces migrando el presupuesto. Está en producción y su hoja de impresión está calibrada
-contra el talonario de papel; tocarlo primero arriesga lo único que ya funciona.
+El orden de trabajo vive en `ESTADO.md`, no acá: este archivo dice cómo se trabaja, aquél qué
+toca ahora. La Tarea 1 —login + tablero leyendo presupuestos reales— está hecha y se vio
+funcionar el 2026-10-07.
 
-**Tarea 1:** login con Supabase Auth + tablero leyendo presupuestos reales de la base. Es el
-camino de datos más corto que prueba el stack entero de punta a punta — auth, RLS, PostgREST,
-build y deploy.
-
-Antes de codear, proponé la estructura del proyecto y esperá confirmación.
+Lo que no cambia: **no se empieza tocando el presupuesto.** Está en producción y su hoja de
+impresión está calibrada contra el talonario de papel; tocarlo arriesga lo único que ya
+funciona.

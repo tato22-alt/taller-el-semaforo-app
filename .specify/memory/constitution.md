@@ -3,7 +3,7 @@
 **La constitución vinculante de El Semáforo vive en este mismo repositorio, desde que la base
 se mudó acá (2026-10-07):**
 
-> [`base/.specify/memory/constitution.md`](../../base/.specify/memory/constitution.md) — v3.0.0,
+> [`base/.specify/memory/constitution.md`](../../base/.specify/memory/constitution.md) — v3.0.1,
 > diez principios.
 
 Este archivo existe sólo para decir eso. Hubo una constitución propia de esta aplicación y se

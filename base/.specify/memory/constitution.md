@@ -7,7 +7,7 @@ Este documento manda sobre cualquier spec, plan o migración de este repositorio
 diseño lo contradiga, se cambia la decisión — o se enmienda la constitución explícitamente, con su
 justificación.
 
-**Versión:** 3.0.0 · **Ratificada:** 2026-09-03 · **Última enmienda:** 2026-09-05
+**Versión:** 3.0.1 · **Ratificada:** 2026-09-03 · **Última enmienda:** 2026-10-07
 
 ---
 
@@ -127,6 +127,20 @@ Sólo un cobro registrado explícitamente baja un saldo, y el saldo se lee de un
 > entero. El automatismo producía activamente el dato equivocado sobre la prioridad número uno del
 > negocio.
 
+**Aclaración (v3.0.1, 2026-10-07): evidencia no es estado.** Un automatismo puede **registrar
+evidencia** —un aviso de pago como llegó, un acuse, una imputación con su nivel de evidencia y su
+fuente— porque eso es registrar un hecho que ocurrió afuera, no decidir uno. Lo que este principio
+prohíbe es que un automatismo **escriba un estado** (cobrado, cerrado, saldado) o **decida un
+monto**: el estado financiero no es una columna que alguien escribe, es una vista que se deriva de la
+evidencia (principio II). Si una lectura de este principio impide que un script guarde el mail que
+dice "pagamos la factura 3285", esa lectura está equivocada; si permite que un script marque la
+factura 3285 como cobrada, también.
+
+> *Por qué se escribió:* la spec 005 de la aplicación (cobranzas) se apoya en un robot que lee Gmail y
+> carga avisos de pago. Sin esta aclaración, la discusión de si eso viola el principio VI se vuelve a
+> abrir cada vez que alguien lee la constitución de nuevo. No cambia el significado: aclara dónde
+> pasaba la línea desde el principio.
+
 ## VII. Toda deuda tiene un deudor explícito
 
 Quién debe es un dato propio, nunca una inferencia a partir del origen del trabajo.
@@ -199,7 +213,8 @@ del negocio. Una enmienda que agregue alcance debe nombrar la dolencia que resue
 se agrega un principio o una restricción. PATCH: aclaraciones que no cambian el significado.
 
 **Historial.** v1.0.0 constitución del sistema completo · v2.0.0 acotada al modelo de datos, motor SQL
-Server · v3.0.0 motor PostgreSQL sobre Supabase, las políticas de acceso entran al alcance.
+Server · v3.0.0 motor PostgreSQL sobre Supabase, las políticas de acceso entran al alcance · v3.0.1
+aclaración al principio VI: un automatismo puede registrar evidencia, nunca estado.
 
 **Cumplimiento.** Toda spec y todo plan se revisan contra estos principios antes de aprobarse. Una
 complejidad que los contradiga tiene que justificarse explícitamente en el plan, o se simplifica.
