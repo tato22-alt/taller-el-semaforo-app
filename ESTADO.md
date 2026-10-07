@@ -7,15 +7,17 @@ se contradicen, gana el código.
 
 ---
 
-## Las tres piezas
+## Las piezas
 
-El sistema vive en tres repositorios. Esto es lo que hay en cada uno, medido, no supuesto.
+El sistema vivía en tres repositorios. **Desde el 2026-10-07 son dos:** la base se mudó a este
+repo, bajo `base/`, conservando sus 52 commits. Esto es lo que hay en cada pieza, medido, no
+supuesto.
 
 | Repo | Qué es | Estado real |
 |---|---|---|
-| **`gestion-taller-sql-server`**<br>rama `claude/semaforo-taller-system-eroppo` | La base de datos. **Es también la API**, vía PostgREST | ✅ **Funcionando y verificado.** 4 tablas, 2 vistas, 0 triggers, 16 migraciones corridas. 57/57 verificaciones del QA. RLS activa y forzada, `anon` revocado. **Vacía y confirmada vacía** el 2026-09-13: cero presupuestos. El talonario de papel terminó en el 15999 y no se emitió ninguno más, así que el 16000 sale limpio y **no hay que ajustar la numeración** |
+| **`base/`** en este repo<br>(subtree de `gestion-taller-sql-server`) | La base de datos. **Es también la API**, vía PostgREST | ✅ **Funcionando y verificado.** 4 tablas, 2 vistas, 0 triggers, **19 migraciones** y 7 features especificadas. 57/57 verificaciones del QA. RLS activa y forzada, `anon` revocado. **Vacía y confirmada vacía** el 2026-09-13: cero presupuestos. El talonario de papel terminó en el 15999 y no se emitió ninguno más, así que el 16000 sale limpio y **no hay que ajustar la numeración** |
 | **`semaforo-presupuesto`** | La herramienta de presupuestos, **en producción**. Se queda acá: no se muda a la app | ✅ **Conectada y en uso.** `main` (commit `2d1374c`) emite contra Supabase: login real, numeración por `fn_proximo_numero_presupuesto()`, y lectura/escritura contra `clientes`/`vehiculos`/`trabajos`/`trabajo_items`/`vw_presupuestos`. De `localStorage` sólo queda la clave de sesión |
-| **`taller-el-semaforo-app`**<br>(este repo) | **La aplicación.** Decidido el 2026-09-12 | 🟡 **Esqueleto en pie.** Vite + React + TypeScript estricto, las tres capas armadas, 27 tests en verde, 0 vulnerabilidades, y el workflow de Pages. Las pantallas todavía no leen la base |
+| **`taller-el-semaforo-app`**<br>(este repo, la raíz) | **La aplicación.** Decidido el 2026-09-12 | 🟡 **Esqueleto en pie, y nada más.** Vite + React + TypeScript estricto, las tres capas, **29 tests en verde**, 0 vulnerabilidades y el workflow de Pages. **Cero lecturas y cero escrituras contra la base**: las dos pantallas son carteles que explican lo que todavía no hacen. Verificado corriéndolo, no leyéndolo |
 
 ---
 
@@ -56,6 +58,7 @@ Uno por vez, y cada uno termina cuando **se vio funcionar**, no cuando está esc
 |---|---|---|---|
 | 0 | **Borrar el proyecto Insforge** | Tato | Es el único agujero real y cuesta cinco minutos |
 | 1 | ~~**Ordenar este repo:** retirar el andamiaje de Next.js e Insforge, armar Vite + React + las tres capas~~ | ✅ **Hecho** | Un repo cuyo README no coincide con su código es lo primero que se nota al abrirlo |
+| 1.5 | ~~**Llevar todo esto a `main`**~~ | ✅ **Hecho el 2026-10-07** | `main` tenía la app vieja de Next + Insforge y el App Key a la vista. Ahora tiene esto, y el deploy corre por primera vez |
 | 2 | **Contestar las cuatro preguntas que bloquean** la spec 005 (P1 a P4) | Tato | Son choques con decisiones ya escritas. Hasta que estén resueltos, cualquier código de cobranzas se construye sobre un alcance que todavía no se abrió |
 | 3 | **Fase 0 de cobranzas:** extender el Apps Script que ya baja los PDF para que guarde `gmail_message_id`, remitente, asunto y **texto extraído** | Claude, con tu cuenta | Ya funciona. Es lo único que se puede avanzar sin tocar la base, y es lo que convierte los doce parsers en código testeado contra 21 meses en vez de contra una muestra |
 | 4 | **Fase 1:** el libro de ARCA y las fichas de compañía (A1, A5 datos) | Spec allá, pantalla acá | Sin comprobantes no hay a qué imputar. Es la fase que no depende de ningún parser |
@@ -89,7 +92,12 @@ comprobantes que ya están escritos en ARCA y en Gmail.
 ```
 CLAUDE.md                        Contexto y reglas de esta app. Se lee al inicio de cada sesión
 ESTADO.md                        Este archivo
-.specify/memory/constitution.md  Puntero: la constitución vinculante vive en el repo del modelo
+.specify/memory/constitution.md  Puntero a base/.specify/memory/constitution.md
+base/                            LA BASE DE DATOS (subtree, 52 commits propios)
+  .specify/memory/constitution.md  Los diez principios. Vinculantes para todo el repo
+  supabase/migrations/             El esquema: 19 migraciones
+  specs/                           Las 7 specs del modelo de datos
+  docs/diccionario-datos.md        Qué es cada tabla y cada columna
 specs/README.md                  Cómo se trabaja con SDD y cómo se revisa una spec
 specs/002-alcance/spec.md        EL ALCANCE VIGENTE: los límites y qué se puede derivar
 specs/003-tablero/spec.md        El tablero. La spec 004 propone retirarlo

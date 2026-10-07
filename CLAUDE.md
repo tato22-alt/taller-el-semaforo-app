@@ -34,9 +34,13 @@ No inventes columnas de datos que la base todavía no tiene.
 
 ## El contrato con la base
 
-La base vive en otro repo: `tato22-alt/gestion-taller-sql-server`, rama
-`claude/semaforo-taller-system-eroppo`. Su `.specify/memory/constitution.md` es vinculante
-también acá.
+**La base vive en este mismo repo, bajo `base/`** (mudada el 2026-10-07 desde
+`tato22-alt/gestion-taller-sql-server`, conservando sus 52 commits). Su
+`base/.specify/memory/constitution.md` es vinculante para todo lo que hay acá adentro.
+
+`base/` es un *subtree*, no una copia: mantiene la historia del repo de origen y se puede
+sincronizar con él. **Las migraciones se escriben ahí, no en `src/`**, y se siguen aplicando a
+mano en el editor SQL del panel de Supabase — tener el archivo en el repo no las despliega.
 
 **No hay backend.** Supabase expone el esquema como REST vía PostgREST. La base *es* la API.
 
@@ -96,11 +100,13 @@ modelado, no el tipo.
 
 Los tipos de la base no se escriben a mano: se generan con
 `supabase gen types typescript --project-id osslhkvdclrbukjqwpnt` y se guardan en
-`src/datos/tipos-base.ts`. Regeneralos cada vez que el otro repo agregue una migración.
+`src/datos/tipos-base.ts`. **Regeneralos cada vez que se agregue una migración a
+`base/supabase/migrations/`** — ahora que están en el mismo repo, un cambio de esquema y el
+código que lo usa pueden ir en el mismo commit, que es la mitad del motivo de haberlos juntado.
 
-**Este repo es la app:** `tato22-alt/taller-el-semaforo-app` (decidido el 2026-09-12). La
-herramienta de presupuesto sigue en producción en `tato22-alt/semaforo-presupuesto` y se
-mudará acá más adelante, no ahora.
+**Este repo es la app y la base:** `tato22-alt/taller-el-semaforo-app`. La app en la raíz,
+el modelo de datos en `base/`. La herramienta de presupuesto **no se muda**: sigue en
+producción en `tato22-alt/semaforo-presupuesto` y se queda ahí (decidido el 2026-09-13).
 
 **Gotcha de Pages:** el sitio se sirve en un subpath (`/taller-el-semaforo-app/`), así que un
 router de history API tira 404 al refrescar una ruta profunda. **Decidido: `HashRouter`.** Es
@@ -117,12 +123,21 @@ calibrada contra el talonario de papel: cuando se mude acá no hay que traducir 
 ## Estructura y capas
 
 ```
-src/
+src/             LA APP
   dominio/     lógica pura. Sin React, sin supabase, sin fetch.
   datos/       única capa que conoce supabase. Devuelve tipos del dominio.
   ui/          componentes y pantallas. No conoce supabase.
   app.tsx
+specs/           las specs de la app
+base/            LA BASE (subtree, con su propia historia)
+  supabase/migrations/   el esquema. 19 migraciones
+  specs/                 las specs del modelo de datos
+  docs/                  diccionario de datos
+  .specify/memory/constitution.md   LOS DIEZ PRINCIPIOS
 ```
+
+**Nada de `src/` importa nada de `base/`.** `base/` es SQL y documentos; el puente entre los
+dos es `src/datos/tipos-base.ts`, generado desde el esquema.
 
 La regla es una sola y se puede verificar leyendo imports:
 

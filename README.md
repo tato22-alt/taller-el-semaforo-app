@@ -10,13 +10,20 @@ entre un talonario de papel, WhatsApp y la memoria de quien atendió.
 
 ---
 
+## Qué hay en este repositorio
+
+**El modelo de datos y la aplicación, juntos.** La base vive en `base/` —migraciones, vistas,
+políticas de RLS, las specs del modelo y la constitución de principios— y la aplicación en la
+raíz. Están en el mismo repo a propósito: un cambio de esquema y el código que lo consume
+pueden viajar en el mismo commit, y la definición de un número vive en un solo lugar.
+
 ## Estado: en construcción
 
 | | |
 |---|---|
-| **Base de datos** | ✅ Aplicada y verificada — 15 migraciones, 57/57 verificaciones, RLS activa |
-| **Herramienta de presupuestos** | 🟡 En producción, conectada a la base en una rama sin mergear |
-| **Esta aplicación** | 🟡 Esqueleto en pie — Vite, TypeScript estricto, tres capas, 27 tests en verde |
+| **Base de datos** (`base/`) | ✅ Aplicada y verificada — 19 migraciones, 57/57 verificaciones, RLS activa y forzada |
+| **Herramienta de presupuestos** | ✅ En producción, emitiendo contra la base |
+| **Esta aplicación** (raíz) | 🟡 Esqueleto en pie — Vite, TypeScript estricto, tres capas, 29 tests en verde. Todavía no lee la base |
 
 El detalle honesto de qué funciona y qué no está en **[`ESTADO.md`](./ESTADO.md)**, con el
 orden de trabajo. El alcance y los límites, en
@@ -69,6 +76,10 @@ que lo que protege los datos no es esconderla, es la RLS:
   quien las creó.
 - Verificado con un login real de punta a punta, no solo a nivel de rol.
 
+Nada de eso hay que creérmelo: las políticas están en
+[`base/supabase/migrations/`](./base/supabase/migrations/), en `20260907120600_rls_tablas.sql`
+y `20260907120700_revocar_anon.sql`.
+
 Hay datos de personas reales que no eligieron estar ahí. Ninguna credencial va al repositorio
 y ninguna URL con datos reales queda sin autenticación.
 
@@ -112,10 +123,16 @@ Los tipos de la base no se escriben a mano: se generan desde el esquema.
 ### Estructura
 
 ```
-src/
+src/                     la aplicación
   dominio/   lógica pura. Sin React, sin Supabase, sin fetch
   datos/     única capa que conoce Supabase. Devuelve tipos del dominio
   ui/        componentes y pantallas. No conoce Supabase
+specs/                   las specs de la aplicación
+base/                    el modelo de datos
+  supabase/migrations/   el esquema, 19 migraciones
+  specs/                 las specs del modelo
+  docs/                  diccionario de datos
+  .specify/memory/       la constitución: diez principios no negociables
 ```
 
 La regla se verifica leyendo los imports: si un componente necesita el cliente de Supabase, la
@@ -136,12 +153,15 @@ Una tarea termina cuando **funciona y se vio funcionar**, no cuando el código e
 
 ---
 
-## Los otros dos repositorios
+## El otro repositorio
 
 | Repo | Qué contiene |
 |---|---|
-| [`gestion-taller-sql-server`](https://github.com/tato22-alt/gestion-taller-sql-server) | El modelo de datos: migraciones, vistas, RLS, y la constitución de principios que manda sobre los tres repos |
-| [`semaforo-presupuesto`](https://github.com/tato22-alt/semaforo-presupuesto) | La herramienta de presupuestos en producción |
+| [`semaforo-presupuesto`](https://github.com/tato22-alt/semaforo-presupuesto) | La herramienta de presupuestos, en producción. **No se muda acá:** emitir un presupuesto son cuatro escrituras encadenadas sin transacción, y esa lógica duplicada en dos aplicaciones termina comportándose distinto en cada una |
+
+El modelo de datos estaba en
+[`gestion-taller-sql-server`](https://github.com/tato22-alt/gestion-taller-sql-server) y se
+mudó a `base/` el 2026-10-07, conservando sus 52 commits.
 
 ---
 
