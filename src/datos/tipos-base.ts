@@ -284,12 +284,3 @@ export type Database = {
     CompositeTypes: Record<PropertyKey, never>
   }
 }
-
-/* Atajos para no escribir Database['public']['Views'][...] en todos lados. */
-export type Tabla<T extends keyof Database['public']['Tables']> =
-  Database['public']['Tables'][T]['Row']
-
-export type Vista<V extends keyof Database['public']['Views']> =
-  Database['public']['Views'][V]['Row']
-
-export type FilaPresupuesto = Vista<'vw_presupuestos'>
