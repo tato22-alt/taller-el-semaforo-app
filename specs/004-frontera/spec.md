@@ -17,7 +17,7 @@ app ya no está sobre la mesa. Las decisiones #1 a #4 siguen abiertas tal como e
 
 ## 1. Lo que hay en cada pieza, medido hoy
 
-### La base — `gestion-taller-sql-server`, rama `claude/semaforo-taller-system-eroppo`
+### La base — `semaforo-modelo-datos`, rama `claude/semaforo-taller-system-eroppo`
 
 | | |
 |---|---|

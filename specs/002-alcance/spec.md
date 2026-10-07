@@ -6,7 +6,7 @@
 | **Fecha** | 2026-09-12 |
 | **Reemplaza a** | La spec 001, retirada del repo el 2026-09-13 (queda en el historial) |
 | **Constitución vinculante** | Repo del modelo, `.specify/memory/constitution.md` v3.0.0 |
-| **Base de datos** | `gestion-taller-sql-server`, rama `claude/semaforo-taller-system-eroppo` |
+| **Base de datos** | `semaforo-modelo-datos`, rama `claude/semaforo-taller-system-eroppo` |
 
 > **Qué contesta este documento.** Dos preguntas: **dónde termina la app**, y **cómo se
 > recauda información automáticamente** para decidir mejor sin convertir a nadie en

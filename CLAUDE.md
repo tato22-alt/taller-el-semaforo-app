@@ -35,12 +35,21 @@ No inventes columnas de datos que la base todavía no tiene.
 ## El contrato con la base
 
 **La base vive en este mismo repo, bajo `base/`** (mudada el 2026-10-07 desde
-`tato22-alt/gestion-taller-sql-server`, conservando sus 52 commits). Su
+`tato22-alt/semaforo-modelo-datos`, conservando sus 52 commits). Su
 `base/.specify/memory/constitution.md` es vinculante para todo lo que hay acá adentro.
 
 `base/` es un *subtree*, no una copia: mantiene la historia del repo de origen y se puede
 sincronizar con él. **Las migraciones se escriben ahí, no en `src/`**, y se siguen aplicando a
 mano en el editor SQL del panel de Supabase — tener el archivo en el repo no las despliega.
+
+**Dónde manda el esquema (decidido el 2026-10-07).** El repo `semaforo-modelo-datos` —antes
+`gestion-taller-sql-server`— **queda como histórico y no se toca más.** Toda migración nueva se
+escribe en `base/supabase/migrations/` de este repo. Hay una sola razón y es la de siempre: dos
+copias del mismo esquema terminan dejando de coincidir, y la que mande va a ser la que alguien
+recuerde haber editado. Acá hay una sola.
+
+Esto no quiere decir que no haya más migraciones: cobranzas (spec 005) necesita una docena de
+tablas. Quiere decir que se escriben acá.
 
 **No hay backend.** Supabase expone el esquema como REST vía PostgREST. La base *es* la API.
 

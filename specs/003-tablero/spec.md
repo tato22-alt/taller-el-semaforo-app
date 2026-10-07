@@ -3,7 +3,7 @@
 **Estado:** borrador, pendiente de aprobación de Luciano
 **Alcance vigente:** `specs/002-alcance/spec.md`
 **Constitución aplicable:** la del repo del modelo, v3.0.0
-**Base:** `gestion-taller-sql-server` @ `claude/semaforo-taller-system-eroppo` — 4 tablas, 2 vistas, **vacía**
+**Base:** `semaforo-modelo-datos` @ `claude/semaforo-taller-system-eroppo` — 4 tablas, 2 vistas, **vacía**
 
 ---
 
