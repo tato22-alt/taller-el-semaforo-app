@@ -2,10 +2,10 @@
 
 | | |
 |---|---|
-| **Estado** | Borrador. **Tiene cuatro choques con decisiones ya escritas** (§8). No se codea nada hasta resolverlos |
+| **Estado** | Borrador. **Los cuatro choques de §8 se resolvieron el 2026-10-07** (P1 a P4 en §9). El cómo está en un plan (decisiones D1 a D10, preguntas N1 a N10) y en una auditoría (hallazgos H1 a H17), los dos del 2026-10-07. **La fase 1 del plan está en [`plan.md`](./plan.md), aprobada el 2026-10-08**; el plan completo y la auditoría quedan fuera del repo hasta contestar N3 —el repo es público y traen datos de facturación—. **Esta spec y ese plan son los únicos del bloque:** no se duplican en `base/specs/` |
 | **Fecha** | 2026-10-01 |
 | **Origen de los datos** | Conciliación manual de **470 comprobantes** (ene-2025 → sep-2026, ~20 deudores), hecha a mano contra ARCA, Gmail y los PDF de las compañías |
-| **Constitución vinculante** | Repo del modelo, `.specify/memory/constitution.md` v3.0.0 |
+| **Constitución vinculante** | `base/.specify/memory/constitution.md` (v3.0.1) |
 | **Relación con la 004** | La contesta: esta app **sí tiene contenido propio**, y no es el que la 004 proponía |
 
 > **Qué contesta este documento.** Cómo la aplicación llega a contestar en diez segundos
@@ -59,7 +59,7 @@ requisito verificable al lado.
 | R2 | **Nunca se guarda una contraseña de portal.** Sí URL, usuario y canal | **RF-502.** No hay columna que pueda contener una contraseña, y un test busca por nombre (`pass`, `clave`, `password`, `token`) en el esquema y en el repo |
 | R3 | **"Aprobada" no es "pagada", y un acuse no es un pago** | **RF-503.** Acuses y aprobaciones se guardan en una tabla **distinta** de las imputaciones. Por construcción, un acuse no puede sumar al cobrado |
 | R4 | **Escalera de evidencia.** Cada imputación guarda su nivel: N1 portal dice pagado · N2 aviso u orden de pago que nombra la factura · N3 certificado de retención que nombra la factura · N4 confirmación escrita de una persona · N5 coincidencia de importe | **RF-504.** `nivel_evidencia` es obligatorio y no tiene default. **N5 nace sin confirmar** y no entra en ningún total hasta que una persona la confirma |
-| R5 | **El estado de una factura se deriva, no se guarda.** Sale de sus imputaciones, notas de crédito y envíos | **RF-505.** No existe la columna `estado` en comprobantes. El estado es una **vista** en el repo del modelo. Es el principio II, y el III: la base deriva, la app interpreta |
+| R5 | **El estado de una factura se deriva, no se guarda.** Sale de sus imputaciones, notas de crédito y envíos | **RF-505.** No existe la columna `estado` en comprobantes. El estado es una **vista** en `base/supabase/migrations/`. Es el principio II, y el III: la base deriva, la app interpreta |
 | R6 | **Retenciones desde el día uno.** `saldo = facturado − acreditado − retenido`. Entre ~14% y ~20% del bruto según compañía, cada una con su certificado y su impuesto (IVA, Ganancias, IIBB, SUSS) | **RF-506.** No hay imputación sin su desglose. Una imputación cuyo bruto no cierre contra neto + retenciones queda marcada como incompleta, no se descarta |
 
 **Una regla más, que sale de tener doce parsers:** ningún parser falla en silencio
@@ -113,8 +113,8 @@ contradice.
 
 ## 4. El modelo de datos que esto necesita
 
-Todo lo que sigue es **tabla o vista en el repo del modelo**, no acá. Principio X: la spec
-precede a la migración, y la migración se escribe allá. Esta sección es el pedido, no el DDL.
+Todo lo que sigue es **tabla o vista de la base**, y su migración va en
+`base/supabase/migrations/`, no en `src/`. Principio X: la spec precede a la migración. Esta sección es el pedido, no el DDL.
 
 ### 4.1 Datos maestros — fase 1
 
@@ -146,7 +146,7 @@ destino. Una fila, no un `if` escondido en el código.
 
 | Columna | Nota |
 |---|---|
-| `tipo_id`, `punto_venta`, `numero` | **`UNIQUE (tipo, punto_venta, numero)`.** Es la clave que hace que reimportar no duplique |
+| `cuit_emisor`, `tipo_id`, `punto_venta`, `numero` | **`UNIQUE (cuit_emisor, tipo, punto_venta, numero)`.** Es la clave que hace que reimportar no duplique. **`cuit_emisor` entra por N1 (2026-10-08):** de ene-2025 a hoy factura un solo CUIT, el del taller, y está previsto pasar a otro. Cada CUIT tiene su propia numeración en ARCA, así que sin el emisor en la clave la primera factura del CUIT nuevo chocaría con una vieja. Es una columna con `CHECK` de formato, no una tabla: son dos emisores. El libro de retenciones (A10) pasa a ser por emisor |
 | `fecha_emision`, `cuit_receptor`, `compania_id` | `compania_id` nullable: las Factura B 0002-738 en adelante son particulares |
 | `neto`, `iva`, `total` | `NUMERIC`. Llega como string a la app y **no se hace aritmética en el navegador** |
 | `trabajo_id` | **Nullable.** Las 470 históricas no tienen trabajo (§1) |
@@ -167,6 +167,13 @@ nuevas, cuándo. Es lo que hace que "de forma periódica y sin duplicar" sea ver
 `gmail_message_id` **UNIQUE** —es lo que hace idempotente barrer 21 meses de correo—, más
 remitente, asunto, fecha, `numero_op`, URL del PDF en Drive, **texto extraído** (RF-508), qué
 parser lo leyó y si pudo.
+
+> ⚠️ **Lo que sigue sobre `imputacion` lo reemplaza el plan, D4 (decidido el 2026-10-07).** El
+> robot **nunca** escribe una imputación: escribe `aviso_linea`, lo que dijo el mail renglón por
+> renglón. Una vista (`vw_imputaciones`) cruza las líneas cuyo número coincide exacto con un
+> comprobante y les suma las imputaciones que carga una persona. Así reprocesar un parser no
+> borra nada que alguien haya confirmado, y la aclaración del principio VI se sostiene sin
+> interpretación. Las cardinalidades de abajo siguen valiendo.
 
 **`imputacion`** · el cobro aplicado a un comprobante. `comprobante_id`, `aviso_pago_id`
 (nullable: puede venir de un portal), `fecha_pago`, `bruto`, `neto`, `numero_op`,
@@ -218,7 +225,7 @@ respuesta nuestra".
 
 ### 4.6 Las vistas que derivan el estado — fase 3
 
-El estado **nunca se guarda** (R5). Sale de una vista, en el repo del modelo:
+El estado **nunca se guarda** (R5). Sale de una vista de la base:
 
 | Estado | Cómo se deriva |
 |---|---|
@@ -413,12 +420,12 @@ fase 1.
 
 ### Bloquean
 
-| # | Pregunta | Mi recomendación |
-|---|---|---|
-| **P1** | **C1**: ¿aceptás la lectura de que el robot escribe evidencia y no estado, o hay que enmendar el principio VI? | Aceptarla y **dejarla escrita en la constitución como aclaración**, no como enmienda. Una interpretación que no está escrita se vuelve a discutir en marzo |
-| **P2** | **C2**: ¿se enmienda el principio IX para que entre la conciliación bancaria (A9)? | Sí, pero **recién en la fase 5**. No bloquea nada hasta entonces, y para entonces vas a saber si hace falta |
-| **P3** | **C3**: ¿se abre el alcance de tres pantallas, como **módulo de cobranzas declarado** con su propia frontera? | Sí, como módulo. Si se abre sin frontera nueva, el alcance deja de defenderse |
-| **P4** | **C4**: ¿se retira RF-601 y se reemplaza por "no escribe las tablas de la herramienta"? | Sí |
+| # | Pregunta | Mi recomendación | Decisión |
+|---|---|---|---|
+| **P1** | **C1**: ¿aceptás la lectura de que el robot escribe evidencia y no estado, o hay que enmendar el principio VI? | Aceptarla y **dejarla escrita en la constitución como aclaración**, no como enmienda. Una interpretación que no está escrita se vuelve a discutir en marzo | ✅ **Aceptada (2026-10-07).** Escrita en la constitución v3.0.1, principio VI |
+| **P2** | **C2**: ¿se enmienda el principio IX para que entre la conciliación bancaria (A9)? | Sí, pero **recién en la fase 5**. No bloquea nada hasta entonces, y para entonces vas a saber si hace falta | ✅ **Todavía no (2026-10-07).** Se decide al llegar a la fase 5 |
+| **P3** | **C3**: ¿se abre el alcance de tres pantallas, como **módulo de cobranzas declarado** con su propia frontera? | Sí, como módulo. Si se abre sin frontera nueva, el alcance deja de defenderse | ✅ **Sí (2026-10-07).** Escrito en el `CLAUDE.md`, "Alcance: dos módulos" |
+| **P4** | **C4**: ¿se retira RF-601 y se reemplaza por "no escribe las tablas de la herramienta"? | Sí | ✅ **Sí (2026-10-07).** Reemplazado en la spec 004 §5. El test cambia en el commit de la primera escritura |
 
 ### El robot
 
@@ -439,6 +446,7 @@ fase 1.
 | **P12** | **¿La conciliación manual existe como planilla?** | Es lo más valioso que podés pasarme: es el **juego de datos de prueba del criterio 2**. Sin ella, el sistema no se puede verificar contra nada |
 | **P13** | **Plazos por compañía**: ¿los tenés declarados, o se infieren del histórico? | Inferir del histórico (sale gratis de A3) y dejar el declarado como override manual. Lo que importa para reclamar es el plazo real |
 | **P14** | **¿Quién usa la pantalla de cobranzas**: vos o la administrativa? | Cambia A6: si el que arma el borrador no es el que lo manda, hace falta un paso de "listo para enviar" |
+| **P16** | **¿Una imputación que escribe el robot suma al cobrado sin que nadie la confirme?** §4.3 dice que `confirmado_por` nulo es "una sugerencia y no suma", pero R4 dice que **N5** nace sin confirmar, lo que sugiere que N1–N4 no. Las dos lecturas no pueden ser verdad a la vez. *(Agregada el 2026-10-07, al escribir la aclaración del principio VI)* | ✅ **Resuelta el 2026-10-07 por el plan, D4 (N2):** el robot no escribe imputaciones. Lo que dice un aviso que nombra la factura con número exacto suma por una vista, sin confirmación; todo lo demás (N1, N4, N5 y los desempates) lo carga una persona en `imputacion`. La recomendación original —que el robot escribiera N2/N3 que sumaran solas— se descartó: obligaba a que el robot borrara imputaciones al reprocesar |
 | **P15** | **El monto autorizado de A5** es el único dato de todo el bloque que hay que **cargar a mano**. ¿Se carga para los nuevos, o también hacia atrás? | Sólo de acá en adelante, y por excepción: es la única carga nueva que este módulo pide, y conviene que se note |
 
 ---

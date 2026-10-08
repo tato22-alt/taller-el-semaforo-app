@@ -1,13 +1,13 @@
 # Feature 004 — La frontera entre las tres piezas
 
-**Estado:** borrador, esperando decisión de Luciano
+**Estado:** **decidida el 2026-10-07** (ver §8). RF-601 se reemplazó; RF-602 y RF-603 siguen
 **Leer después:** la [spec 005 — Cobranzas](../005-cobranzas/spec.md) contesta la pregunta de
 este documento por otro lado: esta app **sí** tiene contenido propio, y es cobranzas. Eso
 retira el RF-601 de §5 (ver 005 §8, C4) y le quita urgencia a la decisión #5 de §8 — pausar la
-app ya no está sobre la mesa. Las decisiones #1 a #4 siguen abiertas tal como están escritas acá.
+app ya no está sobre la mesa. Las cinco decisiones quedaron cerradas el 2026-10-07: ver §8.
 **Fecha:** 2026-09-26
 **Método:** comparación de los tres repositorios en su estado real, no en el recordado
-**Constitución vinculante:** la del repo del modelo, v3.0.0
+**Constitución vinculante:** `base/.specify/memory/constitution.md`
 
 > **Qué contesta este documento.** Una sola pregunta, y la respuesta no es cómoda:
 > **¿qué le queda por hacer a esta aplicación, ahora que la herramienta de presupuesto
@@ -117,11 +117,18 @@ en los tres repos:
 
 De ahí salen tres reglas verificables:
 
-- **RF-601** — Esta aplicación es de **sólo lectura**. No hace `POST`, `PATCH` ni `DELETE`
+- ~~**RF-601** — Esta aplicación es de **sólo lectura**. No hace `POST`, `PATCH` ni `DELETE`
   contra ninguna tabla. Hoy no tiene un solo hecho propio que registrar, y el día que lo tenga
-  (el estado del auto, un cobro) se agrega a esta spec con su nombre.
+  (el estado del auto, un cobro) se agrega a esta spec con su nombre.~~
+  **Reemplazado el 2026-10-07 por:** esta aplicación **no escribe lo que es de la herramienta**
+  —`trabajos`, `trabajo_items`, `clientes` y `vehiculos`, incluidas `no_concretado`, `origen` y
+  las `txt_*`—. Las tablas
+  del módulo de cobranzas sí son suyas. Hasta que exista la primera escritura de cobranzas, el
+  test sigue midiendo "no escribe nada"; se cambia en ese mismo commit, no antes.
 - **RF-602** — Esta aplicación **no muestra listas de presupuestos**. Si hace falta encontrar un
   presupuesto, se busca en la herramienta, que ya lo hace bien.
+  **Una excepción declarada (2026-10-07):** el tablero de la spec 003, que ya estaba construido
+  cuando se decidió esto. Queda como está y **no se amplía**; RF-602 rige para todo lo nuevo.
 - **RF-603** — Esta aplicación muestra **solamente lo que ninguna otra pieza muestra**: números
   agregados para decidir, y —cuando existan— el estado del auto y la plata que se debe.
 
@@ -175,13 +182,13 @@ defiende activamente— aplica también a defenderlo de nosotros.
 
 ## 8. Qué necesito que decidas
 
-| # | Decisión | Mi recomendación |
-|---|---|---|
-| 1 | **¿Se retira la spec 003 (el tablero como lista de presupuestos)?** | Sí. Duplica el historial |
-| 2 | **¿La primera pantalla de esta app es el resumen del mes?** | Sí. Es el hueco declarado y ahora tiene datos |
-| 3 | **¿Se especifica la vista mensual en el repo de la base?** | Sí, y va antes que cualquier código acá |
-| 4 | **¿Esta app queda como sólo lectura, con test que lo verifique?** | Sí |
-| 5 | **Si no querés el resumen del mes todavía, ¿pausamos la app?** | Preferible a duplicar |
+| # | Decisión | Mi recomendación | **Decidido (2026-10-07)** |
+|---|---|---|---|
+| 1 | **¿Se retira la spec 003 (el tablero como lista de presupuestos)?** | Sí. Duplica el historial | Para cuando se decidió, el tablero ya estaba construido. **Se queda como está, cerrado como prueba del stack, y no se amplía** |
+| 2 | **¿La primera pantalla de esta app es el resumen del mes?** | Sí. Es el hueco declarado y ahora tiene datos | **No.** Lo primero es cobranzas (spec 005). El resumen del mes queda en espera |
+| 3 | **¿Se especifica la vista mensual en el repo de la base?** | Sí, y va antes que cualquier código acá | En espera, con el resumen. Cuando se haga, va en `base/specs/` |
+| 4 | **¿Esta app queda como sólo lectura, con test que lo verifique?** | Sí | **Reemplazado:** no escribe lo que es de la herramienta (ver RF-601 en §5) |
+| 5 | **Si no querés el resumen del mes todavía, ¿pausamos la app?** | Preferible a duplicar | **No aplica:** la app tiene contenido propio, que es cobranzas |
 
 ## 9. Lo que no cambia
 

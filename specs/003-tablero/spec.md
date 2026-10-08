@@ -1,8 +1,11 @@
 # Spec 003 — Tablero
 
-**Estado:** borrador, pendiente de aprobación de Luciano
+**Estado:** **cerrada el 2026-10-07 como prueba del stack. No se amplía.** Construida y probada
+de punta a punta (login, RLS, PostgREST). La spec 004 §3 mostró que, como lista de presupuestos,
+duplica el historial de la herramienta; por eso cumplió su función y se congela. Ver "Cómo quedó"
+al final
 **Alcance vigente:** `specs/002-alcance/spec.md`
-**Constitución aplicable:** la del repo del modelo, v3.0.0
+**Constitución aplicable:** `base/.specify/memory/constitution.md`
 **Base:** `semaforo-modelo-datos` @ `claude/semaforo-taller-system-eroppo` — 4 tablas, 2 vistas, **vacía**
 
 ---
@@ -170,3 +173,26 @@ Dicho de otra forma: esta pantalla nace con fecha de caducidad si se queda sola.
 
 Ninguno. Los dos que había quedaron resueltos: el techo es 100 filas (80 presupuestos por
 mes) y la sesión queda abierta.
+
+---
+
+## Cómo quedó (2026-10-07)
+
+Construida en `b7bf211` y probada de punta a punta. Criterios de aceptación:
+
+| # | Criterio | Estado |
+|---|---|---|
+| 1–3 | Sin sesión / base vacía / sesión vencida, cada uno con su texto | ✅ Cumplidos, con tests sobre un cliente falso |
+| 4 | Una fila cargada aparece con el total de la vista | ✅ Visto con filas de prueba |
+| 5–6 | `ui/` no importa Supabase; se lee de la vista | ✅ Lo verifica `arquitectura.test.ts` |
+| 7 | La patente se lee parado, con una mano | ✅ Visto a 390 px |
+| 8 | El sitio publicado carga | ❌ **Pages todavía no está prendido** |
+
+**Dos cosas donde el código se apartó de esta spec**, y no son decisiones sino deudas:
+
+- **Muestra los días, calculados en el navegador** (`diasDesde`), cuando esta spec decía mostrar la
+  fecha hasta que la base derive `dias_desde_presupuesto`. Va contra el principio III.
+- **No oculta los no concretados** (RF-309). Con la base vacía no se nota.
+
+Las dos quedan anotadas en `ESTADO.md` como decisiones abiertas. Como la spec está cerrada, no se
+arreglan ampliándola: o se corrige el código para que cumpla lo que ya está escrito, o se deja.
