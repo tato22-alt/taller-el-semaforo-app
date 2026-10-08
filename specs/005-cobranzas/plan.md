@@ -95,7 +95,8 @@ migración, que tiene que dar `FALLA`: así se sabe que la verificación detecta
 | `datos/comprobantes.ts` | Crea la `importacion`, inserta de a 500 sin duplicar (`ON CONFLICT DO NOTHING`) y le pregunta a la base cuántas quedaron nuevas. No es una transacción: si se corta a mitad, reimportar completa lo que faltó. **Hecho** |
 | Pantalla **Importar** | Se sube el CSV y se ve "N para importar, M con problemas" y la lista de los que no entran; al importar, "N nuevas · M ya estaban". Pide el CUIT emisor (validado con su dígito verificador) y desde la segunda vez lo propone, sacándolo de la última importación. **Hecha y usada con datos reales el 2026-10-08:** dos archivos de ARCA (ene-2025 → oct-2026), 528 comprobantes, ninguno con problemas; reimportar uno dio **0 nuevas** (criterio 3) |
 | Pantalla **Ficha de compañía** | **En espera (2026-10-08).** Las fichas las carga Luciano con un SQL que arma otra IA a partir de la lista de receptores; con las fichas cargadas así, la pantalla sólo serviría para corregir alguna. Vuelve cuando haga falta editarlas seguido |
-| `arquitectura.test.ts` | **Cambiado en el commit de la primera escritura**: la app escribe sólo `importacion` y `comprobante`, cada escritura pegada a su tabla, y sólo desde `datos/` |
+| Pantalla **Revisar** (notas) | **Adelantada de la fase 2 el 2026-10-08**, porque usa sólo lo que la fase 1 ya tiene. Las notas de crédito ambiguas (elegir cuál de las facturas del mismo importe anula), las que no tienen candidata (elegir cuál ajustan) y las notas de débito (elegir qué NC revierten: es el criterio de la ND 001). Cada decisión es una fila en `comprobante_vinculo`; deshacerla es borrarla. Probada en Chromium con una base simulada |
+| `arquitectura.test.ts` | **Cambiado en el commit de la primera escritura**: la app escribe sólo `importacion` y `comprobante` (y `comprobante_vinculo` desde Revisar), cada escritura pegada a su tabla, y sólo desde `datos/` |
 
 ---
 

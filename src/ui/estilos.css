@@ -216,3 +216,18 @@ body {
 
 .problemas h3 { margin: 0 0 0.5rem; font-size: 1rem; }
 .problemas ul { margin: 0; padding-left: 1.2rem; display: grid; gap: 0.3rem; font-size: 0.9rem; }
+
+/* Revisar notas de crédito y débito. */
+.revisar { display: grid; gap: 1.25rem; }
+.revisar h2 { margin: 0; font-size: 1.1rem; }
+.revisar h3 { margin: 0 0 0.6rem; font-size: 1rem; }
+.revisar section { display: grid; gap: 0.6rem; }
+.nota p { margin: 0 0 0.5rem; }
+.opciones, .notas { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.5rem; font-size: 0.9rem; }
+.opciones li { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+.opciones button, .nota > button { margin-left: auto; padding: 0.4rem 0.8rem; border: 0; border-radius: 6px; background: var(--acento); color: #fff; font: inherit; cursor: pointer; }
+.nota > button { margin-left: 0; }
+.opciones button:disabled, .nota > button:disabled { opacity: 0.6; cursor: default; }
+.notas li { overflow-wrap: anywhere; }
+.notas .enlace { margin-left: 0.5rem; }
+details summary { cursor: pointer; color: var(--acento); margin-bottom: 0.5rem; }
