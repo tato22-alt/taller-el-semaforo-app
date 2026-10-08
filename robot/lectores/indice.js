@@ -19,6 +19,8 @@ function lectores() {
     { dominio: 'nacion-seguros.com.ar', asunto: /aviso de pago/i, leer: leerNacion },
     { dominio: 'sancristobal.com.ar', asunto: /aviso de pago/i, leer: leerSanCristobal },
     { dominio: 'sancorseguros.com', asunto: /comprobante de pago/i, leer: leerSancor },
+    { dominio: 'galiciaseguros.com.ar', asunto: /informaci[oó]n de pago/i, leer: leerGalicia },
+    { dominio: 'cobranzas.com', asunto: /caja de ahorro/i, leer: leerLaCaja },
   ]
 }
 

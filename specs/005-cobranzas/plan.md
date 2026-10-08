@@ -107,7 +107,7 @@ base**: escribe en una planilla de la cuenta de Google del taller.
 | | Detalle |
 |---|---|
 | `robot/barrido.js` | Busca en Gmail los mails de los remitentes de la pestaña *remitentes* y los *Enviados* con asunto `factura n°…`. Cada mail se guarda una vez (lo que ya está en la planilla se saltea), con el texto de sus PDF (Drive los convierte; el documento temporal se borra). Corta a los 4 minutos y medio y la corrida siguiente sigue. `releer` vuelve a leer todo sin ir a Gmail (RF-508) |
-| `robot/lectores/` | Funciones puras, una por compañía, con versión. Leen el cuerpo del mail (**Federación Patronal**), el asunto (**La Segunda**) o el texto del PDF (**LPS, Río Uruguay, Nación, San Cristóbal** en sus dos formatos, **Sancor**). Cada línea dice la factura o el siniestro, su bruto y su neto; cada retención, su impuesto, importe y certificado |
+| `robot/lectores/` | Funciones puras, una por compañía, con versión. Leen el cuerpo del mail (**Federación Patronal**), el asunto (**La Segunda**) o el texto del PDF (**LPS, Río Uruguay, Nación, San Cristóbal** en sus dos formatos, **Sancor**). **Galicia/SURA** y **La Caja** (por el aviso de cobranzas.com, que sólo dice que hubo un pago) se sumaron después, a partir del relevamiento de plataformas de Luciano. Cada línea dice la factura o el siniestro, su bruto y su neto; cada retención, su impuesto, importe y certificado |
 | `robot/lectores.test.ts` | Los lectores contra mails y PDF **inventados** con la forma de los reales, y tres reglas estructurales: el manifiesto pide exactamente cuatro permisos, ningún archivo llama a nada que mande, borre o modifique un mail (R1), y `robot.gs` —lo que se pega en Apps Script— es exactamente lo que se testeó |
 
 **Decisiones que tomé al escribirlo, para que las discutas:**
@@ -126,6 +126,9 @@ base**: escribe en una planilla de la cuenta de Google del taller.
   que hace el robot y no la guarda: la usa para desconfiar de su propia lectura (R6, RF-506). Ya
   sirvió: en Río Uruguay, el número de una resolución ("RG 2854") quedaba pegado a un total y el
   lector lo tomaba por el importe; el control lo marcó antes de que llegara a ninguna parte.
+- **Los enlaces que inician sesión en un portal no se guardan.** El aviso de cobranzas.com trae uno
+  que entra sin clave durante días. El barrido reemplaza toda URL con un token antes de escribir
+  (R2), y un test lo verifica.
 - **Del PDF se lee la orden, no los certificados**, salvo cuando la orden no desglosa las
   retenciones (Río Uruguay, San Cristóbal). Los certificados repiten lo mismo: leer los dos
   contaría dos veces.

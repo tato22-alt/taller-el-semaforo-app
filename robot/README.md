@@ -26,13 +26,19 @@ Supabase. Lo que no entiende queda a la vista, nunca se descarta en silencio.
 | Nación | El PDF: cada factura con su bruto, sus retenciones con certificado y su neto | **Sí** |
 | San Cristóbal | El PDF, en sus dos formatos: el recibo a proveedor (con factura y bruto) y el de indemnización (sólo siniestro y neto) | Sí en el primero; en el segundo no hay bruto |
 | Sancor | El PDF "Orden de Pago General": cada factura con su siniestro y su bruto, las retenciones y el total | **Sí** |
+| Galicia / SURA | El cuerpo del mail: lo transferido y las facturas. Cuando sólo nombra la orden, las facturas están en un PDF que todavía no se lee | No |
+| La Caja | El aviso de cobranzas.com: sólo que hubo un pago, su número de liquidación y la fecha. El detalle está en el portal | No |
 
 **El control de cierre** es la manera que tiene un lector de desconfiar de sí mismo: si el aviso
 dice el bruto, tiene que ser lo transferido más las retenciones, al centavo. Si no da, lo leído no
 se da por bueno: el aviso queda como `no_cierra`, con la diferencia escrita. Así, cuando una
 compañía cambie el formato de su PDF, el error se ve en vez de pasar como un pago.
 
-Cooperación, Provincia, Allianz y Mercantil todavía no tienen lector: sus mails se guardan igual
+**Los enlaces de acceso no se guardan.** Algunos avisos (cobranzas.com) traen un link que entra al
+portal sin pedir clave. El robot lo reemplaza por *[enlace de acceso quitado por el robot]* antes
+de escribir la planilla: es una credencial, y la regla es no guardar ninguna (R2).
+
+Cooperación, Provincia, Allianz, Mercantil y los acuses de Zurich (Grant) todavía no tienen lector: sus mails se guardan igual
 (`sin_lector`) y se leen cuando lo tengan.
 
 ## Instalarlo (una vez, ~10 minutos)
