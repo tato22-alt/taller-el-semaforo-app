@@ -527,6 +527,42 @@ export type Database = {
         }
         Relationships: []
       }
+      /* M4: lo emitido por emisor, mes y tipo. Los numeric llegan como string. */
+      vw_arqueo_arca: {
+        Row: {
+          cuit_emisor: string | null
+          mes: string | null
+          tipo_codigo: number | null
+          tipo_nombre: string | null
+          clase: string | null
+          moneda: string | null
+          cantidad: number | null
+          neto_gravado: number | null
+          iva: number | null
+          total: number | null
+          total_con_signo: number | null
+        }
+        Relationships: []
+      }
+      /* M4: cada nota de crédito con su factura y su estado (P9). */
+      vw_nc_candidatas: {
+        Row: {
+          id_nota: number | null
+          nota_punto_venta: number | null
+          nota_numero: number | null
+          nota_fecha: string | null
+          cuit_receptor: string | null
+          receptor_nombre: string | null
+          total: number | null
+          id_factura: number | null
+          factura_punto_venta: number | null
+          factura_numero: number | null
+          factura_fecha: string | null
+          candidatas: number | null
+          estado: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       /* El número lo asigna la base, nunca el navegador. Quema el número al pedirlo:

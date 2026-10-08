@@ -29,7 +29,7 @@ function sinComentarios(sql: string): string {
   return sql.replace(/--.*$/gm, '')
 }
 
-function nombresCreados(sql: string, objeto: 'table' | 'function'): readonly string[] {
+function nombresCreados(sql: string, objeto: 'table' | 'function' | 'view'): readonly string[] {
   const patron = new RegExp(`create\\s+(?:or\\s+replace\\s+)?${objeto}\\s+(?:public\\.)?(\\w+)`, 'gi')
   return [...sinComentarios(sql).matchAll(patron)].map((m) => (m[1] ?? '').toLowerCase())
 }
@@ -49,6 +49,17 @@ describe('migraciones de cobranzas en adelante', () => {
         expect(contiene(sql, `alter table ${tabla} enable row level security`), `${nombre}: ${tabla} sin enable RLS`).toBe(true)
         expect(contiene(sql, `alter table ${tabla} force row level security`), `${nombre}: ${tabla} sin force RLS`).toBe(true)
         expect(contiene(sql, `revoke all on ${tabla} from anon`), `${nombre}: ${tabla} sin revoke a anon`).toBe(true)
+      }
+    }
+  })
+
+  it('toda vista nueva evalúa la RLS de quien consulta y le revoca todo a anon', () => {
+    // Sin security_invoker, una vista se evalúa con los permisos de quien la creó y se saltea
+    // la RLS entera: es la forma clásica de abrir una tabla cerrada sin darse cuenta.
+    for (const { nombre, sql } of migracionesMedidas()) {
+      for (const vista of nombresCreados(sql, 'view')) {
+        expect(contiene(sql, `create (or replace )?view ${vista} with \\(security_invoker = true\\)`), `${nombre}: ${vista} sin security_invoker`).toBe(true)
+        expect(contiene(sql, `revoke all on ${vista} from anon`), `${nombre}: ${vista} sin revoke a anon`).toBe(true)
       }
     }
   })
