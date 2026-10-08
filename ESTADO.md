@@ -133,6 +133,10 @@ src/
 
 ---
 
+## Investigación del 2026-10-08
+
+Qué conviene automatizar después del robot de pagos, medido contra 21 meses de correo: [`specs/005-cobranzas/automatizaciones-evaluadas.md`](specs/005-cobranzas/automatizaciones-evaluadas.md). La más valiosa no estaba en la spec: **autos reparados y no facturados** (28 órdenes de trabajo de más de 45 días sin factura visible, entre las compañías que reciben la factura por mail). Espera que Luciano revise esos casos.
+
 ## Decisiones abiertas
 
 | Qué | Recomendación |
