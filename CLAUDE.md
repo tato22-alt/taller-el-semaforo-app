@@ -164,7 +164,7 @@ src/             LA APP
   ui/          componentes y pantallas. No conoce supabase.
   app.tsx
 specs/           las specs de la app
-robot/           el Apps Script de cobranzas (fase 0; todavía no existe)
+robot/           el Apps Script de cobranzas (fase 0): lectores puros con tests, y el barrido de Gmail
 base/            LA BASE (subtree, con su propia historia)
   supabase/migrations/   el esquema. 23 migraciones
   specs/                 las specs del modelo de datos

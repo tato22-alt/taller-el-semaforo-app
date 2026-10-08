@@ -1,0 +1,293 @@
+/* El barrido de Gmail. Plan 005, fase 0: el corpus, sin tocar la base.
+ *
+ * Es lo único que habla con Google. Corre dentro de la cuenta del taller, ligado a una planilla,
+ * y escribe ahí, en pestañas:
+ *   remitentes   de quién se esperan avisos de pago (se edita a mano; es un dato, no código)
+ *   avisos       cada mail de esos remitentes, una vez, con su cuerpo y el texto de sus PDF
+ *   lineas       qué factura nombra cada aviso, y cuánto, según su lector
+ *   retenciones  las retenciones que informa cada aviso
+ *   enviados     las facturas que mandó el taller, con el asunto estándar
+ *
+ * Permisos (appsscript.json): leer Gmail, crear archivos propios en Drive, escribir en esta
+ * planilla, y llamar a la API de Drive para sacar el texto de los PDF. Ninguno deja mandar,
+ * borrar ni modificar un mail (R1): no es una promesa, es lo que Google le autoriza.
+ *
+ * Se puede correr todas las veces que se quiera: un mail que ya está en la planilla se saltea.
+ * Cada corrida para a los 4 minutos y medio (Apps Script corta a los 6) y la siguiente sigue
+ * donde quedó. */
+
+const DESDE = '2025/01/01'
+const ZONA = 'America/Argentina/Buenos_Aires'
+const LIMITE_MS = 4.5 * 60 * 1000
+/** Una celda de Sheets admite 50.000 caracteres. */
+const MAX_CELDA = 49000
+
+const COLUMNAS = {
+  remitentes: ['remitente', 'compañía'],
+  avisos: ['message_id', 'fecha', 'remitente', 'asunto', 'cuerpo', 'pdfs', 'texto_pdf', 'lector', 'version', 'estado', 'motivo'],
+  lineas: ['message_id', 'fecha_aviso', 'remitente', 'tipo', 'op', 'fecha_pago', 'factura_como_dice', 'punto_venta', 'numero', 'neto', 'transferido_en_el_aviso', 'lector', 'version'],
+  retenciones: ['message_id', 'certificado', 'concepto', 'impuesto', 'importe'],
+  enviados: ['message_id', 'fecha', 'para', 'asunto', 'tipo', 'factura', 'siniestro', 'orden_de_compra'],
+}
+
+/* Los remitentes conocidos el 2026-10-08. Se cargan en la pestaña sólo si está vacía; de ahí en
+ * más manda la pestaña. Son casillas automáticas de las compañías, no de personas. */
+const REMITENTES_INICIALES = [
+  ['no_responder@fedpat.com.ar', 'Federación Patronal'],
+  ['enviosautomaticos@lasegunda.com.ar', 'La Segunda'],
+  ['pagossc@sancristobal.com.ar', 'San Cristóbal'],
+  ['noresponder@lps.com.ar', 'LPS'],
+  ['no-responder@lps.com.ar', 'LPS'],
+  ['nacion-seguros@nacion-seguros.com.ar', 'Nación'],
+  ['noresponder@cooperacionseguros.com.ar', 'Cooperación'],
+  ['retenciones.rus@riouruguay.com.ar', 'Río Uruguay'],
+  ['infoproveedores@sancorseguros.com', 'Sancor'],
+  ['applebsp@pseguros.com.ar', 'Provincia'],
+  ['proveedoresmdp@allianz.com.ar', 'Allianz'],
+  ['help@allianz.com.ar', 'Allianz'],
+  ['no-responder@mail.lamercantil.flowable-managed.com', 'Mercantil Andina'],
+]
+
+/* ------------------------------------------------------------------------------------------- */
+/* Lo que se corre                                                                              */
+/* ------------------------------------------------------------------------------------------- */
+
+/** Trae de Gmail lo nuevo. Es la función del disparador horario. */
+function barrer() {
+  const inicio = Date.now()
+  const hojas = prepararHojas()
+  const remitentes = leerRemitentes(hojas.remitentes)
+  if (remitentes.length === 0) throw new Error('La pestaña "remitentes" está vacía.')
+
+  const nuevosAvisos = barrerConsulta(
+    `from:(${remitentes.join(' OR ')}) after:${DESDE}`,
+    idsGuardados(hojas.avisos),
+    (id) => guardarAviso(id, hojas),
+    inicio,
+  )
+  const nuevosEnvios = barrerConsulta(
+    `in:sent subject:"factura n" after:${DESDE}`,
+    idsGuardados(hojas.enviados),
+    (id) => guardarEnvio(id, hojas),
+    inicio,
+  )
+  console.log(`Avisos nuevos: ${nuevosAvisos.guardados}. Envíos nuevos: ${nuevosEnvios.guardados}.` +
+    (nuevosAvisos.cortado || nuevosEnvios.cortado ? ' Quedan más: la próxima corrida sigue.' : ' Al día.'))
+}
+
+/**
+ * Vuelve a leer todos los avisos de la planilla con los lectores de hoy, sin ir a Gmail (RF-508).
+ * Se corre a mano después de corregir o agregar un lector. Rehace "lineas" y "retenciones".
+ */
+function releer() {
+  const hojas = prepararHojas()
+  vaciar(hojas.lineas)
+  vaciar(hojas.retenciones)
+  const filas = hojas.avisos.getDataRange().getValues().slice(1)
+  const lineas = []
+  const retenciones = []
+  filas.forEach((f, i) => {
+    const aviso = { id: String(f[0]), fecha: String(f[1]), remitente: String(f[2]) }
+    const leido = leerAviso({ remitente: aviso.remitente, asunto: String(f[3]), cuerpo: String(f[4]), textoPdf: String(f[6]) })
+    hojas.avisos.getRange(i + 2, 8, 1, 4).setValues([estadoDe(leido)])
+    lineas.push(...filasDeLineas(aviso, leido))
+    retenciones.push(...filasDeRetenciones(aviso.id, leido))
+  })
+  agregar(hojas.lineas, lineas)
+  agregar(hojas.retenciones, retenciones)
+  console.log(`Releídos ${filas.length} avisos: ${lineas.length} líneas, ${retenciones.length} retenciones.`)
+}
+
+/* ------------------------------------------------------------------------------------------- */
+/* Gmail                                                                                        */
+/* ------------------------------------------------------------------------------------------- */
+
+function barrerConsulta(consulta, vistos, guardar, inicio) {
+  let pagina
+  let guardados = 0
+  do {
+    const r = Gmail.Users.Messages.list('me', { q: consulta, maxResults: 100, pageToken: pagina })
+    for (const m of r.messages || []) {
+      if (vistos.has(m.id)) continue
+      if (Date.now() - inicio > LIMITE_MS) return { guardados, cortado: true }
+      guardar(m.id)
+      vistos.add(m.id)
+      guardados++
+    }
+    pagina = r.nextPageToken
+  } while (pagina)
+  return { guardados, cortado: false }
+}
+
+function guardarAviso(id, hojas) {
+  const msg = Gmail.Users.Messages.get('me', id, { format: 'full' })
+  const partes = aplanar(msg.payload)
+  const aviso = { id, fecha: fechaDe(msg), remitente: encabezado(msg, 'From') }
+  const asunto = encabezado(msg, 'Subject')
+  const cuerpo = cuerpoDe(partes)
+
+  // Los PDF van a Drive, y se les saca el texto. Se reconocen por la extensión, nunca por el tipo
+  // MIME: hay compañías que los mandan como application/octet-stream (spec 005 §5.3).
+  const nombres = []
+  const textos = []
+  for (const p of partes.filter((p) => p.filename && /\.pdf$/i.test(p.filename))) {
+    const blob = Utilities.newBlob(bytesDe(id, p), 'application/pdf', p.filename)
+    Drive.Files.create({ name: `${aviso.fecha.slice(0, 10)} ${p.filename}`, parents: [carpetaDeLosPdf()] }, blob)
+    nombres.push(p.filename)
+    textos.push(textoDePdf(blob))
+  }
+  const textoPdf = textos.join('\n\n----- siguiente PDF -----\n\n')
+
+  const leido = leerAviso({ remitente: aviso.remitente, asunto, cuerpo, textoPdf })
+  agregar(hojas.avisos, [[id, aviso.fecha, aviso.remitente, asunto, cortar(cuerpo), nombres.join('\n'), cortar(textoPdf), ...estadoDe(leido)]])
+  agregar(hojas.lineas, filasDeLineas(aviso, leido))
+  agregar(hojas.retenciones, filasDeRetenciones(id, leido))
+}
+
+function guardarEnvio(id, hojas) {
+  const msg = Gmail.Users.Messages.get('me', id, { format: 'metadata', metadataHeaders: ['Subject', 'To'] })
+  const asunto = encabezado(msg, 'Subject')
+  const e = leerAsuntoEnvio(asunto)
+  agregar(hojas.enviados, [[id, fechaDe(msg), encabezado(msg, 'To'), asunto,
+    e ? e.tipo : 'otro', e ? e.factura : '', e && e.siniestro ? e.siniestro : '', e && e.ordenCompra ? e.ordenCompra : '']])
+}
+
+function encabezado(msg, nombre) {
+  const h = (msg.payload.headers || []).find((x) => x.name.toLowerCase() === nombre.toLowerCase())
+  return h ? h.value : ''
+}
+
+function fechaDe(msg) {
+  return Utilities.formatDate(new Date(Number(msg.internalDate)), ZONA, 'yyyy-MM-dd HH:mm')
+}
+
+function aplanar(parte) {
+  return [parte, ...(parte.parts || []).flatMap(aplanar)]
+}
+
+/** El servicio de Gmail devuelve los datos en base64 "web-safe"; según la versión, ya decodificados. */
+function aBytes(data) {
+  return typeof data === 'string' ? Utilities.base64DecodeWebSafe(data) : data
+}
+
+function bytesDe(id, parte) {
+  if (parte.body.data) return aBytes(parte.body.data)
+  return aBytes(Gmail.Users.Messages.Attachments.get('me', id, parte.body.attachmentId).data)
+}
+
+/** El texto plano del mail, en su codificación (hay compañías que mandan Latin-1). Si sólo hay HTML, sin etiquetas. */
+function cuerpoDe(partes) {
+  const texto = partes.find((p) => p.mimeType === 'text/plain' && p.body && p.body.data && !p.filename)
+  if (texto) return decodificar(texto)
+  const html = partes.find((p) => p.mimeType === 'text/html' && p.body && p.body.data && !p.filename)
+  if (!html) return ''
+  return decodificar(html)
+    .replace(/<(br|\/p|\/div|\/tr)[^>]*>/gi, '\n')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/[ \t]+/g, ' ')
+}
+
+function decodificar(parte) {
+  const tipo = ((parte.headers || []).find((h) => h.name.toLowerCase() === 'content-type') || { value: '' }).value
+  const charset = (/charset="?([\w-]+)/i.exec(tipo) || [])[1] || 'UTF-8'
+  return Utilities.newBlob(aBytes(parte.body.data)).getDataAsString(charset)
+}
+
+/* ------------------------------------------------------------------------------------------- */
+/* Drive                                                                                        */
+/* ------------------------------------------------------------------------------------------- */
+
+/** La carpeta de los PDF. La crea la primera vez y guarda su id en las propiedades del script. */
+function carpetaDeLosPdf() {
+  const props = PropertiesService.getScriptProperties()
+  let id = props.getProperty('carpeta_pdf')
+  if (!id) {
+    id = Drive.Files.create({ name: 'Cobranzas · avisos de pago (robot)', mimeType: 'application/vnd.google-apps.folder' }).id
+    props.setProperty('carpeta_pdf', id)
+  }
+  return id
+}
+
+/**
+ * El texto de un PDF: Drive lo convierte en un documento de Google (con OCR si es una imagen), se
+ * exporta como texto y el documento temporal se borra. Si falla, el aviso se guarda igual, con el
+ * error en lugar del texto: un PDF ilegible no puede frenar el barrido.
+ */
+function textoDePdf(blob) {
+  let doc
+  try {
+    doc = Drive.Files.create({ name: 'temporal-ocr', mimeType: 'application/vnd.google-apps.document' }, blob, { ocrLanguage: 'es' })
+    const r = UrlFetchApp.fetch(`https://www.googleapis.com/drive/v3/files/${doc.id}/export?mimeType=text/plain`, {
+      headers: { Authorization: `Bearer ${ScriptApp.getOAuthToken()}` },
+      muteHttpExceptions: true,
+    })
+    return r.getResponseCode() === 200 ? r.getContentText('UTF-8') : `[no se pudo leer el PDF: HTTP ${r.getResponseCode()}]`
+  } catch (e) {
+    return `[no se pudo leer el PDF: ${e.message}]`
+  } finally {
+    if (doc) Drive.Files.remove(doc.id)
+  }
+}
+
+/* ------------------------------------------------------------------------------------------- */
+/* La planilla                                                                                  */
+/* ------------------------------------------------------------------------------------------- */
+
+function prepararHojas() {
+  const libro = SpreadsheetApp.getActive()
+  const hojas = {}
+  for (const [nombre, columnas] of Object.entries(COLUMNAS)) {
+    let hoja = libro.getSheetByName(nombre)
+    if (!hoja) {
+      hoja = libro.insertSheet(nombre)
+      hoja.appendRow(columnas)
+      hoja.setFrozenRows(1)
+      // Todo como texto: que Sheets no convierta "0002" en 2 ni "1234567.89" en otra cosa.
+      hoja.getRange('A:Z').setNumberFormat('@')
+    }
+    hojas[nombre] = hoja
+  }
+  if (hojas.remitentes.getLastRow() < 2) agregar(hojas.remitentes, REMITENTES_INICIALES)
+  return hojas
+}
+
+function leerRemitentes(hoja) {
+  return hoja.getDataRange().getValues().slice(1).map((f) => String(f[0]).trim()).filter((r) => r.includes('@'))
+}
+
+function idsGuardados(hoja) {
+  return new Set(hoja.getDataRange().getValues().slice(1).map((f) => String(f[0])))
+}
+
+function agregar(hoja, filas) {
+  if (filas.length === 0) return
+  hoja.getRange(hoja.getLastRow() + 1, 1, filas.length, filas[0].length).setValues(filas)
+}
+
+function vaciar(hoja) {
+  if (hoja.getLastRow() > 1) hoja.getRange(2, 1, hoja.getLastRow() - 1, hoja.getLastColumn()).clearContent()
+}
+
+function cortar(texto) {
+  return texto.length > MAX_CELDA ? texto.slice(0, MAX_CELDA) + '\n[… cortado: no entra en una celda]' : texto
+}
+
+function estadoDe(leido) {
+  return leido.estado === 'leido'
+    ? [leido.lector, leido.version, 'leido', '']
+    : [leido.lector || '', leido.version || '', leido.estado, leido.motivo]
+}
+
+function filasDeLineas(aviso, leido) {
+  if (leido.estado !== 'leido') return []
+  return leido.lineas.map((l) => [aviso.id, aviso.fecha, aviso.remitente, leido.tipo, leido.op || '', leido.fechaPago || '',
+    l.factura.texto, l.factura.puntoVenta === null ? '' : l.factura.puntoVenta, l.factura.numero, l.neto || '',
+    leido.importeTransferido || '', leido.lector, leido.version])
+}
+
+function filasDeRetenciones(id, leido) {
+  if (leido.estado !== 'leido') return []
+  return leido.retenciones.map((r) => [id, r.certificado || '', r.concepto, r.impuesto, r.importe])
+}
