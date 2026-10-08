@@ -21,7 +21,7 @@ pueden viajar en el mismo commit, y la definición de un número vive en un solo
 
 | | |
 |---|---|
-| **Base de datos** (`base/`) | ✅ Aplicada y verificada — 20 migraciones, 57/57 verificaciones, RLS activa y forzada |
+| **Base de datos** (`base/`) | ✅ Aplicada y verificada — 21 migraciones, 57/57 verificaciones, RLS activa y forzada |
 | **Herramienta de presupuestos** | ✅ En producción, emitiendo contra la base |
 | **Esta aplicación** (raíz) | 🟡 Login y tablero leyendo la base, probados de punta a punta. 44 tests en verde. Todavía no está publicada |
 
@@ -132,7 +132,7 @@ src/                     la aplicación
   ui/        componentes y pantallas. No conoce Supabase
 specs/                   las specs de la aplicación
 base/                    el modelo de datos
-  supabase/migrations/   el esquema, 20 migraciones
+  supabase/migrations/   el esquema, 21 migraciones
   specs/                 las specs del modelo
   docs/                  diccionario de datos
   .specify/memory/       la constitución: diez principios no negociables

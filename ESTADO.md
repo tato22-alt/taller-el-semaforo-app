@@ -14,7 +14,7 @@ supuesto.
 
 | Pieza | Qué es | Estado real |
 |---|---|---|
-| **`base/`** en este repo<br>(subtree de `gestion-taller-sql-server`) | La base de datos. **Es también la API**, vía PostgREST | ✅ **Funcionando y verificada.** 4 tablas, 2 vistas, 0 triggers, **20 migraciones** (la 20 es M1, roles: sólo una sesión con rol `persona` entra a las tablas del presupuesto). RLS activa y forzada, `anon` revocado. **Ya tiene presupuestos reales**, emitidos desde la herramienta (visto el 2026-10-08 en el sitio publicado). El talonario de papel terminó en el 15999; la numeración digital arranca en el 16000 |
+| **`base/`** en este repo<br>(subtree de `gestion-taller-sql-server`) | La base de datos. **Es también la API**, vía PostgREST | ✅ **Funcionando y verificada.** 4 tablas, 2 vistas, 0 triggers, **21 migraciones** (la 20 es M1, roles; la 21 es M2, las fichas de compañía y los tipos de comprobante). RLS activa y forzada, `anon` revocado. **Ya tiene presupuestos reales**, emitidos desde la herramienta (visto el 2026-10-08 en el sitio publicado). El talonario de papel terminó en el 15999; la numeración digital arranca en el 16000 |
 | **`semaforo-presupuesto`** | La herramienta de presupuestos, **en producción**. Se queda en su repo | ✅ **Conectada y en uso.** Emite, numera con `fn_proximo_numero_presupuesto()`, tiene historial con buscador, y su ficha interna escribe `no_concretado` y `origen` |
 | **La app** (la raíz de este repo) | Login y tablero | 🟡 **Lee la base de punta a punta.** Login contra Supabase Auth y tablero leyendo `vw_presupuestos`, **probado el 2026-10-07**. **Cero escrituras**, y un test lo verifica. 44 tests en verde. **Publicada en https://tato22-alt.github.io/taller-el-semaforo-app/** desde el 2026-10-08: Luciano entró desde el sitio y vio los presupuestos reales |
 
@@ -87,7 +87,7 @@ Uno por vez, y cada uno termina cuando **se vio funcionar**, no cuando está esc
 | 1.7 | ~~Las cuatro preguntas que bloqueaban la spec 005 (P1 a P4)~~ | ✅ **Contestadas el 2026-10-07** | Ver la spec 005 §8 y §9 |
 | 2 | ~~Prender Pages~~ | ✅ **Hecho y visto el 2026-10-08** | Source en *GitHub Actions*, las dos variables cargadas, corrida #5 en verde. Cada push a `main` publica solo, y sólo si pasan los tests |
 | 3 | **Pasar la planilla de la conciliación manual** (P12) | Luciano | Es el juego de datos de prueba: sin ella, "llega a los $171 M al peso" no se puede verificar contra nada |
-| 4 | **Fase 1 de cobranzas** — **aprobada el 2026-10-08.** Plan en `specs/005-cobranzas/plan.md`. **M1 (roles) aplicada y verificada el 2026-10-08: 12 de 12 ok** contra la base real, con 27 presupuestos (una persona ve los 27; el robot y una sesión sin rol, ninguno). Sigue M2, M3, M4 y las pantallas Importar y Ficha de compañía | Luciano aplica, Claude construye | **Va antes que la fase 0** (decisión del 2026-10-07): no depende de nada y da el total contra el que se mide todo lo demás |
+| 4 | **Fase 1 de cobranzas** — **aprobada el 2026-10-08.** Plan en `specs/005-cobranzas/plan.md`. **M1 (roles) aplicada y verificada el 2026-10-08: 12 de 12 ok** contra la base real, con 27 presupuestos (una persona ve los 27; el robot y una sesión sin rol, ninguno). M2 (datos maestros) aplicada y verificada el mismo día, 12 de 12. Siguen M3, M4 y las pantallas Importar y Ficha de compañía | Luciano aplica, Claude construye | **Va antes que la fase 0** (decisión del 2026-10-07): no depende de nada y da el total contra el que se mide todo lo demás |
 | 5 | **Fase 0:** extender el Apps Script para que guarde `gmail_message_id`, remitente, asunto y **texto extraído**. El código vive en `robot/` de este repo, **sin datos reales** | Claude, con tu cuenta. **Antes: N3** (repo público y datos de terceros) | Es el corpus contra el que se escriben los doce parsers |
 | 6 | **Fase 2:** parsers e imputaciones (A2, A3) + pantalla **Revisar** | Claude | El núcleo. Acá entra la plata |
 | 7 | **Fase 3:** el semáforo y las tareas (A8, A7) | Claude | No estrena tablas: son vistas |
@@ -112,7 +112,7 @@ ESTADO.md                        Este archivo
 .specify/memory/constitution.md  Puntero a base/.specify/memory/constitution.md
 base/                            LA BASE DE DATOS (subtree, 52 commits propios)
   .specify/memory/constitution.md  Los diez principios (v3.0.1). Vinculantes para todo el repo
-  supabase/migrations/             El esquema: 20 migraciones
+  supabase/migrations/             El esquema: 21 migraciones
   specs/                           Las specs del modelo de datos
   docs/diccionario-datos.md        Qué es cada tabla y cada columna
 specs/README.md                  Cómo se trabaja con SDD y el estado de cada spec
