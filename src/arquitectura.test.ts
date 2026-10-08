@@ -77,13 +77,38 @@ describe('lo que esta app no escribe', () => {
   // lo que el CLAUDE.md prohíbe de verdad. Queda más estricta que antes, no más floja.
   const capasQueTocanLaBase = () => [...archivosDe('datos'), ...archivosDe('ui'), join(RAIZ, 'app.tsx')]
 
-  it('no escribe nada: ni insert, ni update, ni upsert, ni delete', () => {
-    // Hoy esta app es de sólo lectura. El día que tenga un hecho propio que registrar
-    // —marcar no concretado, un cobro— este test va a fallar, y está bien: obliga a que
-    // la excepción se decida y se escriba acá con nombre, en vez de aparecer sola.
-    const escrituras = /\.(insert|update|upsert|delete)\s*\(/
+  /* Hasta el 2026-10-08 esta regla decía "no escribe nada", y avisaba que el día que la app
+   * registrara un hecho propio iba a fallar a propósito. Falló con la importación de ARCA, y se
+   * reemplazó por la que decidió Luciano (spec 005, P4): la app escribe sólo tablas de cobranzas,
+   * nunca las de la herramienta de presupuestos. La lista de abajo es la única puerta: una tabla
+   * nueva que la app escriba tiene que agregarse acá, con nombre, en el mismo commit. */
+  const TABLAS_QUE_ESCRIBE = new Set(['importacion', 'comprobante'])
+  const ESCRITURA = /\.(insert|update|upsert|delete)\s*\(/g
+  const ESCRITURA_ENCADENADA = /\.from\(\s*['"`](\w+)['"`]\s*\)\s*\.(insert|update|upsert|delete)\s*\(/g
+
+  it('escribe sólo tablas de cobranzas, nunca las de la herramienta', () => {
     for (const archivo of capasQueTocanLaBase()) {
-      expect(readFileSync(archivo, 'utf8'), archivo).not.toMatch(escrituras)
+      const codigo = readFileSync(archivo, 'utf8')
+      for (const [, tabla] of codigo.matchAll(ESCRITURA_ENCADENADA)) {
+        expect(TABLAS_QUE_ESCRIBE.has(tabla ?? ''), `${archivo} escribe ${tabla}`).toBe(true)
+      }
+    }
+  })
+
+  it('toda escritura dice a qué tabla va, en la misma línea de código', () => {
+    // Sin esto, alguien podría guardar from('trabajos') en una variable y escribir después,
+    // y la regla de arriba no lo vería. Cada escritura tiene que ir pegada a su from().
+    for (const archivo of capasQueTocanLaBase()) {
+      const codigo = readFileSync(archivo, 'utf8')
+      const escrituras = [...codigo.matchAll(ESCRITURA)].length
+      const encadenadas = [...codigo.matchAll(ESCRITURA_ENCADENADA)].length
+      expect(encadenadas, `${archivo}: hay una escritura sin su from() pegado`).toBe(escrituras)
+    }
+  })
+
+  it('sólo datos/ escribe: ui/ nunca', () => {
+    for (const archivo of [...archivosDe('ui'), join(RAIZ, 'app.tsx')]) {
+      expect(readFileSync(archivo, 'utf8'), archivo).not.toMatch(ESCRITURA)
     }
   })
 

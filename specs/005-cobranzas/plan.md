@@ -91,8 +91,8 @@ migración, que tiene que dar `FALLA`: así se sabe que la verificación detecta
 
 | | Detalle |
 |---|---|
-| `dominio/arca.ts` | Lector **puro** del CSV de Mis Comprobantes → filas tipadas, o un error por renglón. Con tests sobre CSV sintéticos |
-| `datos/comprobantes.ts` | Crea la `importacion`, inserta sin duplicar y devuelve leídas y nuevas |
-| Pantalla **Importar** | Se sube el CSV y se ve "leídas N · nuevas N"; la segunda vez, "nuevas 0" |
+| `dominio/arca.ts` | Lector **puro** del CSV de Mis Comprobantes → filas tipadas, o un error por renglón. Con tests sobre CSV sintéticos. **Hecho**, probado además contra renglones reales fuera del repo |
+| `datos/comprobantes.ts` | Crea la `importacion`, inserta de a 500 sin duplicar (`ON CONFLICT DO NOTHING`) y le pregunta a la base cuántas quedaron nuevas. No es una transacción: si se corta a mitad, reimportar completa lo que faltó. **Hecho** |
+| Pantalla **Importar** | Se sube el CSV y se ve "N para importar, M con problemas" y la lista de los que no entran; al importar, "N nuevas · M ya estaban". Pide el CUIT emisor (validado con su dígito verificador) y desde la segunda vez lo propone, sacándolo de la última importación. **Hecha el 2026-10-08**, vista funcionando en Chromium contra una base simulada; falta verla con el archivo y la base reales |
 | Pantalla **Ficha de compañía** | Ver y editar la ficha |
-| `arquitectura.test.ts` | En el commit de la primera escritura pasa de "no escribe nada" a "no escribe `trabajos`, `trabajo_items`, `clientes` ni `vehiculos`" |
+| `arquitectura.test.ts` | **Cambiado en el commit de la primera escritura**: la app escribe sólo `importacion` y `comprobante`, cada escritura pegada a su tabla, y sólo desde `datos/` |
