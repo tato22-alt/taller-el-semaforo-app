@@ -34,11 +34,19 @@ dice el bruto, tiene que ser lo transferido más las retenciones, al centavo. Si
 se da por bueno: el aviso queda como `no_cierra`, con la diferencia escrita. Así, cuando una
 compañía cambie el formato de su PDF, el error se ve en vez de pasar como un pago.
 
+**Los acuses van aparte.** "Recibimos tu factura" (Nación, Zurich por Grant), "tu factura fue
+aprobada" (Mercantil, con la fecha estimada de pago) y "la fecha de pago es el …" (Allianz) no
+son pagos: van a la pestaña **acuses**, nunca a *lineas*. Sirven para saber en qué anda cada
+factura, pero no suman a lo cobrado (R3).
+
+**Las claves tampoco se guardan.** Hay compañías que mandan el usuario y la clave del portal por
+mail. El robot reemplaza lo que sigue a "contraseña" o "clave" antes de escribir la planilla.
+
 **Los enlaces de acceso no se guardan.** Algunos avisos (cobranzas.com) traen un link que entra al
 portal sin pedir clave. El robot lo reemplaza por *[enlace de acceso quitado por el robot]* antes
 de escribir la planilla: es una credencial, y la regla es no guardar ninguna (R2).
 
-Cooperación, Provincia, Allianz, Mercantil y los acuses de Zurich (Grant) todavía no tienen lector: sus mails se guardan igual
+Cooperación y Provincia todavía no tienen lector de pagos: sus mails se guardan igual
 (`sin_lector`) y se leen cuando lo tengan.
 
 ## Instalarlo (una vez, ~10 minutos)
@@ -74,11 +82,13 @@ como esa cuenta y sólo ve lo que esa cuenta ve.
   - `no_cierra`: se leyó, pero el bruto no es lo transferido más las retenciones. El **motivo**
     dice cuánto falta. Hay que mirarlo.
   - `no_entendido`: tiene lector, pero el mail no tuvo la forma esperada. El **motivo** dice por qué.
+  - `acuse`: no es un pago; el **motivo** dice de qué tipo (`acuse`, `aprobacion`, `fecha_prometida`, `autorespuesta`).
   - `sin_lector`: esa compañía todavía no tiene lector. El mail queda guardado y se lee cuando lo tenga.
 - **lineas** · qué factura (o, en San Cristóbal, qué siniestro) nombra cada aviso, con su bruto y
   su neto. Si un pago cubre varias facturas y el aviso no dice cuánto se transfirió por cada una,
   `neto` queda vacío: el robot no reparte plata por su cuenta.
 - **retenciones** · las que informa el aviso, con su certificado.
+- **acuses** · lo que una compañía dijo de una factura sin pagarla: la recibió, la aprobó, o prometió una fecha.
 - **enviados** · las facturas mandadas: número, siniestro u orden de compra. `respuesta` es un
   "Re:" o un reenvío, no un envío nuevo.
 - **remitentes** · de quién se esperan avisos. **Se edita acá**: si una compañía empieza a

@@ -1,6 +1,111 @@
 // El robot de cobranzas. ARCHIVO ARMADO: no se edita acá. Se edita en robot/ del repo y se
 // vuelve a armar con `node robot/armar.mjs`. Se pega entero en el editor de Apps Script.
 
+// ===== lectores/acuses.js =====
+
+/* Acuses: los mails que dicen algo de una factura pero NO son un pago (R3).
+ *
+ * "Recibimos tu factura", "tu factura fue aprobada", "la fecha de pago es el …". Sirven para
+ * saber en qué anda cada factura y qué reclamar, pero nunca suman al cobrado. Por eso no salen
+ * como un pago: salen como `acuse`, y el barrido los escribe en su propia pestaña, separada de las
+ * líneas de pago. En la base van a ir a la tabla `acuse` (spec §4.3), que no es la de los pagos.
+ *
+ * Tipos, los de la spec: acuse (la recibieron), aprobacion (la aprobaron), fecha_prometida
+ * (dicen cuándo pagan) y autorespuesta (un "recibimos su mail" que no nombra ninguna factura). */
+
+/**
+ * @typedef {'acuse' | 'aprobacion' | 'fecha_prometida' | 'autorespuesta'} TipoAcuse
+ * @typedef {{
+ *   estado: 'acuse', lector: string, version: number, tipo: TipoAcuse,
+ *   factura: FacturaCitada | null, siniestro: string | null, monto: string | null,
+ *   fechaPrometida: string | null, referencia: string | null
+ * }} AcuseLeido
+ */
+
+const VERSION_ACUSES = 1
+
+/**
+ * @param {string} lector
+ * @param {TipoAcuse} tipo
+ * @param {Partial<Omit<AcuseLeido, 'estado' | 'lector' | 'version' | 'tipo'>>} datos
+ * @returns {AcuseLeido}
+ */
+function acuse(lector, tipo, datos) {
+  return { estado: 'acuse', lector, version: VERSION_ACUSES, tipo, factura: null, siniestro: null, monto: null, fechaPrometida: null, referencia: null, ...datos }
+}
+
+/**
+ * La factura del asunto estándar del taller, cuando el acuse es una respuesta a ese mail.
+ * @param {string} asunto
+ * @returns {FacturaCitada | null}
+ */
+function facturaDelAsunto(asunto) {
+  const e = leerAsuntoEnvio(asunto)
+  return e ? { texto: `factura n°${e.factura}`, puntoVenta: null, numero: e.factura } : null
+}
+
+/**
+ * Nación: "Ingreso de Factura N° 0002-00001234 … bajo el Nro de Trámite 00700000".
+ * @param {Mail} mail
+ * @returns {AcuseLeido | AvisoNoLeido}
+ */
+function leerAcuseNacion(mail) {
+  const f = /Ingreso de Factura N\S* ?(\d{4})-(\d{8})/i.exec(mail.asunto)
+  if (!f) return noEntendido('acuse-nacion', VERSION_ACUSES, 'El asunto no tiene la forma "Ingreso de Factura N° 0002-00001234".')
+  const tramite = /Tr\S*mite:? ?(\d+)/i.exec(mail.cuerpo)
+  return acuse('acuse-nacion', 'acuse', {
+    factura: { texto: `${f[1]}-${f[2]}`, puntoVenta: Number(f[1]), numero: Number(f[2]) },
+    referencia: tramite ? `trámite ${tramite[1]}` : null,
+  })
+}
+
+/**
+ * Mercantil Andina: "Tu Factura A0002-00001234 ha sido aprobada", con monto, siniestro y la fecha
+ * estimada de pago ("2026-10-14").
+ * @param {Mail} mail
+ * @returns {AcuseLeido | AvisoNoLeido}
+ */
+function leerAcuseMercantil(mail) {
+  const f = /Factura ([A-C])(\d{4})-(\d{8}) ha sido aprobada/i.exec(mail.asunto)
+  if (!f) return noEntendido('acuse-mercantil', VERSION_ACUSES, 'El asunto no tiene la forma "Tu Factura A0002-00001234 ha sido aprobada".')
+  const cuerpo = mail.cuerpo.replace(/\s+/g, ' ')
+  const monto = /monto \$ ?(\d[\d.,]*\d)/i.exec(cuerpo)
+  const siniestro = /siniestro Nro\.? ?(\d+)/i.exec(cuerpo)
+  const fecha = /fecha estimada de pago es (\d{4}-\d{2}-\d{2})/i.exec(cuerpo)
+  return acuse('acuse-mercantil', 'aprobacion', {
+    factura: { texto: `${f[1]}${f[2]}-${f[3]}`, puntoVenta: Number(f[2]), numero: Number(f[3]) },
+    siniestro: siniestro ? (siniestro[1] ?? null) : null,
+    monto: monto ? aImporte(monto[1] ?? '') : null,
+    fechaPrometida: fecha ? (fecha[1] ?? null) : null,
+  })
+}
+
+/**
+ * Allianz: la respuesta automática ("Respuesta Automatica") y la que da la fecha de pago, que
+ * responde al mail de la factura: "Les informamos que la fecha de pago es el 20-08-2026".
+ * @param {Mail} mail
+ * @returns {AcuseLeido | AvisoNoLeido}
+ */
+function leerAcuseAllianz(mail) {
+  if (/respuesta autom/i.test(mail.asunto)) return acuse('acuse-allianz', 'autorespuesta', {})
+  const fecha = /fecha de pago es el (\d{2}-\d{2}-\d{4})/i.exec(mail.cuerpo)
+  if (!fecha) return noEntendido('acuse-allianz', VERSION_ACUSES, 'No dice una fecha de pago ("la fecha de pago es el dd-mm-aaaa").')
+  return acuse('acuse-allianz', 'fecha_prometida', { factura: facturaDelAsunto(mail.asunto), fechaPrometida: aFecha(fecha[1] ?? '') })
+}
+
+/**
+ * Zurich, por Grant: "Recibimos tu factura … para su proceso de pago", como respuesta al mail de
+ * la factura. Los demás mails de esa casilla (habilitaciones de siniestro, accesos) no son acuses.
+ * @param {Mail} mail
+ * @returns {AcuseLeido | AvisoNoLeido}
+ */
+function leerAcuseGrant(mail) {
+  if (!/recibimos tu factura/i.test(mail.cuerpo)) {
+    return { estado: 'sin_lector', lector: null, version: null, motivo: 'Mail de Grant que no es un acuse de factura.' }
+  }
+  return acuse('acuse-grant', 'acuse', { factura: facturaDelAsunto(mail.asunto) })
+}
+
 // ===== lectores/comun.js =====
 
 /* Lo que comparten los lectores de avisos de pago. Spec 005 §5.3 · Plan 005, fase 0.
@@ -352,10 +457,15 @@ function fechaConMes(dia, mes, anio) {
  * Script los archivos se cargan en orden y los lectores están en otros archivos. */
 
 /**
- * @returns {readonly { readonly dominio: string, readonly asunto: RegExp, readonly leer: (mail: Mail) => AvisoLeido | AvisoNoLeido }[]}
+ * @returns {readonly { readonly dominio: string, readonly asunto: RegExp, readonly leer: (mail: Mail) => AvisoLeido | AcuseLeido | AvisoNoLeido }[]}
  */
 function lectores() {
   return [
+    // Acuses primero: un acuse nunca tiene que caer en un lector de pagos (R3).
+    { dominio: 'nacion-seguros.com.ar', asunto: /ingreso de factura/i, leer: leerAcuseNacion },
+    { dominio: 'flowable-managed.com', asunto: /ha sido aprobada/i, leer: leerAcuseMercantil },
+    { dominio: 'allianz.com.ar', asunto: /respuesta autom|factura n/i, leer: leerAcuseAllianz },
+    { dominio: 'grant.com.ar', asunto: /factura n/i, leer: leerAcuseGrant },
     { dominio: 'fedpat.com.ar', asunto: /dep[oó]sito de transferencia/i, leer: leerFedPatronal },
     { dominio: 'lasegunda.com.ar', asunto: /retenciones factura/i, leer: leerLaSegunda },
     { dominio: 'lps.com.ar', asunto: /orden de pago/i, leer: leerLps },
@@ -371,7 +481,7 @@ function lectores() {
 /**
  * Lee un mail con el lector de su compañía. Si no hay lector, lo dice.
  * @param {Mail} mail
- * @returns {AvisoLeido | AvisoNoLeido}
+ * @returns {AvisoLeido | AcuseLeido | AvisoNoLeido}
  */
 function leerAviso(mail) {
   const direccion = direccionDe(mail.remitente)
@@ -870,6 +980,7 @@ function leerSancor(mail) {
  *   avisos       cada mail de esos remitentes, una vez, con su cuerpo y el texto de sus PDF
  *   lineas       qué factura (o siniestro) nombra cada aviso, bruto y neto, y si el aviso cierra
  *   retenciones  las retenciones que informa cada aviso
+ *   acuses       "recibimos / aprobamos tu factura", "la fecha de pago es…": NO son pagos (R3)
  *   enviados     las facturas que mandó el taller, con el asunto estándar
  *
  * Permisos (appsscript.json): leer Gmail, crear archivos propios en Drive, escribir en esta
@@ -891,6 +1002,7 @@ const COLUMNAS = {
   avisos: ['message_id', 'fecha', 'remitente', 'asunto', 'cuerpo', 'pdfs', 'texto_pdf', 'lector', 'version', 'estado', 'motivo', 'control'],
   lineas: ['message_id', 'fecha_aviso', 'remitente', 'tipo', 'op', 'fecha_pago', 'factura_como_dice', 'punto_venta', 'numero', 'siniestro', 'bruto', 'neto', 'neto_del_aviso', 'control', 'lector', 'version'],
   retenciones: ['message_id', 'certificado', 'concepto', 'impuesto', 'importe'],
+  acuses: ['message_id', 'fecha', 'remitente', 'tipo', 'factura_como_dice', 'punto_venta', 'numero', 'siniestro', 'monto', 'fecha_prometida', 'referencia', 'lector'],
   enviados: ['message_id', 'fecha', 'para', 'asunto', 'tipo', 'factura', 'siniestro', 'orden_de_compra'],
 }
 
@@ -950,19 +1062,23 @@ function releer() {
   const hojas = prepararHojas()
   vaciar(hojas.lineas)
   vaciar(hojas.retenciones)
+  vaciar(hojas.acuses)
   const filas = hojas.avisos.getDataRange().getValues().slice(1)
   const lineas = []
   const retenciones = []
+  const acuses = []
   filas.forEach((f, i) => {
     const aviso = { id: String(f[0]), fecha: String(f[1]), remitente: String(f[2]) }
     const leido = leerAviso({ remitente: aviso.remitente, asunto: String(f[3]), cuerpo: String(f[4]), textoPdf: String(f[6]) })
     hojas.avisos.getRange(i + 2, 8, 1, 5).setValues([estadoDe(leido)])
     lineas.push(...filasDeLineas(aviso, leido))
     retenciones.push(...filasDeRetenciones(aviso.id, leido))
+    acuses.push(...filasDeAcuses(aviso, leido))
   })
   agregar(hojas.lineas, lineas)
   agregar(hojas.retenciones, retenciones)
-  console.log(`Releídos ${filas.length} avisos: ${lineas.length} líneas, ${retenciones.length} retenciones.`)
+  agregar(hojas.acuses, acuses)
+  console.log(`Releídos ${filas.length} avisos: ${lineas.length} líneas, ${retenciones.length} retenciones, ${acuses.length} acuses.`)
 }
 
 /* ------------------------------------------------------------------------------------------- */
@@ -991,7 +1107,7 @@ function guardarAviso(id, hojas) {
   const partes = aplanar(msg.payload)
   const aviso = { id, fecha: fechaDe(msg), remitente: encabezado(msg, 'From') }
   const asunto = encabezado(msg, 'Subject')
-  const cuerpo = sinEnlacesDeSesion(cuerpoDe(partes))
+  const cuerpo = sinClaves(sinEnlacesDeSesion(cuerpoDe(partes)))
 
   // Los PDF van a Drive, y se les saca el texto. Se reconocen por la extensión, nunca por el tipo
   // MIME: hay compañías que los mandan como application/octet-stream (spec 005 §5.3).
@@ -1009,6 +1125,7 @@ function guardarAviso(id, hojas) {
   agregar(hojas.avisos, [[id, aviso.fecha, aviso.remitente, asunto, cortar(cuerpo), nombres.join('\n'), cortar(textoPdf), ...estadoDe(leido)]])
   agregar(hojas.lineas, filasDeLineas(aviso, leido))
   agregar(hojas.retenciones, filasDeRetenciones(id, leido))
+  agregar(hojas.acuses, filasDeAcuses(aviso, leido))
 }
 
 function guardarEnvio(id, hojas) {
@@ -1063,6 +1180,15 @@ function cuerpoDe(partes) {
  */
 function sinEnlacesDeSesion(texto) {
   return texto.replace(/https?:\/\/[^\s)\]"'<>]*[?&](token|session|sesion|auth|key|clave|pass\w*)=[^\s)\]"'<>]*/gi, '[enlace de acceso quitado por el robot]')
+}
+
+/**
+ * Hay compañías que mandan el usuario y la clave de su portal por mail, en texto plano. El robot no
+ * los guarda (R2): lo que sigue a "contraseña" o "clave" (o su versión en inglés) se reemplaza antes de
+ * escribir la planilla.
+ */
+function sinClaves(texto) {
+  return texto.replace(/\b(contrase(?:ñ|n|\uFFFD)a|clave|pass(?:word)?)\b(\s*(?:provisoria|temporal|de acceso)?\s*[:=]?\s*)\S+/gi, '$1$2[quitada por el robot]')
 }
 
 function decodificar(parte) {
@@ -1152,6 +1278,7 @@ function cortar(texto) {
 
 /** lector, version, estado, motivo, control: las columnas H a L de "avisos". */
 function estadoDe(leido) {
+  if (leido.estado === 'acuse') return [leido.lector, leido.version, 'acuse', leido.tipo, '']
   if (leido.estado === 'leido' || leido.estado === 'no_cierra') {
     return [leido.lector, leido.version, leido.estado, leido.estado === 'no_cierra' ? leido.control.detalle : '', leido.control.resultado]
   }
@@ -1163,6 +1290,13 @@ function filasDeLineas(aviso, leido) {
   return leido.lineas.map((l) => [aviso.id, aviso.fecha, aviso.remitente, leido.tipo, leido.op || '', leido.fechaPago || '',
     l.factura ? l.factura.texto : '', l.factura && l.factura.puntoVenta !== null ? l.factura.puntoVenta : '', l.factura ? l.factura.numero : '',
     l.siniestro || '', l.bruto || '', l.neto || '', leido.neto || '', leido.control.resultado, leido.lector, leido.version])
+}
+
+function filasDeAcuses(aviso, leido) {
+  if (leido.estado !== 'acuse') return []
+  const f = leido.factura
+  return [[aviso.id, aviso.fecha, aviso.remitente, leido.tipo, f ? f.texto : '', f && f.puntoVenta !== null ? f.puntoVenta : '', f ? f.numero : '',
+    leido.siniestro || '', leido.monto || '', leido.fechaPrometida || '', leido.referencia || '', leido.lector]]
 }
 
 function filasDeRetenciones(id, leido) {

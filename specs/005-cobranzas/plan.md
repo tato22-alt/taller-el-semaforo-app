@@ -126,6 +126,12 @@ base**: escribe en una planilla de la cuenta de Google del taller.
   que hace el robot y no la guarda: la usa para desconfiar de su propia lectura (R6, RF-506). Ya
   sirvió: en Río Uruguay, el número de una resolución ("RG 2854") quedaba pegado a un total y el
   lector lo tomaba por el importe; el control lo marcó antes de que llegara a ninguna parte.
+- **Los acuses van en su propia pestaña, nunca con los pagos (R3).** Nación ("Ingreso de Factura"),
+  Mercantil ("ha sido aprobada", con fecha estimada), Allianz ("la fecha de pago es el …") y Zurich
+  por Grant ("recibimos tu factura"). El reparto prueba primero los lectores de acuses, así un
+  acuse no puede caer en un lector de pagos. En la fase 2 van a la tabla `acuse`.
+- **Las claves que llegan por mail no se guardan.** Al menos una compañía mandó usuario y clave de
+  su portal en texto plano; el barrido reemplaza lo que sigue a "contraseña" o "clave" (R2).
 - **Los enlaces que inician sesión en un portal no se guardan.** El aviso de cobranzas.com trae uno
   que entra sin clave durante días. El barrido reemplaza toda URL con un token antes de escribir
   (R2), y un test lo verifica.
