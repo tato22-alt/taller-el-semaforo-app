@@ -6,6 +6,7 @@
  *   avisos       cada mail de esos remitentes, una vez, con su cuerpo y el texto de sus PDF
  *   lineas       qué factura (o siniestro) nombra cada aviso, bruto y neto, y si el aviso cierra
  *   retenciones  las retenciones que informa cada aviso
+ *   acuses       "recibimos / aprobamos tu factura", "la fecha de pago es…": NO son pagos (R3)
  *   enviados     las facturas que mandó el taller, con el asunto estándar
  *
  * Permisos (appsscript.json): leer Gmail, crear archivos propios en Drive, escribir en esta
@@ -27,6 +28,7 @@ const COLUMNAS = {
   avisos: ['message_id', 'fecha', 'remitente', 'asunto', 'cuerpo', 'pdfs', 'texto_pdf', 'lector', 'version', 'estado', 'motivo', 'control'],
   lineas: ['message_id', 'fecha_aviso', 'remitente', 'tipo', 'op', 'fecha_pago', 'factura_como_dice', 'punto_venta', 'numero', 'siniestro', 'bruto', 'neto', 'neto_del_aviso', 'control', 'lector', 'version'],
   retenciones: ['message_id', 'certificado', 'concepto', 'impuesto', 'importe'],
+  acuses: ['message_id', 'fecha', 'remitente', 'tipo', 'factura_como_dice', 'punto_venta', 'numero', 'siniestro', 'monto', 'fecha_prometida', 'referencia', 'lector'],
   enviados: ['message_id', 'fecha', 'para', 'asunto', 'tipo', 'factura', 'siniestro', 'orden_de_compra'],
 }
 
@@ -86,19 +88,23 @@ function releer() {
   const hojas = prepararHojas()
   vaciar(hojas.lineas)
   vaciar(hojas.retenciones)
+  vaciar(hojas.acuses)
   const filas = hojas.avisos.getDataRange().getValues().slice(1)
   const lineas = []
   const retenciones = []
+  const acuses = []
   filas.forEach((f, i) => {
     const aviso = { id: String(f[0]), fecha: String(f[1]), remitente: String(f[2]) }
     const leido = leerAviso({ remitente: aviso.remitente, asunto: String(f[3]), cuerpo: String(f[4]), textoPdf: String(f[6]) })
     hojas.avisos.getRange(i + 2, 8, 1, 5).setValues([estadoDe(leido)])
     lineas.push(...filasDeLineas(aviso, leido))
     retenciones.push(...filasDeRetenciones(aviso.id, leido))
+    acuses.push(...filasDeAcuses(aviso, leido))
   })
   agregar(hojas.lineas, lineas)
   agregar(hojas.retenciones, retenciones)
-  console.log(`Releídos ${filas.length} avisos: ${lineas.length} líneas, ${retenciones.length} retenciones.`)
+  agregar(hojas.acuses, acuses)
+  console.log(`Releídos ${filas.length} avisos: ${lineas.length} líneas, ${retenciones.length} retenciones, ${acuses.length} acuses.`)
 }
 
 /* ------------------------------------------------------------------------------------------- */
@@ -127,7 +133,7 @@ function guardarAviso(id, hojas) {
   const partes = aplanar(msg.payload)
   const aviso = { id, fecha: fechaDe(msg), remitente: encabezado(msg, 'From') }
   const asunto = encabezado(msg, 'Subject')
-  const cuerpo = sinEnlacesDeSesion(cuerpoDe(partes))
+  const cuerpo = sinClaves(sinEnlacesDeSesion(cuerpoDe(partes)))
 
   // Los PDF van a Drive, y se les saca el texto. Se reconocen por la extensión, nunca por el tipo
   // MIME: hay compañías que los mandan como application/octet-stream (spec 005 §5.3).
@@ -145,6 +151,7 @@ function guardarAviso(id, hojas) {
   agregar(hojas.avisos, [[id, aviso.fecha, aviso.remitente, asunto, cortar(cuerpo), nombres.join('\n'), cortar(textoPdf), ...estadoDe(leido)]])
   agregar(hojas.lineas, filasDeLineas(aviso, leido))
   agregar(hojas.retenciones, filasDeRetenciones(id, leido))
+  agregar(hojas.acuses, filasDeAcuses(aviso, leido))
 }
 
 function guardarEnvio(id, hojas) {
@@ -199,6 +206,15 @@ function cuerpoDe(partes) {
  */
 function sinEnlacesDeSesion(texto) {
   return texto.replace(/https?:\/\/[^\s)\]"'<>]*[?&](token|session|sesion|auth|key|clave|pass\w*)=[^\s)\]"'<>]*/gi, '[enlace de acceso quitado por el robot]')
+}
+
+/**
+ * Hay compañías que mandan el usuario y la clave de su portal por mail, en texto plano. El robot no
+ * los guarda (R2): lo que sigue a "contraseña" o "clave" (o su versión en inglés) se reemplaza antes de
+ * escribir la planilla.
+ */
+function sinClaves(texto) {
+  return texto.replace(/\b(contrase(?:ñ|n|\uFFFD)a|clave|pass(?:word)?)\b(\s*(?:provisoria|temporal|de acceso)?\s*[:=]?\s*)\S+/gi, '$1$2[quitada por el robot]')
 }
 
 function decodificar(parte) {
@@ -288,6 +304,7 @@ function cortar(texto) {
 
 /** lector, version, estado, motivo, control: las columnas H a L de "avisos". */
 function estadoDe(leido) {
+  if (leido.estado === 'acuse') return [leido.lector, leido.version, 'acuse', leido.tipo, '']
   if (leido.estado === 'leido' || leido.estado === 'no_cierra') {
     return [leido.lector, leido.version, leido.estado, leido.estado === 'no_cierra' ? leido.control.detalle : '', leido.control.resultado]
   }
@@ -299,6 +316,13 @@ function filasDeLineas(aviso, leido) {
   return leido.lineas.map((l) => [aviso.id, aviso.fecha, aviso.remitente, leido.tipo, leido.op || '', leido.fechaPago || '',
     l.factura ? l.factura.texto : '', l.factura && l.factura.puntoVenta !== null ? l.factura.puntoVenta : '', l.factura ? l.factura.numero : '',
     l.siniestro || '', l.bruto || '', l.neto || '', leido.neto || '', leido.control.resultado, leido.lector, leido.version])
+}
+
+function filasDeAcuses(aviso, leido) {
+  if (leido.estado !== 'acuse') return []
+  const f = leido.factura
+  return [[aviso.id, aviso.fecha, aviso.remitente, leido.tipo, f ? f.texto : '', f && f.puntoVenta !== null ? f.puntoVenta : '', f ? f.numero : '',
+    leido.siniestro || '', leido.monto || '', leido.fechaPrometida || '', leido.referencia || '', leido.lector]]
 }
 
 function filasDeRetenciones(id, leido) {

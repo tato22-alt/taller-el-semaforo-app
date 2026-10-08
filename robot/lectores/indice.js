@@ -8,10 +8,15 @@
  * Script los archivos se cargan en orden y los lectores están en otros archivos. */
 
 /**
- * @returns {readonly { readonly dominio: string, readonly asunto: RegExp, readonly leer: (mail: Mail) => AvisoLeido | AvisoNoLeido }[]}
+ * @returns {readonly { readonly dominio: string, readonly asunto: RegExp, readonly leer: (mail: Mail) => AvisoLeido | AcuseLeido | AvisoNoLeido }[]}
  */
 function lectores() {
   return [
+    // Acuses primero: un acuse nunca tiene que caer en un lector de pagos (R3).
+    { dominio: 'nacion-seguros.com.ar', asunto: /ingreso de factura/i, leer: leerAcuseNacion },
+    { dominio: 'flowable-managed.com', asunto: /ha sido aprobada/i, leer: leerAcuseMercantil },
+    { dominio: 'allianz.com.ar', asunto: /respuesta autom|factura n/i, leer: leerAcuseAllianz },
+    { dominio: 'grant.com.ar', asunto: /factura n/i, leer: leerAcuseGrant },
     { dominio: 'fedpat.com.ar', asunto: /dep[oó]sito de transferencia/i, leer: leerFedPatronal },
     { dominio: 'lasegunda.com.ar', asunto: /retenciones factura/i, leer: leerLaSegunda },
     { dominio: 'lps.com.ar', asunto: /orden de pago/i, leer: leerLps },
@@ -27,7 +32,7 @@ function lectores() {
 /**
  * Lee un mail con el lector de su compañía. Si no hay lector, lo dice.
  * @param {Mail} mail
- * @returns {AvisoLeido | AvisoNoLeido}
+ * @returns {AvisoLeido | AcuseLeido | AvisoNoLeido}
  */
 function leerAviso(mail) {
   const direccion = direccionDe(mail.remitente)

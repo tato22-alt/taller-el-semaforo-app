@@ -263,7 +263,8 @@ describe('Nación (PDF de la orden de pago)', () => {
   })
 
   it('el acuse "Ingreso de Factura" no pasa por el lector de pagos (R3)', () => {
-    expect(leer({ remitente: NACION, asunto: 'Ingreso de Factura N° 1234' }).estado).toBe('sin_lector')
+    const r = leer({ remitente: NACION, asunto: 'Nación Seguros - Ingreso de Factura N° 0002-00001234', cuerpo: 'su factura N? 0002-00001234 ha sido ingresada bajo el Nro de Tr?mite 00000001.' })
+    expect(r).toMatchObject({ estado: 'acuse', tipo: 'acuse', factura: { puntoVenta: 2, numero: 1234 }, referencia: 'trámite 00000001' })
   })
 })
 
@@ -402,6 +403,29 @@ describe('La Caja (aviso de cobranzas.com)', () => {
   })
 })
 
+describe('acuses: dicen algo de una factura, pero no son un pago (R3)', () => {
+  it('Mercantil: factura aprobada, con monto, siniestro y fecha estimada de pago', () => {
+    const r = leer({
+      remitente: 'no-responder@mail.lamercantil.flowable-managed.com',
+      asunto: 'Tu Factura A0002-00001234 ha sido aprobada',
+      cuerpo: 'Te informamos que tu factura A0002-00001234, de monto $ 100.000,00 , correspondiente al siniestro Nro. 500000000001, fue aprobada y la fecha estimada de pago es 2026-10-14.',
+    })
+    expect(r).toMatchObject({ estado: 'acuse', tipo: 'aprobacion', factura: { puntoVenta: 2, numero: 1234 }, siniestro: '500000000001', monto: '100000.00', fechaPrometida: '2026-10-14' })
+  })
+
+  it('Allianz: la fecha de pago, en respuesta al mail de la factura; y la respuesta automática', () => {
+    const r = leer({ remitente: 'proveedoresmdp@allianz.com.ar', asunto: 'RE: factura n°1234 siniestro n°c0001', cuerpo: 'Les informamos que la fecha de pago es el 20-08-2026.' })
+    expect(r).toMatchObject({ estado: 'acuse', tipo: 'fecha_prometida', factura: { numero: 1234 }, fechaPrometida: '2026-08-20' })
+    expect(leer({ remitente: 'proveedoresmdp@allianz.com.ar', asunto: 'Respuesta Automatica' })).toMatchObject({ estado: 'acuse', tipo: 'autorespuesta', factura: null })
+  })
+
+  it('Zurich por Grant: "recibimos tu factura" es un acuse; otro mail de esa casilla, no', () => {
+    expect(leer({ remitente: 'facturacion.zurich@grant.com.ar', asunto: 'Re: factura n°1234 siniestro n°9-1', cuerpo: 'Recibimos tu factura Hola! Te confirmamos que recibimos tu factura para su proceso de pago.' }))
+      .toMatchObject({ estado: 'acuse', tipo: 'acuse', factura: { numero: 1234 } })
+    expect(leer({ remitente: 'facturacion.zurich@grant.com.ar', asunto: 'Re: factura n°1234 siniestro n°9-1', cuerpo: 'Siniestro habilitado en la plataforma.' }).estado).toBe('sin_lector')
+  })
+})
+
 /* ------------------------------------------------------------------------------------------- */
 
 describe('el reparto entre lectores', () => {
@@ -452,6 +476,13 @@ describe('el robot', () => {
     expect(limpio).not.toContain('eyJhbGciOi')
     expect(limpio).toContain('[enlace de acceso quitado por el robot]')
     expect(limpio).toContain('https://www.ejemplo.com/ayuda')
+  })
+
+  it('no guarda claves que una compañía mandó por mail (R2)', () => {
+    const { sinClaves } = runInNewContext(readFileSync(join(CARPETA, 'barrido.js'), 'utf8') + '\n;({ sinClaves })', {}) as { sinClaves: (t: string) => string }
+    const limpio = sinClaves('Usuario taller@ejemplo.com Contraseña Qw7[>9=k2 y Clave: abc123 y password=zz9')
+    expect(limpio).not.toMatch(/Qw7|abc123|zz9/)
+    expect(limpio).toContain('Usuario taller@ejemplo.com')
   })
 
   it('robot.gs, el archivo que se pega, está al día con sus fuentes (node robot/armar.mjs)', () => {
