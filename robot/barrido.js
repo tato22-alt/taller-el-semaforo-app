@@ -4,7 +4,7 @@
  * y escribe ahí, en pestañas:
  *   remitentes   de quién se esperan avisos de pago (se edita a mano; es un dato, no código)
  *   avisos       cada mail de esos remitentes, una vez, con su cuerpo y el texto de sus PDF
- *   lineas       qué factura nombra cada aviso, y cuánto, según su lector
+ *   lineas       qué factura (o siniestro) nombra cada aviso, bruto y neto, y si el aviso cierra
  *   retenciones  las retenciones que informa cada aviso
  *   enviados     las facturas que mandó el taller, con el asunto estándar
  *
@@ -24,8 +24,8 @@ const MAX_CELDA = 49000
 
 const COLUMNAS = {
   remitentes: ['remitente', 'compañía'],
-  avisos: ['message_id', 'fecha', 'remitente', 'asunto', 'cuerpo', 'pdfs', 'texto_pdf', 'lector', 'version', 'estado', 'motivo'],
-  lineas: ['message_id', 'fecha_aviso', 'remitente', 'tipo', 'op', 'fecha_pago', 'factura_como_dice', 'punto_venta', 'numero', 'neto', 'transferido_en_el_aviso', 'lector', 'version'],
+  avisos: ['message_id', 'fecha', 'remitente', 'asunto', 'cuerpo', 'pdfs', 'texto_pdf', 'lector', 'version', 'estado', 'motivo', 'control'],
+  lineas: ['message_id', 'fecha_aviso', 'remitente', 'tipo', 'op', 'fecha_pago', 'factura_como_dice', 'punto_venta', 'numero', 'siniestro', 'bruto', 'neto', 'neto_del_aviso', 'control', 'lector', 'version'],
   retenciones: ['message_id', 'certificado', 'concepto', 'impuesto', 'importe'],
   enviados: ['message_id', 'fecha', 'para', 'asunto', 'tipo', 'factura', 'siniestro', 'orden_de_compra'],
 }
@@ -89,7 +89,7 @@ function releer() {
   filas.forEach((f, i) => {
     const aviso = { id: String(f[0]), fecha: String(f[1]), remitente: String(f[2]) }
     const leido = leerAviso({ remitente: aviso.remitente, asunto: String(f[3]), cuerpo: String(f[4]), textoPdf: String(f[6]) })
-    hojas.avisos.getRange(i + 2, 8, 1, 4).setValues([estadoDe(leido)])
+    hojas.avisos.getRange(i + 2, 8, 1, 5).setValues([estadoDe(leido)])
     lineas.push(...filasDeLineas(aviso, leido))
     retenciones.push(...filasDeRetenciones(aviso.id, leido))
   })
@@ -274,20 +274,22 @@ function cortar(texto) {
   return texto.length > MAX_CELDA ? texto.slice(0, MAX_CELDA) + '\n[… cortado: no entra en una celda]' : texto
 }
 
+/** lector, version, estado, motivo, control: las columnas H a L de "avisos". */
 function estadoDe(leido) {
-  return leido.estado === 'leido'
-    ? [leido.lector, leido.version, 'leido', '']
-    : [leido.lector || '', leido.version || '', leido.estado, leido.motivo]
+  if (leido.estado === 'leido' || leido.estado === 'no_cierra') {
+    return [leido.lector, leido.version, leido.estado, leido.estado === 'no_cierra' ? leido.control.detalle : '', leido.control.resultado]
+  }
+  return [leido.lector || '', leido.version || '', leido.estado, leido.motivo, '']
 }
 
 function filasDeLineas(aviso, leido) {
-  if (leido.estado !== 'leido') return []
+  if (leido.estado !== 'leido' && leido.estado !== 'no_cierra') return []
   return leido.lineas.map((l) => [aviso.id, aviso.fecha, aviso.remitente, leido.tipo, leido.op || '', leido.fechaPago || '',
-    l.factura.texto, l.factura.puntoVenta === null ? '' : l.factura.puntoVenta, l.factura.numero, l.neto || '',
-    leido.importeTransferido || '', leido.lector, leido.version])
+    l.factura ? l.factura.texto : '', l.factura && l.factura.puntoVenta !== null ? l.factura.puntoVenta : '', l.factura ? l.factura.numero : '',
+    l.siniestro || '', l.bruto || '', l.neto || '', leido.neto || '', leido.control.resultado, leido.lector, leido.version])
 }
 
 function filasDeRetenciones(id, leido) {
-  if (leido.estado !== 'leido') return []
+  if (leido.estado !== 'leido' && leido.estado !== 'no_cierra') return []
   return leido.retenciones.map((r) => [id, r.certificado || '', r.concepto, r.impuesto, r.importe])
 }

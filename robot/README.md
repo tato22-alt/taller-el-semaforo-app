@@ -10,9 +10,30 @@ Supabase. Lo que no entiende queda a la vista, nunca se descarta en silencio.
 
 | Archivo | Qué es |
 |---|---|
-| `lectores.js` | Un lector por compañía: funciones puras, con tests (`robot.test.ts`). Hoy: Federación Patronal y La Segunda |
+| `lectores/` | Un lector por compañía, cada uno en su archivo: funciones puras, con tests (`lectores.test.ts`) |
 | `barrido.js` | Lo único que habla con Google: busca en Gmail, guarda los PDF en Drive, les saca el texto, escribe la planilla |
+| `robot.gs` | **Lo que se pega en Apps Script**: todo lo anterior junto en un archivo. Se arma con `node robot/armar.mjs`; un test falla si quedó viejo |
 | `appsscript.json` | Los permisos. **Leer Gmail, nunca mandar ni borrar**: un test verifica que la lista sea ésa y nada más |
+
+### Qué compañías lee, y de dónde
+
+| Compañía | Lee | Control de cierre |
+|---|---|---|
+| Federación Patronal | El cuerpo del mail: fecha, egreso, facturas, lo transferido y las retenciones | No: el mail no trae el bruto |
+| La Segunda | El asunto: el número de factura. Los importes están en el PDF, que todavía no se lee | No |
+| LPS | El PDF: cada factura con su bruto, el SUBTOTAL, las retenciones y el TOTAL | **Sí** |
+| Río Uruguay | El PDF: la factura, el siniestro, el total a pagar y cada certificado con su número | **Sí** |
+| Nación | El PDF: cada factura con su bruto, sus retenciones con certificado y su neto | **Sí** |
+| San Cristóbal | El PDF, en sus dos formatos: el recibo a proveedor (con factura y bruto) y el de indemnización (sólo siniestro y neto) | Sí en el primero; en el segundo no hay bruto |
+| Sancor | El PDF "Orden de Pago General": cada factura con su siniestro y su bruto, las retenciones y el total | **Sí** |
+
+**El control de cierre** es la manera que tiene un lector de desconfiar de sí mismo: si el aviso
+dice el bruto, tiene que ser lo transferido más las retenciones, al centavo. Si no da, lo leído no
+se da por bueno: el aviso queda como `no_cierra`, con la diferencia escrita. Así, cuando una
+compañía cambie el formato de su PDF, el error se ve en vez de pasar como un pago.
+
+Cooperación, Provincia, Allianz y Mercantil todavía no tienen lector: sus mails se guardan igual
+(`sin_lector`) y se leen cuando lo tengan.
 
 ## Instalarlo (una vez, ~10 minutos)
 
@@ -25,8 +46,8 @@ como esa cuenta y sólo ve lo que esa cuenta ve.
    manifiesto "appsscript.json" en el editor**.
 4. Volvé al editor (el ícono `< >`):
    - Abrí `appsscript.json`, borrá todo y pegá el `appsscript.json` de esta carpeta.
-   - Renombrá `Código.gs` a `barrido.gs`, borrá lo que tiene y pegá `barrido.js`.
-   - **＋ → Secuencia de comandos**, llamalo `lectores` y pegá `lectores.js`.
+   - Abrí `Código.gs`, borrá lo que tiene y pegá **`robot.gs`** entero (en GitHub, el botón
+     *Copy raw file* lo copia de una).
    - Guardá (el disquete).
 5. Arriba, elegí la función **`barrer`** y tocá **Ejecutar**.
    - Google pide autorización. Va a decir **"Google no verificó esta app"**: es normal, la app
@@ -41,11 +62,16 @@ como esa cuenta y sólo ve lo que esa cuenta ve.
 
 ## Qué mirar en la planilla
 
-- **avisos** · un renglón por mail. La columna **estado** dice `leido`, `sin_lector` (esa
-  compañía todavía no tiene lector: el mail queda guardado y se va a leer cuando lo tenga) o
-  `no_entendido` (tiene lector, pero el mail no tuvo la forma esperada; el **motivo** dice por qué).
-- **lineas** · qué factura nombra cada aviso. Si un pago cubre varias facturas y el mail no dice
-  cuánto de cada una, `neto` queda vacío: el robot no reparte plata por su cuenta.
+- **avisos** · un renglón por mail. La columna **estado** dice:
+  - `leido`: se entendió. La columna **control** dice si cerró (`cierra`) o si el aviso no trae
+    el bruto (`sin_bruto`).
+  - `no_cierra`: se leyó, pero el bruto no es lo transferido más las retenciones. El **motivo**
+    dice cuánto falta. Hay que mirarlo.
+  - `no_entendido`: tiene lector, pero el mail no tuvo la forma esperada. El **motivo** dice por qué.
+  - `sin_lector`: esa compañía todavía no tiene lector. El mail queda guardado y se lee cuando lo tenga.
+- **lineas** · qué factura (o, en San Cristóbal, qué siniestro) nombra cada aviso, con su bruto y
+  su neto. Si un pago cubre varias facturas y el aviso no dice cuánto se transfirió por cada una,
+  `neto` queda vacío: el robot no reparte plata por su cuenta.
 - **retenciones** · las que informa el aviso, con su certificado.
 - **enviados** · las facturas mandadas: número, siniestro u orden de compra. `respuesta` es un
   "Re:" o un reenvío, no un envío nuevo.
@@ -56,7 +82,7 @@ Los PDF quedan en la carpeta **Cobranzas · avisos de pago (robot)** de ese Driv
 
 ## Cuando se corrige o se agrega un lector
 
-1. Se pega el `lectores.js` nuevo en el editor.
+1. Se pega el `robot.gs` nuevo en el editor, en lugar del anterior.
 2. Se ejecuta **`releer`**: vuelve a leer todos los avisos de la planilla con los lectores
    nuevos, **sin ir a Gmail**, y rehace *lineas* y *retenciones*.
 
