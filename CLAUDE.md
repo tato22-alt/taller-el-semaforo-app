@@ -91,7 +91,7 @@ Cinco reglas que salen de ahí y no se negocian:
   se imprimió y los hechos sobre el trabajo tienen un solo dueño; si esta app también los
   escribiera, habría dos implementaciones de lo mismo comportándose distinto. Lo que esta app
   escribe son tablas del módulo de cobranzas, y sólo las que figuran por nombre en
-  `src/arquitectura.test.ts` (hoy `importacion` y `comprobante`, desde la pantalla Importar). Una
+  `src/arquitectura.test.ts` (hoy `importacion` y `comprobante`, desde la pantalla Importar, y `comprobante_vinculo`, desde Revisar). Una
   tabla nueva que la app escriba se agrega a esa lista en el mismo commit que la escribe, no
   antes: un test que se afloja por adelantado no protege nada.
 

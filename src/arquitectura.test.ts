@@ -82,7 +82,7 @@ describe('lo que esta app no escribe', () => {
    * reemplazó por la que decidió Luciano (spec 005, P4): la app escribe sólo tablas de cobranzas,
    * nunca las de la herramienta de presupuestos. La lista de abajo es la única puerta: una tabla
    * nueva que la app escriba tiene que agregarse acá, con nombre, en el mismo commit. */
-  const TABLAS_QUE_ESCRIBE = new Set(['importacion', 'comprobante'])
+  const TABLAS_QUE_ESCRIBE = new Set(['importacion', 'comprobante', 'comprobante_vinculo'])
   const ESCRITURA = /\.(insert|update|upsert|delete)\s*\(/g
   const ESCRITURA_ENCADENADA = /\.from\(\s*['"`](\w+)['"`]\s*\)\s*\.(insert|update|upsert|delete)\s*\(/g
 
