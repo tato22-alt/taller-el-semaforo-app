@@ -364,6 +364,44 @@ describe('Sancor (PDF "Orden de Pago General")', () => {
   })
 })
 
+describe('Galicia / SURA (cuerpo del mail)', () => {
+  const GALICIA = 'ar-sap@galiciaseguros.com.ar'
+  const cuerpo = (detalle: string) =>
+    ['Se acredita dentro de las 48Hs en su cuenta: $ 125.000,00', '', detalle, '', 'Beneficiario: TALLER DE PRUEBA S.R.L .', '', 'Generación automática del 08 Junio de 2026'].join('\n')
+
+  it('lee el importe, la OP del asunto y las facturas', () => {
+    const r = leer({
+      remitente: GALICIA,
+      asunto: 'Seguros Galicia – Información de Pago OP 170000001',
+      cuerpo: cuerpo('Correspondientes a las facturas detalladas a continuación:\n\n00002A00001234 del 05/06/2026\n\n00002A00001235 del 06/06/2026'),
+    })
+    expect(r).toMatchObject({ estado: 'leido', lector: 'galicia', op: '170000001', fechaPago: '2026-06-08', neto: '125000.00' })
+    expect(r.lineas.map((l) => [l.factura?.numero, l.neto])).toEqual([[1234, null], [1235, null]])
+  })
+
+  it('SURA usa el mismo formato', () => {
+    const r = leer({ remitente: GALICIA, asunto: 'SURA – Información de Pago OP 1700000002 AR10 2025', cuerpo: cuerpo('Correspondientes a las facturas detalladas a continuación:\n00002A00001234 del 05/06/2025') })
+    expect(r.lineas).toEqual([{ factura: { texto: '00002A00001234', puntoVenta: 2, numero: 1234 }, siniestro: null, bruto: null, neto: '125000.00' }])
+  })
+
+  it('si sólo nombra la orden de pago, las facturas están en el PDF: lo dice', () => {
+    const r = leer({ remitente: GALICIA, asunto: 'SURA – Información de Pago OP 1700000003 AR10 2025', cuerpo: cuerpo('Correspondientes a la siguiente Orden de Pago: 1700000003') })
+    expect(r.estado).toBe('no_entendido')
+    expect(r.motivo).toContain('PDF')
+  })
+})
+
+describe('La Caja (aviso de cobranzas.com)', () => {
+  it('anota que hubo un pago, con su liquidación y su fecha; el detalle está en el portal', () => {
+    const r = leer({
+      remitente: 'no-reply@cobranzas.com',
+      asunto: 'Novedad de Caja de Ahorro y Seguro S.A.',
+      cuerpo: '| | ## Pago |\n| | Usted tiene una novedad en un pago de Caja de Ahorro y Seguro S.A.. |\n| Número de Liquidación | 100000000000001 |\n| Fecha de Disponibilidad | 24/08/2026 |',
+    })
+    expect(r).toMatchObject({ estado: 'leido', lector: 'la-caja', op: '100000000000001', fechaPago: '2026-08-24', neto: null, lineas: [] })
+  })
+})
+
 /* ------------------------------------------------------------------------------------------- */
 
 describe('el reparto entre lectores', () => {
@@ -405,6 +443,16 @@ describe('asunto de las facturas enviadas', () => {
 
 describe('el robot', () => {
   const codigo = [...fuentes.map((n) => join('lectores', n)), 'barrido.js', 'robot.gs'].map((n) => ({ nombre: n, texto: readFileSync(join(CARPETA, n), 'utf8') }))
+
+  it('no guarda enlaces que inician sesión en un portal sin clave (R2)', () => {
+    const { sinEnlacesDeSesion } = runInNewContext(readFileSync(join(CARPETA, 'barrido.js'), 'utf8') + '\n;({ sinEnlacesDeSesion })', {}) as {
+      sinEnlacesDeSesion: (t: string) => string
+    }
+    const limpio = sinEnlacesDeSesion('Ingresar[](https://www.portal.example/api/v1/session/fromToken/?utm_source=x&token=eyJhbGciOi.abc.def) | y https://www.ejemplo.com/ayuda queda')
+    expect(limpio).not.toContain('eyJhbGciOi')
+    expect(limpio).toContain('[enlace de acceso quitado por el robot]')
+    expect(limpio).toContain('https://www.ejemplo.com/ayuda')
+  })
 
   it('robot.gs, el archivo que se pega, está al día con sus fuentes (node robot/armar.mjs)', () => {
     expect(readFileSync(join(CARPETA, 'robot.gs'), 'utf8')).toBe(armar())

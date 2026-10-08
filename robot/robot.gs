@@ -275,6 +275,72 @@ function leerFedPatronal(mail) {
   }, null)
 }
 
+// ===== lectores/galicia.js =====
+
+/* Galicia Seguros (y SURA, que es la misma compañía) · el aviso está en el cuerpo del mail.
+ *
+ * Asunto: "Seguros Galicia – Información de Pago OP 170001234" (o "SURA – … OP 1700001234 …").
+ * Cuerpo: "Se acredita dentro de las 48Hs en su cuenta: $ 125.000,00
+ *          Correspondientes a las facturas detalladas a continuación:
+ *          00002A00001234 del 05/06/2026"                              una por factura
+ * o, en vez de las facturas, "Correspondientes a la siguiente Orden de Pago: 1700001234", y el
+ * detalle en el PDF adjunto, cuyo formato todavía no vimos. Ese caso queda `no_entendido`, con el
+ * importe a la vista en el cuerpo guardado. El mail no trae el bruto ni las retenciones. */
+
+const VERSION_GALICIA = 1
+
+/**
+ * @param {Mail} mail
+ * @returns {AvisoLeido | AvisoNoLeido}
+ */
+function leerGalicia(mail) {
+  const lector = 'galicia'
+  const v = VERSION_GALICIA
+  const cuerpo = mail.cuerpo.replace(/\s+/g, ' ')
+  const importe = /en su cuenta: ?\$ ?(\d[\d.,]*\d)/i.exec(cuerpo)
+  if (!importe) return noEntendido(lector, v, 'No encontré el importe ("en su cuenta: $ …").')
+  const neto = aImporte(importe[1] ?? '')
+  if (neto === null) return noEntendido(lector, v, `No entiendo el importe "${importe[1]}".`)
+
+  const facturas = [...cuerpo.matchAll(/(\d{4,5}) ?([A-C]) ?(\d{8}) del (\d{2}\/\d{2}\/\d{4})/g)]
+  if (facturas.length === 0) {
+    return noEntendido(lector, v, 'El mail no nombra las facturas: están en el PDF adjunto, que todavía no sé leer.')
+  }
+  const op = /OP:? ?(\d+)/i.exec(mail.asunto)
+  const generado = /Generaci[oó]n autom[aá]tica del (\d{1,2}) (\w+) de (\d{4})/i.exec(cuerpo)
+
+  return conControl({
+    lector,
+    version: v,
+    tipo: 'pago',
+    op: op ? (op[1] ?? null) : null,
+    // El mail dice cuándo se generó el aviso, no el día exacto de la acreditación: no se inventa.
+    fechaPago: generado ? fechaConMes(generado[1] ?? '', generado[2] ?? '', generado[3] ?? '') : null,
+    neto,
+    lineas: facturas.map((f) => ({
+      factura: { texto: `${f[1]}${f[2]}${f[3]}`, puntoVenta: Number(f[1]), numero: Number(f[3]) },
+      siniestro: null,
+      bruto: null,
+      neto: facturas.length === 1 ? neto : null,
+    })),
+    retenciones: [],
+  }, null)
+}
+
+/**
+ * "8", "Junio", "2026" → "2026-06-08".
+ * @param {string} dia
+ * @param {string} mes
+ * @param {string} anio
+ * @returns {string | null}
+ */
+function fechaConMes(dia, mes, anio) {
+  const meses = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre']
+  const m = meses.indexOf(mes.toLowerCase().replace('setiembre', 'septiembre')) + 1
+  if (m === 0) return null
+  return `${anio}-${String(m).padStart(2, '0')}-${dia.padStart(2, '0')}`
+}
+
 // ===== lectores/indice.js =====
 
 /* A qué lector va cada mail, y el asunto de las facturas enviadas.
@@ -297,6 +363,8 @@ function lectores() {
     { dominio: 'nacion-seguros.com.ar', asunto: /aviso de pago/i, leer: leerNacion },
     { dominio: 'sancristobal.com.ar', asunto: /aviso de pago/i, leer: leerSanCristobal },
     { dominio: 'sancorseguros.com', asunto: /comprobante de pago/i, leer: leerSancor },
+    { dominio: 'galiciaseguros.com.ar', asunto: /informaci[oó]n de pago/i, leer: leerGalicia },
+    { dominio: 'cobranzas.com', asunto: /caja de ahorro/i, leer: leerLaCaja },
   ]
 }
 
@@ -338,6 +406,44 @@ function leerAsuntoEnvio(asunto) {
     siniestro: siniestro ? (siniestro[1] ?? null) : null,
     ordenCompra: orden ? (orden[1] ?? null) : null,
   }
+}
+
+// ===== lectores/la-caja.js =====
+
+/* La Caja (Caja de Ahorro y Seguro S.A.) · avisa por cobranzas.com, y el aviso casi no dice nada.
+ *
+ * "Usted tiene una novedad en un pago de Caja de Ahorro y Seguro S.A.
+ *  Número de Liquidación | 100000000000001
+ *  Fecha de Disponibilidad | 24/08/2026"
+ * No trae importe ni facturas: eso está en el portal de cobranzas.com, y lo que dice un portal lo
+ * carga una persona (N1). El lector anota que hubo un pago, con su número y su fecha, para que
+ * nadie tenga que acordarse de entrar a mirar. Experta, que tiene otro CUIT, puede usar el mismo
+ * portal: el aviso no dice de cuál de las dos es, salvo por el nombre del asunto. */
+
+const VERSION_LA_CAJA = 1
+
+/**
+ * @param {Mail} mail
+ * @returns {AvisoLeido | AvisoNoLeido}
+ */
+function leerLaCaja(mail) {
+  const lector = 'la-caja'
+  const v = VERSION_LA_CAJA
+  const cuerpo = mail.cuerpo.replace(/[|\s]+/g, ' ')
+  const liquidacion = /N[uú]mero de Liquidaci[oó]n (\d+)/i.exec(cuerpo)
+  if (!liquidacion) return noEntendido(lector, v, 'No encontré el número de liquidación.')
+  const disponible = /Fecha de Disponibilidad (\d{2}\/\d{2}\/\d{4})/i.exec(cuerpo)
+
+  return conControl({
+    lector,
+    version: v,
+    tipo: 'pago',
+    op: liquidacion[1] ?? null,
+    fechaPago: disponible ? aFecha(disponible[1] ?? '') : null,
+    neto: null,
+    lineas: [],
+    retenciones: [],
+  }, null)
 }
 
 // ===== lectores/la-segunda.js =====
@@ -804,6 +910,9 @@ const REMITENTES_INICIALES = [
   ['proveedoresmdp@allianz.com.ar', 'Allianz'],
   ['help@allianz.com.ar', 'Allianz'],
   ['no-responder@mail.lamercantil.flowable-managed.com', 'Mercantil Andina'],
+  ['ar-sap@galiciaseguros.com.ar', 'Galicia / SURA'],
+  ['no-reply@cobranzas.com', 'La Caja (portal cobranzas.com)'],
+  ['facturacion.zurich@grant.com.ar', 'Zurich (Grant): acuses de factura'],
 ]
 
 /* ------------------------------------------------------------------------------------------- */
@@ -882,7 +991,7 @@ function guardarAviso(id, hojas) {
   const partes = aplanar(msg.payload)
   const aviso = { id, fecha: fechaDe(msg), remitente: encabezado(msg, 'From') }
   const asunto = encabezado(msg, 'Subject')
-  const cuerpo = cuerpoDe(partes)
+  const cuerpo = sinEnlacesDeSesion(cuerpoDe(partes))
 
   // Los PDF van a Drive, y se les saca el texto. Se reconocen por la extensión, nunca por el tipo
   // MIME: hay compañías que los mandan como application/octet-stream (spec 005 §5.3).
@@ -945,6 +1054,15 @@ function cuerpoDe(partes) {
     .replace(/&nbsp;/g, ' ')
     .replace(/&amp;/g, '&')
     .replace(/[ \t]+/g, ' ')
+}
+
+/**
+ * Algunos avisos traen un enlace que inicia sesión en el portal de la compañía sin pedir clave
+ * (cobranzas.com lo hace, con un token que dura días). Es una credencial: no se guarda (R2). Se
+ * reemplaza cualquier URL que lleve un token, una sesión o una clave en sus parámetros.
+ */
+function sinEnlacesDeSesion(texto) {
+  return texto.replace(/https?:\/\/[^\s)\]"'<>]*[?&](token|session|sesion|auth|key|clave|pass\w*)=[^\s)\]"'<>]*/gi, '[enlace de acceso quitado por el robot]')
 }
 
 function decodificar(parte) {

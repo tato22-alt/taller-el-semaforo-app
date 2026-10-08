@@ -46,6 +46,9 @@ const REMITENTES_INICIALES = [
   ['proveedoresmdp@allianz.com.ar', 'Allianz'],
   ['help@allianz.com.ar', 'Allianz'],
   ['no-responder@mail.lamercantil.flowable-managed.com', 'Mercantil Andina'],
+  ['ar-sap@galiciaseguros.com.ar', 'Galicia / SURA'],
+  ['no-reply@cobranzas.com', 'La Caja (portal cobranzas.com)'],
+  ['facturacion.zurich@grant.com.ar', 'Zurich (Grant): acuses de factura'],
 ]
 
 /* ------------------------------------------------------------------------------------------- */
@@ -124,7 +127,7 @@ function guardarAviso(id, hojas) {
   const partes = aplanar(msg.payload)
   const aviso = { id, fecha: fechaDe(msg), remitente: encabezado(msg, 'From') }
   const asunto = encabezado(msg, 'Subject')
-  const cuerpo = cuerpoDe(partes)
+  const cuerpo = sinEnlacesDeSesion(cuerpoDe(partes))
 
   // Los PDF van a Drive, y se les saca el texto. Se reconocen por la extensión, nunca por el tipo
   // MIME: hay compañías que los mandan como application/octet-stream (spec 005 §5.3).
@@ -187,6 +190,15 @@ function cuerpoDe(partes) {
     .replace(/&nbsp;/g, ' ')
     .replace(/&amp;/g, '&')
     .replace(/[ \t]+/g, ' ')
+}
+
+/**
+ * Algunos avisos traen un enlace que inicia sesión en el portal de la compañía sin pedir clave
+ * (cobranzas.com lo hace, con un token que dura días). Es una credencial: no se guarda (R2). Se
+ * reemplaza cualquier URL que lleve un token, una sesión o una clave en sus parámetros.
+ */
+function sinEnlacesDeSesion(texto) {
+  return texto.replace(/https?:\/\/[^\s)\]"'<>]*[?&](token|session|sesion|auth|key|clave|pass\w*)=[^\s)\]"'<>]*/gi, '[enlace de acceso quitado por el robot]')
 }
 
 function decodificar(parte) {
