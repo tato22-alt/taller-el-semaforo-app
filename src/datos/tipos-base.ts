@@ -339,6 +339,150 @@ export type Database = {
           },
         ]
       }
+      /* M3: una corrida de importación. Las nuevas se cuentan, no se guardan. */
+      importacion: {
+        Row: {
+          id_importacion: number
+          fuente: string
+          archivo_nombre: string
+          archivo_hash: string
+          filas_leidas: number
+          creado_por: string | null
+          creado_en: string
+        }
+        Insert: {
+          id_importacion?: never
+          fuente: string
+          archivo_nombre: string
+          archivo_hash: string
+          filas_leidas: number
+          creado_por?: string | null
+          creado_en?: string
+        }
+        Update: {
+          id_importacion?: never
+          fuente?: string
+          archivo_nombre?: string
+          archivo_hash?: string
+          filas_leidas?: number
+          creado_por?: string | null
+          creado_en?: string
+        }
+        Relationships: []
+      }
+      /* M3: un renglón del libro de ARCA. Los numeric llegan como string (ver filas.ts). */
+      comprobante: {
+        Row: {
+          id_comprobante: number
+          cuit_emisor: string
+          tipo_codigo: number
+          punto_venta: number
+          numero: number
+          fecha_emision: string
+          cuit_receptor: string | null
+          receptor_nombre: string | null
+          moneda: string
+          tipo_cambio: number
+          neto_gravado: number
+          iva: number
+          total: number
+          id_importacion: number
+          creado_en: string
+        }
+        Insert: {
+          id_comprobante?: never
+          cuit_emisor: string
+          tipo_codigo: number
+          punto_venta: number
+          numero: number
+          fecha_emision: string
+          cuit_receptor?: string | null
+          receptor_nombre?: string | null
+          moneda: string
+          tipo_cambio?: number
+          neto_gravado: number
+          iva: number
+          total: number
+          id_importacion: number
+          creado_en?: string
+        }
+        Update: {
+          id_comprobante?: never
+          cuit_emisor?: string
+          tipo_codigo?: number
+          punto_venta?: number
+          numero?: number
+          fecha_emision?: string
+          cuit_receptor?: string | null
+          receptor_nombre?: string | null
+          moneda?: string
+          tipo_cambio?: number
+          neto_gravado?: number
+          iva?: number
+          total?: number
+          id_importacion?: number
+          creado_en?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'comprobante_tipo_codigo_fkey'
+            columns: ['tipo_codigo']
+            isOneToOne: false
+            referencedRelation: 'tipo_comprobante'
+            referencedColumns: ['codigo']
+          },
+          {
+            foreignKeyName: 'comprobante_id_importacion_fkey'
+            columns: ['id_importacion']
+            isOneToOne: false
+            referencedRelation: 'importacion'
+            referencedColumns: ['id_importacion']
+          },
+        ]
+      }
+      /* M3: qué comprobante toca una nota, decidido por una persona. */
+      comprobante_vinculo: {
+        Row: {
+          id_vinculo: number
+          id_origen: number
+          id_destino: number
+          motivo: string
+          confirmado_por: string
+          confirmado_en: string
+        }
+        Insert: {
+          id_vinculo?: never
+          id_origen: number
+          id_destino: number
+          motivo: string
+          confirmado_por?: string
+          confirmado_en?: string
+        }
+        Update: {
+          id_vinculo?: never
+          id_origen?: number
+          id_destino?: number
+          motivo?: string
+          confirmado_por?: string
+          confirmado_en?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'comprobante_vinculo_id_origen_fkey'
+            columns: ['id_origen']
+            isOneToOne: false
+            referencedRelation: 'comprobante'
+            referencedColumns: ['id_comprobante']
+          },
+          {
+            foreignKeyName: 'comprobante_vinculo_id_destino_fkey'
+            columns: ['id_destino']
+            isOneToOne: false
+            referencedRelation: 'comprobante'
+            referencedColumns: ['id_comprobante']
+          },
+        ]
+      }
     }
     Views: {
       /* Las 21 columnas del presupuesto ya derivadas. Es de donde lee esta app.
