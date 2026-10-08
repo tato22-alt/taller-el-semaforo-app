@@ -47,7 +47,7 @@ y acá está escrito por qué".
 | [002](./002-alcance/spec.md) | Alcance y límites — módulo de presupuestos | Vigente, con las correcciones de la 004 §4 |
 | [003](./003-tablero/spec.md) | Tablero | **Cerrada (2026-10-07)** como prueba del stack. No se amplía |
 | [004](./004-frontera/spec.md) | La frontera entre las tres piezas | **Decidida (2026-10-07).** RF-601 reemplazado |
-| [005](./005-cobranzas/spec.md) | **Cobranzas: automatizaciones sobre evidencia** | **Borrador. Es el MVP.** Los cuatro choques de §8 están resueltos. El plan y la auditoría existen y están fuera del repo hasta contestar N3 (repo público) |
+| [005](./005-cobranzas/spec.md) | **Cobranzas: automatizaciones sobre evidencia** | **Borrador. Es el MVP.** Los cuatro choques de §8 están resueltos. [Plan de la fase 1](./005-cobranzas/plan.md) aprobado el 2026-10-08; el plan completo y la auditoría, fuera del repo hasta contestar N3 |
 
 ## Cómo se revisa una spec
 
