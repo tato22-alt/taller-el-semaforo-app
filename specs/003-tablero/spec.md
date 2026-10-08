@@ -6,7 +6,7 @@ duplica el historial de la herramienta; por eso cumplió su función y se congel
 al final
 **Alcance vigente:** `specs/002-alcance/spec.md`
 **Constitución aplicable:** `base/.specify/memory/constitution.md`
-**Base:** `gestion-taller-sql-server` @ `claude/semaforo-taller-system-eroppo` — 4 tablas, 2 vistas, **vacía**
+**Base:** `semaforo-modelo-datos` @ `claude/semaforo-taller-system-eroppo` — 4 tablas, 2 vistas, **vacía**
 
 ---
 

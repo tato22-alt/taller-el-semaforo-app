@@ -11,7 +11,7 @@ retiró: dos constituciones son dos leyes que se pisan, y eso contradice el prin
 cada hecho se registra en un solo lugar. Queda en el historial de git.
 
 **Por qué sigue viviendo bajo `base/` y no acá arriba.** Porque `base/` es un *subtree* de
-`tato22-alt/gestion-taller-sql-server` y conserva su historia: moverlo rompería la
+`tato22-alt/semaforo-modelo-datos` y conserva su historia: moverlo rompería la
 correspondencia con ese repositorio y la posibilidad de sincronizarlos. La constitución manda
 igual sobre todo el repo, esté donde esté el archivo.
 

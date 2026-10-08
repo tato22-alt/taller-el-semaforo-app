@@ -17,7 +17,7 @@ app ya no está sobre la mesa. Las cinco decisiones quedaron cerradas el 2026-10
 
 ## 1. Lo que hay en cada pieza, medido hoy
 
-### La base — `gestion-taller-sql-server`, rama `claude/semaforo-taller-system-eroppo`
+### La base — `semaforo-modelo-datos`, rama `claude/semaforo-taller-system-eroppo`
 
 | | |
 |---|---|

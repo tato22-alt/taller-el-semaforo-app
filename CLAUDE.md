@@ -42,8 +42,9 @@ resto.
 Fuera de esos dos módulos no entra nada. Defendé el alcance activamente: si suena a "podría
 ser útil algún día", no va.
 
-**Estado del modelo:** hoy la base sólo tiene presupuestos. No inventes columnas de datos que
-la base todavía no tiene: las de cobranzas se especifican en `specs/005-cobranzas/` (una sola
+**Estado del modelo:** hoy la base tiene presupuestos y, desde el 2026-10-08, las tablas de la
+fase 1 de cobranzas (roles, fichas de compañía y el libro de ARCA). No inventes columnas de datos
+que la base todavía no tiene: las de cobranzas se especifican en `specs/005-cobranzas/` (una sola
 spec y un solo plan para todo el bloque) y se migran en `base/supabase/migrations/`.
 
 ---
@@ -51,12 +52,21 @@ spec y un solo plan para todo el bloque) y se migran en `base/supabase/migration
 ## El contrato con la base
 
 **La base vive en este mismo repo, bajo `base/`** (mudada el 2026-10-07 desde
-`tato22-alt/gestion-taller-sql-server`, conservando sus 52 commits). Su
+`tato22-alt/semaforo-modelo-datos`, conservando sus 52 commits). Su
 `base/.specify/memory/constitution.md` es vinculante para todo lo que hay acá adentro.
 
 `base/` es un *subtree*, no una copia: mantiene la historia del repo de origen y se puede
 sincronizar con él. **Las migraciones se escriben ahí, no en `src/`**, y se siguen aplicando a
 mano en el editor SQL del panel de Supabase — tener el archivo en el repo no las despliega.
+
+**Dónde manda el esquema (decidido el 2026-10-07).** El repo `semaforo-modelo-datos` —antes
+`gestion-taller-sql-server`— **queda como histórico y no se toca más.** Toda migración nueva se
+escribe en `base/supabase/migrations/` de este repo. Hay una sola razón y es la de siempre: dos
+copias del mismo esquema terminan dejando de coincidir, y la que mande va a ser la que alguien
+recuerde haber editado. Acá hay una sola.
+
+Esto no quiere decir que no haya más migraciones: cobranzas (spec 005) necesita una docena de
+tablas. Quiere decir que se escriben acá.
 
 **No hay backend.** Supabase expone el esquema como REST vía PostgREST. La base *es* la API.
 El robot de cobranzas (un Apps Script que lee Gmail, en `robot/`) no es un backend de la app:

@@ -96,6 +96,9 @@ body {
   display: grid;
   gap: 1rem;
   max-width: 22rem;
+  /* En el celular ocupa todo el ancho; en una pantalla grande queda centrado en
+   * vez de pegado a la izquierda, que es como se veía antes. */
+  margin-inline: auto;
 }
 
 .formulario h2 {
