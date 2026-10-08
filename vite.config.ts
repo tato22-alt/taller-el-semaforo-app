@@ -9,6 +9,6 @@ export default defineConfig({
   test: {
     // El dominio son funciones puras: no hace falta un DOM para probarlas.
     environment: 'node',
-    include: ['src/**/*.test.ts'],
+    include: ['src/**/*.test.ts', 'robot/**/*.test.ts'],
   },
 })

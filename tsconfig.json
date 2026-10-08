@@ -18,7 +18,11 @@
     "skipLibCheck": true,
 
     /* Compila Vite; tsc solo chequea. */
-    "noEmit": true
+    "noEmit": true,
+
+    /* Los lectores del robot son JavaScript (Apps Script no compila TypeScript). Se chequean igual,
+       con JSDoc y // @ts-check; barrido.js no, porque usa los objetos globales de Google. */
+    "allowJs": true
   },
-  "include": ["src", "vite.config.ts"]
+  "include": ["src", "robot/lectores.js", "robot/*.test.ts", "vite.config.ts"]
 }

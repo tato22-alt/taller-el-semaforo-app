@@ -94,5 +94,49 @@ migración, que tiene que dar `FALLA`: así se sabe que la verificación detecta
 | `dominio/arca.ts` | Lector **puro** del CSV de Mis Comprobantes → filas tipadas, o un error por renglón. Con tests sobre CSV sintéticos. **Hecho**, probado además contra renglones reales fuera del repo |
 | `datos/comprobantes.ts` | Crea la `importacion`, inserta de a 500 sin duplicar (`ON CONFLICT DO NOTHING`) y le pregunta a la base cuántas quedaron nuevas. No es una transacción: si se corta a mitad, reimportar completa lo que faltó. **Hecho** |
 | Pantalla **Importar** | Se sube el CSV y se ve "N para importar, M con problemas" y la lista de los que no entran; al importar, "N nuevas · M ya estaban". Pide el CUIT emisor (validado con su dígito verificador) y desde la segunda vez lo propone, sacándolo de la última importación. **Hecha y usada con datos reales el 2026-10-08:** dos archivos de ARCA (ene-2025 → oct-2026), 528 comprobantes, ninguno con problemas; reimportar uno dio **0 nuevas** (criterio 3) |
-| Pantalla **Ficha de compañía** | Ver y editar la ficha |
+| Pantalla **Ficha de compañía** | **En espera (2026-10-08).** Las fichas las carga Luciano con un SQL que arma otra IA a partir de la lista de receptores; con las fichas cargadas así, la pantalla sólo serviría para corregir alguna. Vuelve cuando haga falta editarlas seguido |
 | `arquitectura.test.ts` | **Cambiado en el commit de la primera escritura**: la app escribe sólo `importacion` y `comprobante`, cada escritura pegada a su tabla, y sólo desde `datos/` |
+
+---
+
+## Fase 0 — el corpus (escrita el 2026-10-08)
+
+Lo que el plan completo llama fase 0, ya construido en [`robot/`](../../robot/README.md). **No toca la
+base**: escribe en una planilla de la cuenta de Google del taller.
+
+| | Detalle |
+|---|---|
+| `robot/barrido.js` | Busca en Gmail los mails de los remitentes de la pestaña *remitentes* y los *Enviados* con asunto `factura n°…`. Cada mail se guarda una vez (lo que ya está en la planilla se saltea), con el texto de sus PDF (Drive los convierte; el documento temporal se borra). Corta a los 4 minutos y medio y la corrida siguiente sigue. `releer` vuelve a leer todo sin ir a Gmail (RF-508) |
+| `robot/lectores.js` | Funciones puras, una por compañía, con versión. Hoy **Federación Patronal** (todo en el cuerpo: fecha, egreso, facturas `Fac 2-1234`, lo transferido y la tabla de retenciones) y **La Segunda** (la factura en el asunto; los importes están en el PDF y todavía no se leen) |
+| `robot/robot.test.ts` | Los lectores contra mails **inventados** con la forma de los reales, y dos reglas estructurales: el manifiesto pide exactamente cuatro permisos, y ningún archivo llama a nada que mande, borre o modifique un mail (R1) |
+
+**Decisiones que tomé al escribirlo, para que las discutas:**
+
+- **Gmail por el servicio avanzado, no por `GmailApp`.** `GmailApp` pide el permiso total de Gmail
+  —incluido mandar—, aunque el script sólo lea. El servicio avanzado funciona con `gmail.readonly`.
+  Es lo que el plan pedía verificar en la fase 0 (D7), resuelto sin verificar: ni se intenta.
+- **Los remitentes son una pestaña, no código.** Agregar una casilla es un renglón. En la fase 2
+  pasan a ser `compania.remitentes_aviso`, que ya existe (M2).
+- **Si un pago cubre varias facturas y el mail no dice cuánto de cada una, la línea queda sin
+  importe.** El lector no reparte el total: lo que el mail no dice, no se inventa (D4).
+- **Las retenciones se clasifican por nombre, y ante la duda quedan como `otro`.** "RG. 1784" se
+  toma como SUSS.
+
+**Lo que se vio al mirar los mails reales (sin copiar datos):**
+
+- Hay compañías que mandan el PDF como `application/octet-stream`: el barrido reconoce los PDF por
+  la extensión, como pedía la spec §5.3.
+- Federación Patronal escribe el mismo importe de dos formas según cómo se lea el mail
+  (`1,234,567.89` o `1234567.89`), y en Latin-1. El lector acepta las dos; el barrido respeta la
+  codificación de cada mail.
+- **La Segunda a veces manda el mismo aviso dos veces**, con dos `message_id` distintos. Para la
+  fase 2: la vista que cruza líneas con comprobantes no puede contar dos veces la misma factura del
+  mismo pago. Hoy no hace daño, porque nada suma.
+- Hay un aviso de La Segunda que nombra una factura de dos cifras: no es de la serie A de cuatro cifras.
+  Un número sin punto de venta ni tipo no alcanza para atribuirlo solo: en la fase 2 se cruza por
+  compañía y número, y si hay dos candidatos, va a Revisar.
+
+**Terminado cuando:** está instalado en la cuenta del taller, el barrido llegó a "Al día" con los 21
+meses, y hay una tabla de cuántos avisos hay por remitente y cuántos entendió cada lector. Esa tabla
+ordena los lectores que siguen.
+
