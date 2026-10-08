@@ -18,7 +18,7 @@
  * }} AcuseLeido
  */
 
-const VERSION_ACUSES = 1
+const VERSION_ACUSES = 2
 
 /**
  * @param {string} lector
@@ -84,8 +84,11 @@ function leerAcuseMercantil(mail) {
  */
 function leerAcuseAllianz(mail) {
   if (/respuesta autom/i.test(mail.asunto)) return acuse('acuse-allianz', 'autorespuesta', {})
-  const fecha = /fecha de pago es el (\d{2}-\d{2}-\d{4})/i.exec(mail.cuerpo)
-  if (!fecha) return noEntendido('acuse-allianz', VERSION_ACUSES, 'No dice una fecha de pago ("la fecha de pago es el dd-mm-aaaa").')
+  // Un "RV:" es un reenvío interno de Allianz que nos copió: no es una respuesta al taller.
+  if (/^\s*RV\s*:/i.test(mail.asunto)) return { estado: 'sin_lector', lector: null, version: null, motivo: 'Reenvío interno de Allianz.' }
+  // Escriben la fecha con guiones o con barras: "20-08-2026", "20/11/2025".
+  const fecha = /fecha de pago es el (\d{2}[-/.]\d{2}[-/.]\d{4})/i.exec(mail.cuerpo)
+  if (!fecha) return noEntendido('acuse-allianz', VERSION_ACUSES, 'No dice una fecha de pago ("la fecha de pago es el dd/mm/aaaa"): puede ser un pedido o una observación, y lo mira una persona.')
   return acuse('acuse-allianz', 'fecha_prometida', { factura: facturaDelAsunto(mail.asunto), fechaPrometida: aFecha(fecha[1] ?? '') })
 }
 
