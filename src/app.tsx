@@ -2,6 +2,7 @@ import { usarRuta } from './ui/usarRuta'
 import { usarSesion } from './ui/usarSesion'
 import { Tablero } from './ui/Tablero'
 import { Ficha } from './ui/Ficha'
+import { Importar } from './ui/Importar'
 import { Login } from './ui/Login'
 import { cerrarSesion } from './datos/sesion'
 import { textoDeFallo } from './dominio/resultado'
@@ -14,7 +15,12 @@ export function App() {
     <div className="envoltorio">
       <header className="encabezado">
         <h1>El Semáforo</h1>
-        {estado.fase === 'adentro' && ruta.pantalla !== 'tablero' && <a href="#/">Tablero</a>}
+        {estado.fase === 'adentro' && (
+          <nav className="navegacion">
+            {ruta.pantalla !== 'tablero' && <a href="#/">Tablero</a>}
+            {ruta.pantalla !== 'importar' && <a href="#/importar">Importar facturas</a>}
+          </nav>
+        )}
       </header>
 
       {/* Quién está adentro, siempre a la vista. Con la base vacía, "no hay sesión" y
@@ -43,6 +49,7 @@ export function App() {
         {estado.fase === 'adentro' && ruta.pantalla === 'ficha' && (
           <Ficha idTrabajo={ruta.idTrabajo} />
         )}
+        {estado.fase === 'adentro' && ruta.pantalla === 'importar' && <Importar />}
       </main>
     </div>
   )

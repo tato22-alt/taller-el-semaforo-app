@@ -4,12 +4,13 @@
  * router de history API, refrescar /ficha/12 da 404. El hash lo resuelve porque
  * nunca llega al servidor.
  *
- * Son tres pantallas: una librería de ruteo sería más código de configuración
+ * Son pocas pantallas: una librería de ruteo sería más código de configuración
  * que esto. La decisión de no agregar la dependencia está en el CLAUDE.md. */
 
 export type Ruta =
   | { readonly pantalla: 'tablero' }
   | { readonly pantalla: 'ficha'; readonly idTrabajo: number }
+  | { readonly pantalla: 'importar' }
 
 export const RUTA_INICIAL: Ruta = { pantalla: 'tablero' }
 
@@ -18,6 +19,8 @@ export const RUTA_INICIAL: Ruta = { pantalla: 'tablero' }
 export function rutaDesdeHash(hash: string): Ruta {
   const limpio = hash.replace(/^#\/?/, '')
   const partes = limpio.split('/').filter((p) => p !== '')
+
+  if (partes[0] === 'importar' && partes.length === 1) return { pantalla: 'importar' }
 
   if (partes[0] === 'ficha') {
     const id = Number(partes[1])
@@ -33,5 +36,7 @@ export function hashDeRuta(ruta: Ruta): string {
       return '#/'
     case 'ficha':
       return `#/ficha/${ruta.idTrabajo}`
+    case 'importar':
+      return '#/importar'
   }
 }
