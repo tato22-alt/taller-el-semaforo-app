@@ -84,7 +84,7 @@ migración, que tiene que dar `FALLA`: así se sabe que la verificación detecta
 |---|---|---|
 | **M1** `roles` | `fn_rol()` y `solo_personas` restrictiva en las 4 tablas (D2). Aborta si algún usuario no tiene rol | ✅ **Aplicada y verificada el 2026-10-08:** [`qa-m1-roles.sql`](./qa-m1-roles.sql) dio 12 de 12 ok contra la base real. Prerrequisito: los tres usuarios con `rol: persona` |
 | **M2** `maestros` | `tipo_comprobante` (código de ARCA como clave, 9 tipos cargados), `compania` (CUIT como clave; alias, remitentes de aviso, plazo declarado, canal, URL y usuario de portal, **nunca contraseña**), `compania_requisito`, `regla_facturacion`. Sólo personas. **Sin `retencion_esperada_pct`**: sirve a A9 (fase 5, bloqueada) y depende de P8; entra cuando haya una decisión que la use (principio V) | ✅ **Aplicada y verificada el 2026-10-08:** [`qa-m2-maestros.sql`](./qa-m2-maestros.sql) dio 12 de 12 ok contra la base real. Entra con ella `src/migraciones.test.ts` (D8) |
-| **M3** `comprobantes` | `importacion`, `comprobante` (clave D3), `comprobante_vinculo` | Pendiente |
+| **M3** `comprobantes` | `importacion` (las nuevas se cuentan, no se guardan), `comprobante` (clave D3; CUIT del receptor sólo si ARCA lo da como CUIT; moneda y tipo de cambio para que el arqueo no sume dólares como pesos), `comprobante_vinculo` (sólo decisiones de una persona). **Sin `siniestro_nro` ni `trabajo_id`**: nadie los llena en la fase 1; entran con la fase 2 | ✅ **Aplicada y verificada el 2026-10-08:** [`qa-m3-comprobantes.sql`](./qa-m3-comprobantes.sql) dio 15 de 15 ok contra la base real |
 | **M4** `vistas_arca` | `vw_arqueo_arca` (totales por emisor, tipo y mes), `vw_nc_candidatas` (P9) | Pendiente |
 
 ## La app

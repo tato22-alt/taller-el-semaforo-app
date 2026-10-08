@@ -156,7 +156,7 @@ src/             LA APP
 specs/           las specs de la app
 robot/           el Apps Script de cobranzas (fase 0; todavía no existe)
 base/            LA BASE (subtree, con su propia historia)
-  supabase/migrations/   el esquema. 21 migraciones
+  supabase/migrations/   el esquema. 22 migraciones
   specs/                 las specs del modelo de datos
   docs/                  diccionario de datos
   .specify/memory/constitution.md   LOS DIEZ PRINCIPIOS
