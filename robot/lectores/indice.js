@@ -15,7 +15,7 @@ function lectores() {
     // Acuses primero: un acuse nunca tiene que caer en un lector de pagos (R3).
     { dominio: 'nacion-seguros.com.ar', asunto: /ingreso de factura/i, leer: leerAcuseNacion },
     { dominio: 'flowable-managed.com', asunto: /ha sido aprobada/i, leer: leerAcuseMercantil },
-    { dominio: 'allianz.com.ar', asunto: /respuesta autom|factura n/i, leer: leerAcuseAllianz },
+    { dominio: 'allianz.com.ar', asunto: /respuesta autom|factura\s*(n|:)/i, leer: leerAcuseAllianz },
     { dominio: 'grant.com.ar', asunto: /factura n/i, leer: leerAcuseGrant },
     { dominio: 'fedpat.com.ar', asunto: /dep[oó]sito de transferencia/i, leer: leerFedPatronal },
     { dominio: 'lasegunda.com.ar', asunto: /retenciones factura/i, leer: leerLaSegunda },
@@ -25,7 +25,8 @@ function lectores() {
     { dominio: 'sancristobal.com.ar', asunto: /aviso de pago/i, leer: leerSanCristobal },
     { dominio: 'sancorseguros.com', asunto: /comprobante de pago/i, leer: leerSancor },
     { dominio: 'galiciaseguros.com.ar', asunto: /informaci[oó]n de pago/i, leer: leerGalicia },
-    { dominio: 'cobranzas.com', asunto: /caja de ahorro/i, leer: leerLaCaja },
+    // "Acceso a Caja de Ahorro…" es un cambio de clave, no un pago.
+    { dominio: 'cobranzas.com', asunto: /novedad de caja de ahorro/i, leer: leerLaCaja },
   ]
 }
 
@@ -57,7 +58,8 @@ function leerAviso(mail) {
  * @returns {AsuntoEnvio | null}
  */
 function leerAsuntoEnvio(asunto) {
-  const factura = /factura\s*n\s*[°º.]?\s*(\d+)/i.exec(asunto)
+  // "factura n°3567", y también "Factura: 3567", como lo escribe Allianz al responder.
+  const factura = /factura\s*(?:n\s*[°º.]?|:)\s*(\d+)/i.exec(asunto)
   if (!factura) return null
   const siniestro = /siniestro\s*n\s*[°º.]?\s*(\S+)/i.exec(asunto)
   const orden = /orden de compra\s*n\s*[°º.]?\s*(\S+)/i.exec(asunto)

@@ -154,12 +154,26 @@ base**: escribe en una planilla de la cuenta de Google del taller.
   Un número sin punto de venta ni tipo no alcanza para atribuirlo solo: en la fase 2 se cruza por
   compañía y número, y si hay dos candidatos, va a Revisar.
 
-**Medido contra PDF reales (2026-10-08), fuera del repo:** 10 PDF de 5 compañías bajados por la
-prueba de concepto. 8 cierran al centavo; 1 de San Cristóbal se lee entero pero su formato no trae
-el bruto; 1 de Sancor trae sólo constancias, sin orden, y queda `no_entendido` como corresponde.
-Cooperación, Provincia y el PDF de La Segunda no estaban en esa carpeta: sus lectores se escriben
-contra el corpus. **Ojo:** el texto se sacó con la lectura de Drive, no con la conversión que usa el
-barrido; si las dos difieren, se va a ver en el corpus como `no_entendido` o `no_cierra`.
+**Medido contra datos reales (2026-10-08), fuera del repo.** Los datos no se copian al repo: sólo los
+resultados.
+
+| Qué | Resultado |
+|---|---|
+| 50 PDF de órdenes de pago (LPS, Río Uruguay, Nación, San Cristóbal, Sancor) | **48 cierran al centavo.** Los otros 2 se rechazan a propósito: una orden de Sancor con una nota de crédito adentro (el lector no adivina el signo) y un mail con sólo constancias |
+| 90 avisos de pago por mail (Fed. Patronal, La Segunda, Galicia/SURA, La Caja) | **90 leídos** |
+| 10 respuestas de Allianz con fecha de pago | **10 leídas** como fecha prometida |
+| Lo que no se lee, y está bien que no | Un mail de cambio de clave de cobranzas.com; reenvíos internos de Allianz; dos respuestas de Allianz que piden algo (van a una persona); los mails de Grant que no son acuses |
+
+**Lo que salió de medir, y ya está corregido:** Sancor escribe el punto de venta con 4 o 5 dígitos, a
+veces en la misma orden (el control de cierre lo marcó en 4 PDF); San Cristóbal puede traer dos
+recibos en un PDF, y su bruto se puede controlar con las bases de Ganancias e IVA de sus
+certificados; Allianz escribe la fecha con barras; el asunto de "Seguros Galicia" corta el número de
+orden.
+
+**Lo que falta, y por qué:** Cooperación (19 avisos desde ene-2025) y Provincia (24) sólo mandan PDF,
+y no hay ninguno en el Drive para escribir su lector: los junta el robot cuando se instale. Ojo
+también con La Segunda: manda a veces el mismo aviso dos veces, y nombra facturas de dos cifras que
+no son de la serie A; la fase 2 tiene que contemplar las dos cosas al cruzar con los comprobantes.
 
 **Terminado cuando:** está instalado en la cuenta del taller, el barrido llegó a "Al día" con los 21
 meses, y hay una tabla de cuántos avisos hay por remitente y cuántos entendió cada lector. Esa tabla

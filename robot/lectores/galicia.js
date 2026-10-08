@@ -6,10 +6,14 @@
  *          Correspondientes a las facturas detalladas a continuación:
  *          00002A00001234 del 05/06/2026"                              una por factura
  * o, en vez de las facturas, "Correspondientes a la siguiente Orden de Pago: 1700001234", y el
- * detalle en el PDF adjunto, cuyo formato todavía no vimos. Ese caso queda `no_entendido`, con el
- * importe a la vista en el cuerpo guardado. El mail no trae el bruto ni las retenciones. */
+ * detalle en el PDF adjunto, cuyo formato todavía no vimos. Ese caso se lee igual, como La Caja:
+ * hubo un pago, por tanto, con esa orden; las líneas las va a dar el PDF cuando tenga lector.
+ * El mail no trae el bruto ni las retenciones.
+ *
+ * Ojo: el asunto de "Seguros Galicia" corta el número de orden (9 dígitos de 10). Manda el del
+ * cuerpo; el del asunto se usa sólo si el cuerpo no lo trae. */
 
-const VERSION_GALICIA = 1
+const VERSION_GALICIA = 2
 
 /**
  * @param {Mail} mail
@@ -25,10 +29,7 @@ function leerGalicia(mail) {
   if (neto === null) return noEntendido(lector, v, `No entiendo el importe "${importe[1]}".`)
 
   const facturas = [...cuerpo.matchAll(/(\d{4,5}) ?([A-C]) ?(\d{8}) del (\d{2}\/\d{2}\/\d{4})/g)]
-  if (facturas.length === 0) {
-    return noEntendido(lector, v, 'El mail no nombra las facturas: están en el PDF adjunto, que todavía no sé leer.')
-  }
-  const op = /OP:? ?(\d+)/i.exec(mail.asunto)
+  const op = /Orden de Pago:? ?(\d+)/i.exec(cuerpo) ?? /OP:? ?(\d+)/i.exec(mail.asunto)
   const generado = /Generaci[oó]n autom[aá]tica del (\d{1,2}) (\w+) de (\d{4})/i.exec(cuerpo)
 
   return conControl({

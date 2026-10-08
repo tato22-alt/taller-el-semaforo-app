@@ -24,9 +24,9 @@ Supabase. Lo que no entiende queda a la vista, nunca se descarta en silencio.
 | LPS | El PDF: cada factura con su bruto, el SUBTOTAL, las retenciones y el TOTAL | **Sí** |
 | Río Uruguay | El PDF: la factura, el siniestro, el total a pagar y cada certificado con su número | **Sí** |
 | Nación | El PDF: cada factura con su bruto, sus retenciones con certificado y su neto | **Sí** |
-| San Cristóbal | El PDF, en sus dos formatos: el recibo a proveedor (con factura y bruto) y el de indemnización (sólo siniestro y neto) | Sí en el primero; en el segundo no hay bruto |
+| San Cristóbal | El PDF, en sus dos formatos: el recibo a proveedor (con factura y bruto) y el de indemnización (siniestro y neto, a veces dos recibos en un PDF) | **Sí**: en el de indemnización, con las bases de Ganancias e IVA de los certificados |
 | Sancor | El PDF "Orden de Pago General": cada factura con su siniestro y su bruto, las retenciones y el total | **Sí** |
-| Galicia / SURA | El cuerpo del mail: lo transferido y las facturas. Cuando sólo nombra la orden, las facturas están en un PDF que todavía no se lee | No |
+| Galicia / SURA | El cuerpo del mail: lo transferido, la orden y las facturas. Cuando sólo nombra la orden, el pago se anota sin facturas: están en un PDF que todavía no se lee | No |
 | La Caja | El aviso de cobranzas.com: sólo que hubo un pago, su número de liquidación y la fecha. El detalle está en el portal | No |
 
 **El control de cierre** es la manera que tiene un lector de desconfiar de sí mismo: si el aviso
@@ -46,7 +46,7 @@ mail. El robot reemplaza lo que sigue a "contraseña" o "clave" antes de escribi
 portal sin pedir clave. El robot lo reemplaza por *[enlace de acceso quitado por el robot]* antes
 de escribir la planilla: es una credencial, y la regla es no guardar ninguna (R2).
 
-Cooperación y Provincia todavía no tienen lector de pagos: sus mails se guardan igual
+Cooperación y Provincia todavía no tienen lector de pagos (mandan sólo PDF, y todavía no vimos ninguno): sus mails se guardan igual
 (`sin_lector`) y se leen cuando lo tengan.
 
 ## Instalarlo (una vez, ~10 minutos)

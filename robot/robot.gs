@@ -22,7 +22,7 @@
  * }} AcuseLeido
  */
 
-const VERSION_ACUSES = 1
+const VERSION_ACUSES = 2
 
 /**
  * @param {string} lector
@@ -88,8 +88,11 @@ function leerAcuseMercantil(mail) {
  */
 function leerAcuseAllianz(mail) {
   if (/respuesta autom/i.test(mail.asunto)) return acuse('acuse-allianz', 'autorespuesta', {})
-  const fecha = /fecha de pago es el (\d{2}-\d{2}-\d{4})/i.exec(mail.cuerpo)
-  if (!fecha) return noEntendido('acuse-allianz', VERSION_ACUSES, 'No dice una fecha de pago ("la fecha de pago es el dd-mm-aaaa").')
+  // Un "RV:" es un reenvío interno de Allianz que nos copió: no es una respuesta al taller.
+  if (/^\s*RV\s*:/i.test(mail.asunto)) return { estado: 'sin_lector', lector: null, version: null, motivo: 'Reenvío interno de Allianz.' }
+  // Escriben la fecha con guiones o con barras: "20-08-2026", "20/11/2025".
+  const fecha = /fecha de pago es el (\d{2}[-/.]\d{2}[-/.]\d{4})/i.exec(mail.cuerpo)
+  if (!fecha) return noEntendido('acuse-allianz', VERSION_ACUSES, 'No dice una fecha de pago ("la fecha de pago es el dd/mm/aaaa"): puede ser un pedido o una observación, y lo mira una persona.')
   return acuse('acuse-allianz', 'fecha_prometida', { factura: facturaDelAsunto(mail.asunto), fechaPrometida: aFecha(fecha[1] ?? '') })
 }
 
@@ -389,10 +392,14 @@ function leerFedPatronal(mail) {
  *          Correspondientes a las facturas detalladas a continuación:
  *          00002A00001234 del 05/06/2026"                              una por factura
  * o, en vez de las facturas, "Correspondientes a la siguiente Orden de Pago: 1700001234", y el
- * detalle en el PDF adjunto, cuyo formato todavía no vimos. Ese caso queda `no_entendido`, con el
- * importe a la vista en el cuerpo guardado. El mail no trae el bruto ni las retenciones. */
+ * detalle en el PDF adjunto, cuyo formato todavía no vimos. Ese caso se lee igual, como La Caja:
+ * hubo un pago, por tanto, con esa orden; las líneas las va a dar el PDF cuando tenga lector.
+ * El mail no trae el bruto ni las retenciones.
+ *
+ * Ojo: el asunto de "Seguros Galicia" corta el número de orden (9 dígitos de 10). Manda el del
+ * cuerpo; el del asunto se usa sólo si el cuerpo no lo trae. */
 
-const VERSION_GALICIA = 1
+const VERSION_GALICIA = 2
 
 /**
  * @param {Mail} mail
@@ -408,10 +415,7 @@ function leerGalicia(mail) {
   if (neto === null) return noEntendido(lector, v, `No entiendo el importe "${importe[1]}".`)
 
   const facturas = [...cuerpo.matchAll(/(\d{4,5}) ?([A-C]) ?(\d{8}) del (\d{2}\/\d{2}\/\d{4})/g)]
-  if (facturas.length === 0) {
-    return noEntendido(lector, v, 'El mail no nombra las facturas: están en el PDF adjunto, que todavía no sé leer.')
-  }
-  const op = /OP:? ?(\d+)/i.exec(mail.asunto)
+  const op = /Orden de Pago:? ?(\d+)/i.exec(cuerpo) ?? /OP:? ?(\d+)/i.exec(mail.asunto)
   const generado = /Generaci[oó]n autom[aá]tica del (\d{1,2}) (\w+) de (\d{4})/i.exec(cuerpo)
 
   return conControl({
@@ -464,7 +468,7 @@ function lectores() {
     // Acuses primero: un acuse nunca tiene que caer en un lector de pagos (R3).
     { dominio: 'nacion-seguros.com.ar', asunto: /ingreso de factura/i, leer: leerAcuseNacion },
     { dominio: 'flowable-managed.com', asunto: /ha sido aprobada/i, leer: leerAcuseMercantil },
-    { dominio: 'allianz.com.ar', asunto: /respuesta autom|factura n/i, leer: leerAcuseAllianz },
+    { dominio: 'allianz.com.ar', asunto: /respuesta autom|factura\s*(n|:)/i, leer: leerAcuseAllianz },
     { dominio: 'grant.com.ar', asunto: /factura n/i, leer: leerAcuseGrant },
     { dominio: 'fedpat.com.ar', asunto: /dep[oó]sito de transferencia/i, leer: leerFedPatronal },
     { dominio: 'lasegunda.com.ar', asunto: /retenciones factura/i, leer: leerLaSegunda },
@@ -474,7 +478,8 @@ function lectores() {
     { dominio: 'sancristobal.com.ar', asunto: /aviso de pago/i, leer: leerSanCristobal },
     { dominio: 'sancorseguros.com', asunto: /comprobante de pago/i, leer: leerSancor },
     { dominio: 'galiciaseguros.com.ar', asunto: /informaci[oó]n de pago/i, leer: leerGalicia },
-    { dominio: 'cobranzas.com', asunto: /caja de ahorro/i, leer: leerLaCaja },
+    // "Acceso a Caja de Ahorro…" es un cambio de clave, no un pago.
+    { dominio: 'cobranzas.com', asunto: /novedad de caja de ahorro/i, leer: leerLaCaja },
   ]
 }
 
@@ -506,7 +511,8 @@ function leerAviso(mail) {
  * @returns {AsuntoEnvio | null}
  */
 function leerAsuntoEnvio(asunto) {
-  const factura = /factura\s*n\s*[°º.]?\s*(\d+)/i.exec(asunto)
+  // "factura n°3567", y también "Factura: 3567", como lo escribe Allianz al responder.
+  const factura = /factura\s*(?:n\s*[°º.]?|:)\s*(\d+)/i.exec(asunto)
   if (!factura) return null
   const siniestro = /siniestro\s*n\s*[°º.]?\s*(\S+)/i.exec(asunto)
   const orden = /orden de compra\s*n\s*[°º.]?\s*(\S+)/i.exec(asunto)
@@ -632,7 +638,8 @@ function leerLps(mail) {
     retenciones.push({ certificado: null, concepto: `RET.${nombre}`, impuesto: impuestoDe(nombre), importe })
   }
 
-  const op = /N[uú]mero:?\s*0*(\d+)/i.exec(mail.asunto) ?? /Afectado a la OP:?\s*0*(\d+)/i.exec(t)
+  // Un número de orden todo en ceros no es un número: se busca en el PDF.
+  const op = /N[uú]mero:?\s*0*([1-9]\d*)/i.exec(mail.asunto) ?? /Afectado a la OP:?\s*0*(\d+)/i.exec(t)
   const fecha = /Fecha ?: ?(\d{2}\/\d{2}\/\d{4})/.exec(t)
 
   return conControl({
@@ -802,7 +809,7 @@ function leerRioUruguay(mail) {
  *
  * Tiene dos formatos de recibo, y en los dos los certificados de retención son iguales:
  *
- *  · El de indemnización (el más nuevo): "O.Pago: 1020260203", "Certificado Stro. … Importe Neto
+ *  · El de indemnización (el más nuevo; a veces dos recibos en un PDF): "O.Pago: 1020260203", "Certificado Stro. … Importe Neto
  *    05-01-12345678 5012345678 … (00000001) 80 000,00" (póliza, siniestro y neto, con los miles
  *    separados por espacio). No trae factura ni bruto: es la regla propia de San Cristóbal (spec
  *    §5.3). La línea sale con el siniestro y sin factura; atribuirla por importe (base + IVA =
@@ -816,7 +823,7 @@ function leerRioUruguay(mail) {
  * Ganancias Regimen: 094 … Monto de la Retención: **2 000,00", y la constancia de Ingresos
  * Brutos, "Total Retenido-Percibido". Como todo sale dos veces, se cuentan una vez por número. */
 
-const VERSION_SAN_CRISTOBAL = 1
+const VERSION_SAN_CRISTOBAL = 2
 const IMPORTE_SC = '(\\d{1,3}(?: \\d{3})*,\\d{2})'
 
 /**
@@ -857,24 +864,51 @@ function leerSanCristobal(mail) {
     }, aImporte(bruto[1] ?? ''))
   }
 
-  // Recibo de indemnización: siniestro y neto, sin bruto.
+  // Recibo de indemnización: siniestro y neto. Puede haber más de uno en el mismo PDF, bajo la misma
+  // orden y con un solo juego de certificados: una línea por recibo, y las retenciones del total.
   const recibos = [...t.matchAll(new RegExp(`Importe Neto (\\S+) (\\d+) .*?\\(\\d+\\) ${IMPORTE_SC}`, 'g'))]
   if (recibos.length === 0) return noEntendido(lector, v, 'No encontré ni el detalle de facturas ni el siniestro con su importe neto.')
-  const distintos = new Set(recibos.map((r) => `${r[2]}|${r[3]}`))
-  if (distintos.size > 1) return noEntendido(lector, v, `El PDF trae ${distintos.size} recibos distintos: todavía no sé separarlos.`)
-  const recibo = recibos[0]
-  const factura = /Factura:? ?(\d{4,5}) ?([A-C]) ?(\d{8})/i.exec(t)
-  const neto = aImporte(recibo?.[3] ?? '')
-  return conControl({
-    ...comun,
-    neto,
-    lineas: [{
-      factura: factura ? { texto: factura[0], puntoVenta: Number(factura[1]), numero: Number(factura[3]) } : null,
-      siniestro: recibo?.[2] ?? null,
-      bruto: null,
-      neto,
-    }],
-  }, null)
+  const distintos = new Map(recibos.map((r) => [`${r[2]}|${r[3]}`, r]))
+  /** @type {LineaAviso[]} */
+  const lineas = [...distintos.values()].map((r) => ({ factura: null, siniestro: r[2] ?? null, bruto: null, neto: aImporte(r[3] ?? '') }))
+  const factura = distintos.size === 1 ? /Factura:? ?(\d{4,5}) ?([A-C]) ?(\d{8})/i.exec(t) : null
+  if (factura && lineas[0]) lineas[0].factura = { texto: factura[0], puntoVenta: Number(factura[1]), numero: Number(factura[3]) }
+  const neto = distintos.size === 1 ? (lineas[0]?.neto ?? null) : null
+
+  // El recibo no dice el bruto, pero los certificados sí dicen sus bases: la de Ganancias (régimen
+  // 094) es el neto gravado y la de IVA (régimen 212) el IVA. Su suma es el total de la factura, y
+  // alcanza para controlar el cierre. Se usa sólo para eso: no se guarda como bruto de nada.
+  const bruto = brutoPorBases(t)
+  const leido = { ...comun, neto, lineas }
+  if (distintos.size === 1) return conControl(leido, bruto)
+  const control = controlar(bruto, sumar(lineas.map((l) => l.neto ?? '0')), retenciones)
+  return { ...leido, estado: control.resultado === 'no_cierra' ? 'no_cierra' : 'leido', control }
+}
+
+/**
+ * Base de Ganancias + base de IVA de los certificados SICORE, o null si falta alguna.
+ * @param {string} t
+ * @returns {string | null}
+ */
+function brutoPorBases(t) {
+  /** @type {Map<string, string>} */
+  const bases = new Map()
+  for (const b of t.matchAll(new RegExp(`Regimen: (094|212) (?:(?!Regimen:).)*?Monto Cmpte\\. que origina Retenci[oó]n: \\**${IMPORTE_SC}`, 'g'))) {
+    const importe = aImporte(b[2] ?? '')
+    if (importe !== null && !bases.has(b[1] ?? '')) bases.set(b[1] ?? '', importe)
+  }
+  const ganancias = bases.get('094')
+  const iva = bases.get('212')
+  return ganancias && iva ? sumar([ganancias, iva]) : null
+}
+
+/**
+ * Suma importes en centavos. Sólo para controlar: el resultado nunca se guarda.
+ * @param {readonly string[]} importes
+ * @returns {string}
+ */
+function sumar(importes) {
+  return (importes.reduce((s, i) => s + centavos(i), 0) / 100).toFixed(2)
 }
 
 /**
@@ -912,9 +946,15 @@ function retencionesSanCristobal(t) {
  *   "IMPORTE TOTAL: 80.000,00"                                                         lo transferido
  * Las constancias repiten las retenciones; no se leen, para no contar dos veces. Un mail que trae
  * sólo constancias, sin la orden, todavía no se lee. La spec avisa que Sancor puede descontar
- * notas de crédito en la orden: si aparece una, el lector no adivina el signo y lo dice. */
+ * notas de crédito en la orden: si aparece una, el lector no adivina el signo y lo dice.
+ *
+ * Versión 2, por lo que mostraron 40 PDF reales: el punto de venta viene con 4 o con 5 dígitos
+ * ("0002-" o "00002-"), a veces mezclados en la misma orden; la nota de crédito se escribe "Nota
+ * de crédito" y su importe puede quedar lejos de su renglón. Por eso las retenciones se reconocen
+ * por su nombre, y si queda un importe con "-" sin nombre conocido, o un comprobante que no se
+ * pudo leer, el lector lo dice en vez de cerrar de casualidad. */
 
-const VERSION_SANCOR = 1
+const VERSION_SANCOR = 2
 
 /**
  * @param {Mail} mail
@@ -929,27 +969,35 @@ function leerSancor(mail) {
   const total = /IMPORTE TOTAL: ?(\d[\d.]*,\d{2})/.exec(t)
   if (!total) return noEntendido(lector, v, 'No encontré la "Orden de Pago General" (sólo constancias de retención, o un formato nuevo).')
 
-  const filas = [...t.matchAll(/(Factura|Nota de Cr[eé]dito|Nota de D[eé]bito) ([A-C]) N°: ?(\d{4})-(\d{8}) de (\d{2}\.\d{2}\.\d{4}) Us: \S+ N°Stro: ?(\S+) (\d[\d.]*,\d{2})(-?)/g)]
+  const orden = t.slice(0, total.index)
+  if (/Nota de (cr[eé]dito|d[eé]bito)/i.test(orden)) {
+    return noEntendido(lector, v, 'La orden incluye una nota de crédito o débito: todavía no sé leer cómo la descuenta.')
+  }
+  const filas = [...orden.matchAll(/Factura ([A-C]) N°: ?(\d{4,5})-(\d{8}) de (\d{2}\.\d{2}\.\d{4}) Us: \S+ N°Stro: ?(\S+) (\d[\d.]*,\d{2})/g)]
+  const nombradas = [...orden.matchAll(/N°: ?\d{4,5}-\d{8}/g)].length
   if (filas.length === 0) return noEntendido(lector, v, 'La orden no nombra ningún comprobante con el formato "Factura A N°: 0002-00001234".')
-  const otra = filas.find((f) => f[1] !== 'Factura')
-  if (otra) return noEntendido(lector, v, `La orden incluye una ${otra[1]}: todavía no sé leer cómo la descuenta.`)
+  if (filas.length !== nombradas) return noEntendido(lector, v, `La orden nombra ${nombradas} comprobantes y pude leer ${filas.length}.`)
 
-  // Las retenciones van entre la última factura y el IMPORTE TOTAL, cada una terminada en "-".
+  // Las retenciones van entre la última factura y el IMPORTE TOTAL, cada una terminada en "-", y se
+  // reconocen por su nombre. Un importe con "-" que no sea de una retención conocida no se adivina.
   const ultima = filas[filas.length - 1]
-  const desde = (ultima?.index ?? 0) + (ultima?.[0].length ?? 0)
-  const tramo = t.slice(desde, total.index)
+  const tramo = orden.slice((ultima?.index ?? 0) + (ultima?.[0].length ?? 0))
   /** @type {Retencion[]} */
   const retenciones = []
-  for (const r of tramo.matchAll(/(.+?) (\d{1,3}(?:\.\d{3})*,\d{2})-/g)) {
+  for (const r of tramo.matchAll(/(Ret\. [^\d-]+?|Ganancias(?: \d)?|IVA(?: \d)?|Seguridad Social[^\d-]*?) (\d{1,3}(?:\.\d{3})*,\d{2})-/g)) {
     const concepto = (r[1] ?? '').trim()
     retenciones.push({ certificado: null, concepto, impuesto: impuestoDe(concepto), importe: aImporte(r[2] ?? '') ?? '' })
+  }
+  const descuentos = [...tramo.matchAll(/\d,\d{2}-/g)].length
+  if (descuentos !== retenciones.length) {
+    return noEntendido(lector, v, `La orden descuenta ${descuentos} importes y reconozco ${retenciones.length} retenciones: hay algo más que no sé qué es.`)
   }
 
   /** @type {LineaAviso[]} */
   const lineas = filas.map((f) => ({
-    factura: { texto: `${f[1]} ${f[2]} ${f[3]}-${f[4]}`, puntoVenta: Number(f[3]), numero: Number(f[4]) },
-    siniestro: f[6] ?? null,
-    bruto: aImporte(f[7] ?? ''),
+    factura: { texto: `Factura ${f[1]} ${f[2]}-${f[3]}`, puntoVenta: Number(f[2]), numero: Number(f[3]) },
+    siniestro: f[5] ?? null,
+    bruto: aImporte(f[6] ?? ''),
     neto: null,
   }))
   const neto = aImporte(total[1] ?? '')

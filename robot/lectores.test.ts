@@ -185,6 +185,11 @@ describe('LPS (PDF de la orden de pago)', () => {
   it('sin PDF, lo dice', () => {
     expect(leer({ remitente: LPS, asunto: ASUNTO, textoPdf: '' }).estado).toBe('no_entendido')
   })
+
+  it('un número de orden todo en ceros en el asunto no vale: se toma el del PDF', () => {
+    const r = leer({ remitente: LPS, asunto: 'Orden de Pago Número: 00000000', textoPdf: pdf(['01/01/2026 FS - A / 00002 /', '', '1234 100.000,00 1,0000 $', ''], '100.000,00') })
+    expect(r.op).toBe('100001')
+  })
 })
 
 describe('Río Uruguay (PDF de la orden de pago)', () => {
@@ -301,8 +306,9 @@ Certificado Stro. Cheque Cargo Bco. y Nro. Importe Neto 05-01-12345678 501234567
       ['suss', '1000.00', '0000-2026-00003'],
       ['iibb', '1000.00', '0000000001-6-11111'],
     ])
-    // San Cristóbal no dice el bruto: atribuir por importe es una sugerencia que decide una persona.
-    expect(r.control.resultado).toBe('sin_bruto')
+    // El recibo no dice el bruto, pero las bases de Ganancias e IVA de los certificados sí lo dan, y
+    // alcanzan para controlar. Atribuir la línea a una factura sigue siendo de una persona.
+    expect(r.control).toEqual({ resultado: 'cierra', detalle: '' })
   })
 
   it('el otro formato, "Recibo de Pago" a proveedor: factura y bruto, y cierra', () => {
@@ -324,6 +330,16 @@ Certificado Stro. Cheque Cargo Bco. y Nro. Importe Neto 05-01-12345678 501234567
     expect(r.lineas).toEqual([{ factura: { texto: 'Factura 00002A00001234', puntoVenta: 2, numero: 1234 }, siniestro: null, bruto: '100000.00', neto: '80000.00' }])
     expect(impuestos(r)).toEqual([['ganancias', '2000.00', '0000-2026-00001'], ['iva', '16000.00', '0000-2026-00002'], ['suss', '2000.00', '0000-2026-00003']])
     expect(r.control.resultado).toBe('cierra')
+  })
+
+  it('dos recibos en el mismo PDF: una línea por recibo, y el control con el total', () => {
+    const otro = 'Certificado Stro. Cheque Cargo Bco. y Nro. Importe Neto 05-01-12345679 5012345679 BANCO DE PRUEBA (00000001) 10 000,00'
+    const doble = pdf().replace('El que suscribe', `${otro}\n\nEl que suscribe`)
+    const r = leer({ remitente: SC, asunto: ASUNTO, textoPdf: doble })
+    expect(r.lineas.map((l) => [l.siniestro, l.neto])).toEqual([['5012345678', '80000.00'], ['5012345679', '10000.00']])
+    expect(r.neto).toBeNull()
+    // Las bases dicen 100.000 y lo transferido más lo retenido da 110.000: no cierra, y se ve.
+    expect(r.estado).toBe('no_cierra')
   })
 
   it('cuando el recibo trae la factura, la línea la nombra', () => {
@@ -360,6 +376,23 @@ describe('Sancor (PDF "Orden de Pago General")', () => {
     expect(leer({ remitente: SANCOR, asunto: ASUNTO, textoPdf: orden('81.000,00') }).estado).toBe('no_cierra')
   })
 
+  it('el punto de venta con 5 dígitos, mezclado con 4 en la misma orden, no se saltea', () => {
+    const mixta = orden('80.000,00').replace('Factura A N°: 0002-00001235', 'Factura A N°: 00002-00001235')
+    const r = leer({ remitente: SANCOR, asunto: ASUNTO, textoPdf: mixta })
+    expect(r.lineas.map((l) => [l.factura?.puntoVenta, l.factura?.numero])).toEqual([[2, 1234], [2, 1235]])
+    expect(r.control.resultado).toBe('cierra')
+  })
+
+  it('una nota de crédito dentro de la orden ("Nota de crédito", en minúscula): no adivina, lo dice', () => {
+    const conNc = orden('80.000,00').replace(' Ret. IIBB', ' Nota de crédito A N°: 00002-00000077 de 01.03.2026 Us: XXXX N°Stro:2000000001 Ret. IIBB')
+    expect(leer({ remitente: SANCOR, asunto: ASUNTO, textoPdf: conNc }).estado).toBe('no_entendido')
+  })
+
+  it('un descuento que no es una retención conocida no se cuenta como retención', () => {
+    const raro = orden('80.000,00').replace(' Ret. IIBB', ' Algo raro 1.000,00- Ret. IIBB')
+    expect(leer({ remitente: SANCOR, asunto: ASUNTO, textoPdf: raro }).estado).toBe('no_entendido')
+  })
+
   it('un mail con sólo constancias, sin la orden: todavía no se lee, y lo dice', () => {
     expect(leer({ remitente: SANCOR, asunto: ASUNTO, textoPdf: constancia }).estado).toBe('no_entendido')
   })
@@ -385,14 +418,22 @@ describe('Galicia / SURA (cuerpo del mail)', () => {
     expect(r.lineas).toEqual([{ factura: { texto: '00002A00001234', puntoVenta: 2, numero: 1234 }, siniestro: null, bruto: null, neto: '125000.00' }])
   })
 
-  it('si sólo nombra la orden de pago, las facturas están en el PDF: lo dice', () => {
+  it('si sólo nombra la orden de pago, se anota el pago sin líneas: las facturas están en el PDF', () => {
     const r = leer({ remitente: GALICIA, asunto: 'SURA – Información de Pago OP 1700000003 AR10 2025', cuerpo: cuerpo('Correspondientes a la siguiente Orden de Pago: 1700000003') })
-    expect(r.estado).toBe('no_entendido')
-    expect(r.motivo).toContain('PDF')
+    expect(r).toMatchObject({ estado: 'leido', op: '1700000003', neto: '125000.00', lineas: [] })
+  })
+
+  it('el número de orden sale del cuerpo: el asunto de "Seguros Galicia" lo corta', () => {
+    const r = leer({ remitente: GALICIA, asunto: 'Seguros Galicia – Información de Pago OP 170000004', cuerpo: cuerpo('Correspondientes a la siguiente Orden de Pago: 1700000045') })
+    expect(r.op).toBe('1700000045')
   })
 })
 
 describe('La Caja (aviso de cobranzas.com)', () => {
+  it('el mail de acceso al portal no es un pago', () => {
+    expect(leer({ remitente: 'no-reply@cobranzas.com', asunto: 'Acceso a Caja de Ahorro y Seguro S.A.', cuerpo: 'Para ingresar…' }).estado).toBe('sin_lector')
+  })
+
   it('anota que hubo un pago, con su liquidación y su fecha; el detalle está en el portal', () => {
     const r = leer({
       remitente: 'no-reply@cobranzas.com',
@@ -411,6 +452,16 @@ describe('acuses: dicen algo de una factura, pero no son un pago (R3)', () => {
       cuerpo: 'Te informamos que tu factura A0002-00001234, de monto $ 100.000,00 , correspondiente al siniestro Nro. 500000000001, fue aprobada y la fecha estimada de pago es 2026-10-14.',
     })
     expect(r).toMatchObject({ estado: 'acuse', tipo: 'aprobacion', factura: { puntoVenta: 2, numero: 1234 }, siniestro: '500000000001', monto: '100000.00', fechaPrometida: '2026-10-14' })
+  })
+
+  it('Allianz: la fecha con barras, y el asunto "Factura: N"', () => {
+    const r = leer({ remitente: 'proveedoresmdp@allianz.com.ar', asunto: 'RE: Siniestro: C000-111 Factura: 1234', cuerpo: 'La fecha de pago es el 20/11/2025.' })
+    expect(r).toMatchObject({ estado: 'acuse', tipo: 'fecha_prometida', factura: { numero: 1234 }, fechaPrometida: '2025-11-20' })
+  })
+
+  it('Allianz: un reenvío interno no es una respuesta; una respuesta sin fecha la mira una persona', () => {
+    expect(leer({ remitente: 'proveedoresmdp@allianz.com.ar', asunto: 'RV: FACTURA N°1234 SINIESTRO N°1', cuerpo: 'Te paso un caso.' }).estado).toBe('sin_lector')
+    expect(leer({ remitente: 'proveedoresmdp@allianz.com.ar', asunto: 'RE: factura n°1234 siniestro n°1', cuerpo: 'Adjuntaste la orden de trabajo incorrecta.' }).estado).toBe('no_entendido')
   })
 
   it('Allianz: la fecha de pago, en respuesta al mail de la factura; y la respuesta automática', () => {

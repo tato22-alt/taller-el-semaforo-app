@@ -37,7 +37,8 @@ function leerLps(mail) {
     retenciones.push({ certificado: null, concepto: `RET.${nombre}`, impuesto: impuestoDe(nombre), importe })
   }
 
-  const op = /N[uú]mero:?\s*0*(\d+)/i.exec(mail.asunto) ?? /Afectado a la OP:?\s*0*(\d+)/i.exec(t)
+  // Un número de orden todo en ceros no es un número: se busca en el PDF.
+  const op = /N[uú]mero:?\s*0*([1-9]\d*)/i.exec(mail.asunto) ?? /Afectado a la OP:?\s*0*(\d+)/i.exec(t)
   const fecha = /Fecha ?: ?(\d{2}\/\d{2}\/\d{4})/.exec(t)
 
   return conControl({
