@@ -36,7 +36,7 @@ Si el alcance se abre sin redefinirlo, el principio IX deja de poder decir no a 
 Contesta en diez segundos **cuánto me deben, quién, desde cuándo, y qué tengo que hacer hoy
 para cobrarlo**, con datos que ya están escritos en ARCA y en Gmail. Sus pantallas son las de
 la spec 005 §6: **Cobranzas, Ficha de factura, Revisar, Ficha de compañía y Antes de emitir**,
-y nada más. Lo que este módulo no hace está en la spec 005 §10, y se defiende igual que el
+más **Importar** (subir el CSV de ARCA), que entró con el plan de la fase 1, y nada más. Lo que este módulo no hace está en la spec 005 §10, y se defiende igual que el
 resto.
 
 Fuera de esos dos módulos no entra nada. Defendé el alcance activamente: si suena a "podría
@@ -80,10 +80,10 @@ Cinco reglas que salen de ahí y no se negocian:
   herramienta ya marca desde su ficha interna (spec 004 §4). Los conceptos, el texto tal como
   se imprimió y los hechos sobre el trabajo tienen un solo dueño; si esta app también los
   escribiera, habría dos implementaciones de lo mismo comportándose distinto. Lo que esta app
-  sí va a escribir son las tablas del módulo de cobranzas. **Hoy no escribe nada, y lo
-  verifica `src/arquitectura.test.ts`.** Ese test cambia de "no escribe nada" a "no escribe
-  las tablas de la herramienta" en el mismo commit que haga la primera escritura de
-  cobranzas, no antes: un test que se afloja por adelantado no protege nada.
+  escribe son tablas del módulo de cobranzas, y sólo las que figuran por nombre en
+  `src/arquitectura.test.ts` (hoy `importacion` y `comprobante`, desde la pantalla Importar). Una
+  tabla nueva que la app escriba se agrega a esa lista en el mismo commit que la escribe, no
+  antes: un test que se afloja por adelantado no protege nada.
 
 ### Gotchas de PostgREST que ya nos van a morder
 

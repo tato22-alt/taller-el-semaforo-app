@@ -170,3 +170,46 @@ body {
 
 .numero { color: var(--tinta-suave); }
 .monto { margin-left: auto; font-size: 1rem; }
+
+/* --- Importar facturas ------------------------------------------------- */
+
+.navegacion { display: flex; gap: 1rem; }
+
+.importar { display: grid; gap: 1rem; }
+.importar h2 { margin: 0; font-size: 1.1rem; }
+.importar p { margin: 0; }
+
+.campo {
+  display: grid;
+  gap: 0.35rem;
+  font-size: 0.9rem;
+  color: var(--tinta-suave);
+}
+
+.campo input {
+  font: inherit;
+  padding: 0.6rem 0.7rem;
+  border: 1px solid var(--borde);
+  border-radius: 0.5rem;
+  background: var(--papel);
+  color: var(--tinta);
+  min-width: 0;
+}
+
+.resumen { display: grid; gap: 0.75rem; }
+
+.resumen button {
+  font: inherit;
+  font-weight: 600;
+  padding: 0.7rem;
+  border: 0;
+  border-radius: 0.5rem;
+  background: var(--acento);
+  color: #fff;
+  cursor: pointer;
+}
+
+.resumen button:disabled { opacity: 0.6; cursor: default; }
+
+.problemas h3 { margin: 0 0 0.5rem; font-size: 1rem; }
+.problemas ul { margin: 0; padding-left: 1.2rem; display: grid; gap: 0.3rem; font-size: 0.9rem; }
