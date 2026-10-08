@@ -215,6 +215,130 @@ export type Database = {
           },
         ]
       }
+      /* M2 de cobranzas: datos maestros. El código de ARCA es la clave. */
+      tipo_comprobante: {
+        Row: {
+          codigo: number
+          nombre: string
+          clase: string
+        }
+        Insert: {
+          codigo: number
+          nombre: string
+          clase: string
+        }
+        Update: {
+          codigo?: number
+          nombre?: string
+          clase?: string
+        }
+        Relationships: []
+      }
+      /* Una fila por CUIT (entidad fiscal). Sin contraseñas (RF-502). */
+      compania: {
+        Row: {
+          cuit: string
+          nombre: string
+          alias: string[]
+          remitentes_aviso: string[]
+          mail_facturacion: string | null
+          plazo_declarado_dias: number | null
+          canal: string | null
+          portal_url: string | null
+          portal_usuario: string | null
+          creado_en: string
+        }
+        Insert: {
+          cuit: string
+          nombre: string
+          alias?: string[]
+          remitentes_aviso?: string[]
+          mail_facturacion?: string | null
+          plazo_declarado_dias?: number | null
+          canal?: string | null
+          portal_url?: string | null
+          portal_usuario?: string | null
+          creado_en?: string
+        }
+        Update: {
+          cuit?: string
+          nombre?: string
+          alias?: string[]
+          remitentes_aviso?: string[]
+          mail_facturacion?: string | null
+          plazo_declarado_dias?: number | null
+          canal?: string | null
+          portal_url?: string | null
+          portal_usuario?: string | null
+          creado_en?: string
+        }
+        Relationships: []
+      }
+      compania_requisito: {
+        Row: {
+          id_requisito: number
+          cuit: string
+          descripcion: string
+        }
+        Insert: {
+          id_requisito?: never
+          cuit: string
+          descripcion: string
+        }
+        Update: {
+          id_requisito?: never
+          cuit?: string
+          descripcion?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'compania_requisito_cuit_fkey'
+            columns: ['cuit']
+            isOneToOne: false
+            referencedRelation: 'compania'
+            referencedColumns: ['cuit']
+          },
+        ]
+      }
+      regla_facturacion: {
+        Row: {
+          id_regla: number
+          cuit_origen: string
+          condicion: string
+          cuit_destino: string
+          nota: string | null
+        }
+        Insert: {
+          id_regla?: never
+          cuit_origen: string
+          condicion: string
+          cuit_destino: string
+          nota?: string | null
+        }
+        Update: {
+          id_regla?: never
+          cuit_origen?: string
+          condicion?: string
+          cuit_destino?: string
+          nota?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'regla_facturacion_cuit_origen_fkey'
+            columns: ['cuit_origen']
+            isOneToOne: false
+            referencedRelation: 'compania'
+            referencedColumns: ['cuit']
+          },
+          {
+            foreignKeyName: 'regla_facturacion_cuit_destino_fkey'
+            columns: ['cuit_destino']
+            isOneToOne: false
+            referencedRelation: 'compania'
+            referencedColumns: ['cuit']
+          },
+        ]
+      }
     }
     Views: {
       /* Las 21 columnas del presupuesto ya derivadas. Es de donde lee esta app.
