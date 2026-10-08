@@ -267,6 +267,11 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: number
       }
+      /* El rol de la sesión (persona | robot), leído del token. Nulo sin rol. M1 de cobranzas. */
+      fn_rol: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
       fn_normalizar_nombre: {
         Args: { p_nombre: string }
         Returns: string

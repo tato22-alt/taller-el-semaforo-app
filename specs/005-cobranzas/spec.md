@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Estado** | Borrador. **Los cuatro choques de §8 se resolvieron el 2026-10-07** (P1 a P4 en §9). El cómo está en un plan (decisiones D1 a D10, preguntas N1 a N10) y en una auditoría (hallazgos H1 a H17), los dos del 2026-10-07. **Quedan fuera del repo hasta contestar N3** —el repo es público y traen datos de facturación—; cuando entren, van en esta carpeta como `plan.md`. **Esta spec y ese plan son los únicos del bloque:** no se duplican en `base/specs/` |
+| **Estado** | Borrador. **Los cuatro choques de §8 se resolvieron el 2026-10-07** (P1 a P4 en §9). El cómo está en un plan (decisiones D1 a D10, preguntas N1 a N10) y en una auditoría (hallazgos H1 a H17), los dos del 2026-10-07. **La fase 1 del plan está en [`plan.md`](./plan.md), aprobada el 2026-10-08**; el plan completo y la auditoría quedan fuera del repo hasta contestar N3 —el repo es público y traen datos de facturación—. **Esta spec y ese plan son los únicos del bloque:** no se duplican en `base/specs/` |
 | **Fecha** | 2026-10-01 |
 | **Origen de los datos** | Conciliación manual de **470 comprobantes** (ene-2025 → sep-2026, ~20 deudores), hecha a mano contra ARCA, Gmail y los PDF de las compañías |
 | **Constitución vinculante** | `base/.specify/memory/constitution.md` (v3.0.1) |
