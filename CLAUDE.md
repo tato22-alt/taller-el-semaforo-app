@@ -220,31 +220,25 @@ cosas distintas lo garantizan, y conviene no confundirlas:
 - **Las líneas del mensaje** (`Co-Authored-By` y el link a la sesión) las apaga
   `.claude/settings.json`, que está versionado: `attribution` con `commit` y `pr` en vacío y
   `sessionUrl` en `false`. Vale en cualquier máquina que clone el repo.
-- **El autor del commit** sale del `git config` de donde se corra. Desde tu terminal es el
-  tuyo y no hay nada que hacer. **En una sesión de Claude Code en la web el contenedor arranca
-  con el autor en `Claude <noreply@anthropic.com>`**, así que antes del primer commit de cada
-  sesión hay que correr:
+- **El autor y la firma del commit** salen de git, no de Claude. El contenedor de una sesión web
+  arranca con autor `Claude <noreply@anthropic.com>` y firma con una clave de Claude; si el autor
+  es Luciano y la firma es de otro, GitHub muestra **Unverified**, peor que no tener nada.
 
-  ```
-  git config user.name "Luciano"
-  git config user.email "<el mail de la cuenta de GitHub>"
-  ```
+  **Lo resuelven variables del entorno de la nube "Predeterminado"** (decidido el 2026-10-08), que
+  valen para todos los repos de la cuenta y le ganan a la configuración del contenedor:
+  `GIT_AUTHOR_NAME`, `GIT_AUTHOR_EMAIL`, `GIT_COMMITTER_NAME` y `GIT_COMMITTER_EMAIL` con el
+  nombre y el mail de la cuenta de GitHub de Luciano, y `GIT_CONFIG_COUNT=1`,
+  `GIT_CONFIG_KEY_0=commit.gpgsign`, `GIT_CONFIG_VALUE_0=false` para no firmar. Las aplica git, así
+  que no dependen de que Claude se acuerde de nada.
 
-  El mail tiene que ser el de la cuenta de GitHub: es lo que hace que el commit quede
-  atribuido al perfil y no a un nombre suelto.
-- **La firma del commit.** El contenedor de una sesión web trae una clave SSH de firma que está
-  registrada a nombre de Claude, y firma con ella por defecto. Si el autor es Luciano y la firma
-  es de otro, GitHub muestra **Unverified** con cartelito amarillo — peor que no tener nada. Así
-  que en cada sesión web va también:
-
-  ```
-  git config commit.gpgsign false
-  ```
+  **Antes del primer commit de cada sesión, mirá `git var GIT_AUTHOR_IDENT`.** Si dice Claude, las
+  variables no están cargadas: hay que cargarlas en el entorno y, para esa sesión, correr
+  `git config user.name "Luciano"`, `git config user.email "<el mail de su cuenta de GitHub>"` y
+  `git config commit.gpgsign false`.
 
   Los commits quedan **sin firma**, que es el estado normal de la enorme mayoría de los commits
-  de GitHub: no muestran badge y no muestran advertencia. Para que aparezca el "Verified" verde
-  hace falta firmar con una clave propia de Luciano registrada en su cuenta, y eso sólo se puede
-  hacer desde su máquina: la clave privada no tiene que estar acá.
+  de GitHub: no muestran badge ni advertencia. Para el "Verified" verde hace falta firmar con una
+  clave propia de Luciano, y eso sólo se hace desde su máquina: la clave privada no va acá.
 
 ---
 
