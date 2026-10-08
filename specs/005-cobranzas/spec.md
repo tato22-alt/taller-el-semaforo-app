@@ -146,7 +146,7 @@ destino. Una fila, no un `if` escondido en el código.
 
 | Columna | Nota |
 |---|---|
-| `tipo_id`, `punto_venta`, `numero` | **`UNIQUE (tipo, punto_venta, numero)`.** Es la clave que hace que reimportar no duplique |
+| `cuit_emisor`, `tipo_id`, `punto_venta`, `numero` | **`UNIQUE (cuit_emisor, tipo, punto_venta, numero)`.** Es la clave que hace que reimportar no duplique. **`cuit_emisor` entra por N1 (2026-10-08):** de ene-2025 a hoy factura un solo CUIT, el del taller, y está previsto pasar a otro. Cada CUIT tiene su propia numeración en ARCA, así que sin el emisor en la clave la primera factura del CUIT nuevo chocaría con una vieja. Es una columna con `CHECK` de formato, no una tabla: son dos emisores. El libro de retenciones (A10) pasa a ser por emisor |
 | `fecha_emision`, `cuit_receptor`, `compania_id` | `compania_id` nullable: las Factura B 0002-738 en adelante son particulares |
 | `neto`, `iva`, `total` | `NUMERIC`. Llega como string a la app y **no se hace aritmética en el navegador** |
 | `trabajo_id` | **Nullable.** Las 470 históricas no tienen trabajo (§1) |

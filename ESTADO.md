@@ -87,7 +87,7 @@ Uno por vez, y cada uno termina cuando **se vio funcionar**, no cuando está esc
 | 1.7 | ~~Las cuatro preguntas que bloqueaban la spec 005 (P1 a P4)~~ | ✅ **Contestadas el 2026-10-07** | Ver la spec 005 §8 y §9 |
 | 2 | ~~Prender Pages~~ | ✅ **Hecho y visto el 2026-10-08** | Source en *GitHub Actions*, las dos variables cargadas, corrida #5 en verde. Cada push a `main` publica solo, y sólo si pasan los tests |
 | 3 | **Pasar la planilla de la conciliación manual** (P12) | Luciano | Es el juego de datos de prueba: sin ella, "llega a los $171 M al peso" no se puede verificar contra nada |
-| 4 | **Fase 1 de cobranzas:** contestar **N1** (quién emite las facturas: define la clave del comprobante) y **N10** (CLI de Supabase), aprobar el plan de cobranzas, y recién ahí las migraciones M1 a M4 y la pantalla Importar. La spec y el plan del bloque van en `specs/005-cobranzas/`, no en `base/specs/` | Luciano decide, Claude construye | **Va antes que la fase 0** (decisión del 2026-10-07): no depende de nada y da el total contra el que se mide todo lo demás |
+| 4 | **Fase 1 de cobranzas:** contestar **N10** (CLI de Supabase) —N1 ya está—, aprobar el plan de cobranzas, y recién ahí las migraciones M1 a M4 y la pantalla Importar. La spec y el plan del bloque van en `specs/005-cobranzas/`, no en `base/specs/` | Luciano decide, Claude construye | **Va antes que la fase 0** (decisión del 2026-10-07): no depende de nada y da el total contra el que se mide todo lo demás |
 | 5 | **Fase 0:** extender el Apps Script para que guarde `gmail_message_id`, remitente, asunto y **texto extraído**. El código vive en `robot/` de este repo, **sin datos reales** | Claude, con tu cuenta. **Antes: N3** (repo público y datos de terceros) | Es el corpus contra el que se escriben los doce parsers |
 | 6 | **Fase 2:** parsers e imputaciones (A2, A3) + pantalla **Revisar** | Claude | El núcleo. Acá entra la plata |
 | 7 | **Fase 3:** el semáforo y las tareas (A8, A7) | Claude | No estrena tablas: son vistas |
@@ -155,4 +155,5 @@ src/
 | P16 / N2 — ¿el robot escribe imputaciones? | No. Escribe `aviso_linea` y una vista hace el cruce exacto con el comprobante (plan, D4). Lo que decide una persona va en `imputacion` |
 | ¿Dónde viven la spec y el plan de cobranzas? | En `specs/005-cobranzas/`, una sola vez. No se duplican en `base/specs/` |
 | ¿Qué tablas no escribe esta app? | Las cuatro de la herramienta: `trabajos`, `trabajo_items`, `clientes` y `vehiculos` |
+| N1 — ¿quién emite las facturas? *(2026-10-08)* | Un solo CUIT desde ene-2025, el del taller, con un cambio de emisor previsto. **`cuit_emisor` entra en la clave del comprobante desde la primera migración** (spec 005 §4.2) |
 | Los commits de `main` a nombre de Claude | Se quedan como están: reescribir `main` cuesta más de lo que arregla. De acá en adelante, a nombre de Luciano y sin firma |
