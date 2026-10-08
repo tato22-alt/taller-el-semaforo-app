@@ -14,9 +14,9 @@ supuesto.
 
 | Pieza | Qué es | Estado real |
 |---|---|---|
-| **`base/`** en este repo<br>(subtree de `gestion-taller-sql-server`) | La base de datos. **Es también la API**, vía PostgREST | ✅ **Funcionando y verificada.** 4 tablas, 2 vistas, 0 triggers, **19 migraciones**. RLS activa y forzada, `anon` revocado. **Vacía**: cero presupuestos. El talonario de papel terminó en el 15999, así que el 16000 sale limpio |
+| **`base/`** en este repo<br>(subtree de `gestion-taller-sql-server`) | La base de datos. **Es también la API**, vía PostgREST | ✅ **Funcionando y verificada.** 4 tablas, 2 vistas, 0 triggers, **19 migraciones**. RLS activa y forzada, `anon` revocado. **Ya tiene presupuestos reales**, emitidos desde la herramienta (visto el 2026-10-08 en el sitio publicado). El talonario de papel terminó en el 15999; la numeración digital arranca en el 16000 |
 | **`semaforo-presupuesto`** | La herramienta de presupuestos, **en producción**. Se queda en su repo | ✅ **Conectada y en uso.** Emite, numera con `fn_proximo_numero_presupuesto()`, tiene historial con buscador, y su ficha interna escribe `no_concretado` y `origen` |
-| **La app** (la raíz de este repo) | Login y tablero | 🟡 **Lee la base de punta a punta.** Login contra Supabase Auth y tablero leyendo `vw_presupuestos`, **probado el 2026-10-07**. **Cero escrituras**, y un test lo verifica. 44 tests en verde. **El sitio público todavía no publica** (ver abajo) |
+| **La app** (la raíz de este repo) | Login y tablero | 🟡 **Lee la base de punta a punta.** Login contra Supabase Auth y tablero leyendo `vw_presupuestos`, **probado el 2026-10-07**. **Cero escrituras**, y un test lo verifica. 44 tests en verde. **Publicada en https://tato22-alt.github.io/taller-el-semaforo-app/** desde el 2026-10-08: Luciano entró desde el sitio y vio los presupuestos reales |
 
 ---
 
@@ -32,8 +32,8 @@ decisiones:
 | Qué dice la spec | Qué hace el código | Qué hacer |
 |---|---|---|
 | Mostrar la **fecha**, no los días, hasta que la base derive los días (principio III) | Calcula los días en el navegador (`diasDesde` en `dominio/fechas.ts`) | O vuelve a mostrar la fecha, o se especifica `dias_desde_presupuesto` en una vista de `base/`. **Pendiente de decisión** |
-| RF-309: no mostrar los no concretados | No los filtra | Menor: con la base vacía no hay ninguno. Si el tablero no se amplía, no vale la pena |
-| Criterio 8: el sitio publicado carga | Pages todavía no está prendido | Tarea tuya, ver abajo |
+| RF-309: no mostrar los no concretados | No los filtra | **Ahora que hay datos, se nota:** los que la herramienta marcó como no concretados aparecen igual. Pendiente de decisión, junto con los días |
+| Criterio 8: el sitio publicado carga | ✅ Cumplido el 2026-10-08 | |
 
 Además: `src/datos/tipos-base.ts` está **escrito a mano a partir de las migraciones**, marcado
 PROVISORIO, porque `supabase gen types` no corre en la máquina de Luciano. Cuando corra, gana el
@@ -51,17 +51,15 @@ generado.
 - Vistas con `security_invoker = true`.
 - La `anon key` es pública por diseño y **no es un agujero**: lo que protege es la RLS.
 
-**🔴 Pendiente:**
+**✅ Cerrado el 2026-10-08:**
 
-1. **Los registros públicos de Supabase Auth.** Las políticas son `to authenticated using (true)`:
-   **cualquier usuario con sesión puede leer y escribir todo.** Si en el panel está prendido
-   *Allow new users to sign up*, cualquiera puede tomar la clave pública del bundle de la
-   herramienta —que ya está publicada—, registrarse, y quedar adentro. **Va antes de prender
-   Pages.** Panel → Authentication → Sign In / Providers → apagar *Allow new users to sign up*.
-   Los tres usuarios se crean a mano desde Authentication → Users. *Desde este entorno no se
-   puede ver cómo está configurado: hay que mirarlo.*
-2. **Las credenciales de Insforge** siguen legibles en el historial de git (commit `6c5252b`).
-   Borrar ese proyecto en Insforge las vuelve inútiles sin reescribir la historia.
+1. **Los registros públicos de Supabase Auth, apagados.** Importaba porque las políticas son
+   `to authenticated using (true)`: con el registro abierto, cualquiera podía crearse una cuenta
+   y leer todo. Revisada la lista de usuarios: **son tres y son los del taller**, así que nadie
+   entró por ahí. Las cuentas nuevas se crean a mano desde Authentication → Users.
+2. **Insforge, sin proyecto.** Ninguna de las tres cuentas de Luciano tiene un proyecto, y la
+   dirección del proyecto viejo no muestra nada. La clave que quedó en el historial
+   (commit `6c5252b`) no abre nada. No se reescribe la historia.
 
 **🟠 Pendiente, antes de que entre cobranzas** (detalle en la
 auditoría del 2026-10-07, que está fuera del repo hasta contestar N3):
@@ -82,12 +80,12 @@ Uno por vez, y cada uno termina cuando **se vio funcionar**, no cuando está esc
 
 | # | Qué | Quién | Por qué en este orden |
 |---|---|---|---|
-| 0 | **Apagar los registros públicos en Supabase Auth y borrar el proyecto Insforge** | Luciano | Son los dos agujeros reales y cuestan minutos |
+| 0 | ~~Apagar los registros públicos en Supabase Auth y borrar el proyecto Insforge~~ | ✅ **Hecho el 2026-10-08** | Eran los dos agujeros reales |
 | 1 | ~~Ordenar este repo: Vite + React + las tres capas~~ | ✅ Hecho | |
 | 1.5 | ~~Llevar todo a `main`~~ | ✅ Hecho el 2026-10-07 | |
 | 1.6 | ~~Login + tablero leyendo `vw_presupuestos`~~ | ✅ **Hecho y probado el 2026-10-07** | El camino de datos más corto que prueba el stack entero |
 | 1.7 | ~~Las cuatro preguntas que bloqueaban la spec 005 (P1 a P4)~~ | ✅ **Contestadas el 2026-10-07** | Ver la spec 005 §8 y §9 |
-| 2 | **Prender Pages** | Luciano | Settings → Pages → Source: *GitHub Actions*. Settings → Secrets and variables → Actions → **Variables**: `VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY`. **Después del paso 0** |
+| 2 | ~~Prender Pages~~ | ✅ **Hecho y visto el 2026-10-08** | Source en *GitHub Actions*, las dos variables cargadas, corrida #5 en verde. Cada push a `main` publica solo, y sólo si pasan los tests |
 | 3 | **Pasar la planilla de la conciliación manual** (P12) | Luciano | Es el juego de datos de prueba: sin ella, "llega a los $171 M al peso" no se puede verificar contra nada |
 | 4 | **Fase 1 de cobranzas:** contestar **N1** (quién emite las facturas: define la clave del comprobante) y **N10** (CLI de Supabase), aprobar el plan de cobranzas, y recién ahí las migraciones M1 a M4 y la pantalla Importar. La spec y el plan del bloque van en `specs/005-cobranzas/`, no en `base/specs/` | Luciano decide, Claude construye | **Va antes que la fase 0** (decisión del 2026-10-07): no depende de nada y da el total contra el que se mide todo lo demás |
 | 5 | **Fase 0:** extender el Apps Script para que guarde `gmail_message_id`, remitente, asunto y **texto extraído**. El código vive en `robot/` de este repo, **sin datos reales** | Claude, con tu cuenta. **Antes: N3** (repo público y datos de terceros) | Es el corpus contra el que se escriben los doce parsers |
