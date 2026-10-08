@@ -107,8 +107,8 @@ base**: escribe en una planilla de la cuenta de Google del taller.
 | | Detalle |
 |---|---|
 | `robot/barrido.js` | Busca en Gmail los mails de los remitentes de la pestaña *remitentes* y los *Enviados* con asunto `factura n°…`. Cada mail se guarda una vez (lo que ya está en la planilla se saltea), con el texto de sus PDF (Drive los convierte; el documento temporal se borra). Corta a los 4 minutos y medio y la corrida siguiente sigue. `releer` vuelve a leer todo sin ir a Gmail (RF-508) |
-| `robot/lectores.js` | Funciones puras, una por compañía, con versión. Hoy **Federación Patronal** (todo en el cuerpo: fecha, egreso, facturas `Fac 2-1234`, lo transferido y la tabla de retenciones) y **La Segunda** (la factura en el asunto; los importes están en el PDF y todavía no se leen) |
-| `robot/robot.test.ts` | Los lectores contra mails **inventados** con la forma de los reales, y dos reglas estructurales: el manifiesto pide exactamente cuatro permisos, y ningún archivo llama a nada que mande, borre o modifique un mail (R1) |
+| `robot/lectores/` | Funciones puras, una por compañía, con versión. Leen el cuerpo del mail (**Federación Patronal**), el asunto (**La Segunda**) o el texto del PDF (**LPS, Río Uruguay, Nación, San Cristóbal** en sus dos formatos, **Sancor**). Cada línea dice la factura o el siniestro, su bruto y su neto; cada retención, su impuesto, importe y certificado |
+| `robot/lectores.test.ts` | Los lectores contra mails y PDF **inventados** con la forma de los reales, y tres reglas estructurales: el manifiesto pide exactamente cuatro permisos, ningún archivo llama a nada que mande, borre o modifique un mail (R1), y `robot.gs` —lo que se pega en Apps Script— es exactamente lo que se testeó |
 
 **Decisiones que tomé al escribirlo, para que las discutas:**
 
@@ -121,6 +121,14 @@ base**: escribe en una planilla de la cuenta de Google del taller.
   importe.** El lector no reparte el total: lo que el mail no dice, no se inventa (D4).
 - **Las retenciones se clasifican por nombre, y ante la duda quedan como `otro`.** "RG. 1784" se
   toma como SUSS.
+- **Cada lector se controla solo: bruto = neto + retenciones, al centavo.** Si el aviso trae el
+  bruto y no cierra, queda `no_cierra`, a la vista, en vez de pasar como un pago. Es la única cuenta
+  que hace el robot y no la guarda: la usa para desconfiar de su propia lectura (R6, RF-506). Ya
+  sirvió: en Río Uruguay, el número de una resolución ("RG 2854") quedaba pegado a un total y el
+  lector lo tomaba por el importe; el control lo marcó antes de que llegara a ninguna parte.
+- **Del PDF se lee la orden, no los certificados**, salvo cuando la orden no desglosa las
+  retenciones (Río Uruguay, San Cristóbal). Los certificados repiten lo mismo: leer los dos
+  contaría dos veces.
 
 **Lo que se vio al mirar los mails reales (sin copiar datos):**
 
@@ -135,6 +143,13 @@ base**: escribe en una planilla de la cuenta de Google del taller.
 - Hay un aviso de La Segunda que nombra una factura de dos cifras: no es de la serie A de cuatro cifras.
   Un número sin punto de venta ni tipo no alcanza para atribuirlo solo: en la fase 2 se cruza por
   compañía y número, y si hay dos candidatos, va a Revisar.
+
+**Medido contra PDF reales (2026-10-08), fuera del repo:** 10 PDF de 5 compañías bajados por la
+prueba de concepto. 8 cierran al centavo; 1 de San Cristóbal se lee entero pero su formato no trae
+el bruto; 1 de Sancor trae sólo constancias, sin orden, y queda `no_entendido` como corresponde.
+Cooperación, Provincia y el PDF de La Segunda no estaban en esa carpeta: sus lectores se escriben
+contra el corpus. **Ojo:** el texto se sacó con la lectura de Drive, no con la conversión que usa el
+barrido; si las dos difieren, se va a ver en el corpus como `no_entendido` o `no_cierra`.
 
 **Terminado cuando:** está instalado en la cuenta del taller, el barrido llegó a "Al día" con los 21
 meses, y hay una tabla de cuántos avisos hay por remitente y cuántos entendió cada lector. Esa tabla
