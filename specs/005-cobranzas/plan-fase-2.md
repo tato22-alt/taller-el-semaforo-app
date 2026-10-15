@@ -62,9 +62,9 @@ una persona, que vive en otra tabla (D4).
 
 | # | Qué | Por qué bloquea |
 |---|---|---|
-| 1 | **El robot instalado y el corpus "al día"**, con la cuenta de cuántos avisos quedaron en cada estado | Sin eso no sé si los lectores funcionan con el texto que saca tu Google, y la fase 2 cargaría basura |
-| 2 | **N6: en qué plan está el proyecto de Supabase**, y si hacemos un backup semanal a Drive | La fase 2 es la primera que carga cientos de filas que no están en otro lado |
-| 3 | **Las fichas de compañía cargadas, con `remitentes_aviso`** | `vw_imputaciones` sabe de qué compañía es un aviso por quién lo mandó. Sin remitentes en la ficha, ningún aviso se puede cruzar con su factura. **Pedile al otro chat que los complete** (están en la pestaña *remitentes* del robot) |
+| 1 | **El robot instalado y el corpus "al día"**, con la cuenta de cuántos avisos quedaron en cada estado | Sin eso no sé si los lectores funcionan con el texto que saca tu Google, y la fase 2 cargaría basura. 🟡 **Instalado el 2026-10-15**: la primera corrida guardó 32 avisos; falta llegar a "Al día." |
+| 2 | **N6: en qué plan está el proyecto de Supabase**, y si hacemos un backup semanal a Drive | La fase 2 es la primera que carga cientos de filas que no están en otro lado. ✅ **Plan gratis (2026-10-15).** No trae copias que se puedan bajar, y pausa el proyecto tras una semana sin uso: el backup semanal entra en este plan |
+| 3 | **Las fichas de compañía cargadas, con `remitentes_aviso`** | `vw_imputaciones` sabe de qué compañía es un aviso por quién lo mandó. Sin remitentes en la ficha, ningún aviso se puede cruzar con su factura. ✅ **Cargadas el 2026-10-15**: 24 compañías (todas las aseguradoras del libro de ARCA), con los comprobantes de cada una coincidiendo con ARCA; 13 con las casillas del robot. Plazo, canal y portal, vacíos hasta que se sepan |
 | 4 | **N3: datos reales y repo público** | El código no lleva datos reales, pero la fase 2 sube cuerpos de mails a la base: conviene cerrar la regla antes |
 | 5 | **Crear el usuario `robot@`** en Supabase, con `rol: robot` | Te paso los pasos cuando apruebes |
 
