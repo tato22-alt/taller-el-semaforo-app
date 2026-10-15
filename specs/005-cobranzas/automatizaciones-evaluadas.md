@@ -14,7 +14,7 @@ Ordenadas por lo que recuperan o ahorran, con la evidencia al lado.
 
 | # | Automatización | Evidencia | ¿Entra en el alcance? | Recomendación |
 |---|---|---|---|---|
-| 1 | **Autos reparados y no facturados** (orden de trabajo sin factura) | 206 siniestros con orden de trabajo; 94 tienen una factura enviada por mail. Entre las compañías que reciben la factura por mail, **28 órdenes de más de 45 días no tienen ninguna factura ni aprobación** | **No está en la spec.** Es cobranza en su primer eslabón: lo que no se facturó no se puede cobrar. No choca con el principio IX | **La más valiosa.** Antes de especificarla, revisar a mano esos 28 casos: si varios son plata sin facturar, entra como A11 |
+| 1 | **Órdenes de trabajo sin factura visible** | 206 siniestros con orden de trabajo; 94 tienen una factura enviada por mail. Entre las compañías que reciben la factura por mail, **28 órdenes de más de 45 días no tienen ninguna factura ni aprobación por mail**. Las órdenes vencen al año: al 2026-10-15, 14 ya vencieron, 1 vence en días y 13 están vigentes | **No está en la spec.** Es cobranza en su primer eslabón: lo que no se facturó no se puede cobrar. No choca con el principio IX | **Una orden sin factura no prueba un auto reparado**: pudo no venir, ir por portal o facturarse con otro asunto. Revisar a mano las 14 vigentes o por vencer: si varias son plata sin facturar, entra como A11; si casi todas se explican, se descarta |
 | 2 | **Lo que las compañías piden, en una lista** (A7 de la spec) | 93 pedidos de factura, 25 de documentación y 17 observaciones a facturas. **41 siguen sin respuesta visible; 39 tienen más de 30 días.** La mayoría, Rivadavia, Mercantil, Provincia y Zurich | Sí: A7, fase 3 | Empezar **sólo por los mails automáticos**, que se reconocen casi sin error: el "¡Ya podés cargar tu factura!" de Mercantil, el "¿La unidad fue reparada?" de Rivadavia, el "siniestro habilitado" de Zurich. Los mails escritos por personas van a Revisar: las reglas por palabras acertaron 1 de cada 3 |
 | 3 | **Libro de retenciones** (A10, pregunta N8) | Cada orden de pago trae de 2 a 4 retenciones con su número de certificado, y los lectores ya las leen todas: 48 de 50 PDF cierran al centavo | Sí: es una vista, y no necesita la enmienda que frena a la conciliación bancaria | **Adelantarlo a la fase 3**, como recomendaba el plan. Es crédito fiscal que hoy depende de que alguien junte los PDF |
 | 4 | **Observaciones y rechazos de facturas** | 17 observaciones (monto distinto al autorizado, factura a otro CUIT, orden equivocada); LPS rechaza por su portal y avisa por mail | Casi: la spec tiene 4 tipos de acuse y ninguno es "rechazo" | Agregar el tipo **`observacion`** al acuse. Es un cambio chico en la spec, y es lo más urgente de reclamar: una factura observada no se paga nunca |
@@ -33,7 +33,7 @@ Ordenadas por lo que recuperan o ahorran, con la evidencia al lado.
 
 ---
 
-## El detalle de la #1: autos reparados y no facturados
+## El detalle de la #1: órdenes de trabajo sin factura visible
 
 **Cómo se mide:** una orden de trabajo (de Orión, de Mercantil, de Cooperación, de Zurich/Grant…) dice que el taller tiene un siniestro adjudicado. Una factura enviada con el asunto estándar (`factura n°… siniestro n°…`) o una aprobación de la compañía dicen que se facturó. Se cruzan por número de siniestro.
 
@@ -44,12 +44,14 @@ Ordenadas por lo que recuperan o ahorran, con la evidencia al lado.
 - 72 órdenes de más de 45 días no tienen factura visible. **44 de esas son de compañías que reciben la factura por portal o formulario** (San Cristóbal, Rivadavia, La Segunda desde mediados de 2025, Provincia): el mail no puede mostrar la factura, así que ahí la alarma sería falsa.
 - **Quedan 28** de compañías que reciben la factura por mail: Sancor, La Caja, Cooperación, Mercantil, Zurich, Allianz, Galicia, LPS, Río Uruguay, Segurcoop. Ésas son las que valen una mirada.
 
+**Lo que esto no prueba:** que el auto se haya reparado. La orden dice que el siniestro se le asignó al taller, nada más. El auto pudo no venir nunca (cobro en efectivo, destrucción total, otro taller), y la factura pudo ir por un canal que el mail no ve. **Y las órdenes vencen al año:** pasado ese plazo ya no se pueden facturar, así que lo que sirve es mirar las vigentes, de la que vence antes a la que vence después.
+
 **Por qué no se puede automatizar del todo todavía:** el libro de ARCA no tiene el número de siniestro. La única unión confiable entre una orden de trabajo y una factura es el **asunto del mail de la factura**, que sí lo lleva, o la aprobación de la compañía. Para las compañías de portal, haría falta su exportación de facturas.
 
 **Lo que haría:**
 
 1. Que el robot sume un lector de **órdenes de trabajo** (Orión, Mercantil, Cooperación, Grant). Los formatos ya están relevados: en Orión el siniestro viene pegado a la marca del auto en el asunto, con un largo distinto por compañía, así que el lector va por compañía.
-2. Con los envíos de la fase 2 (`envio`, que ya guarda el siniestro del asunto), una vista "orden de trabajo sin factura después de N días", **sólo para las compañías que reciben la factura por mail**.
+2. Con los envíos de la fase 2 (`envio`, que ya guarda el siniestro del asunto), una vista "orden de trabajo sin factura después de N días", **sólo para las compañías que reciben la factura por mail**, ordenada por fecha de vencimiento de la orden (un año desde que se emitió).
 3. Las de portal, cuando haya exportaciones de sus portales.
 
 ## El detalle de la #2: lo que piden las compañías
@@ -68,6 +70,6 @@ Ordenadas por lo que recuperan o ahorran, con la evidencia al lado.
 
 ## Lo que necesito que decidas
 
-1. **¿Mirás los 28 casos de "reparado y no facturado"?** Si son plata sin facturar, la #1 pasa a la spec como A11 y va primera. La lista no está en el repo: te la pasé aparte, como archivo en la conversación.
+1. **¿Mirás las órdenes sin factura visible, empezando por las 14 vigentes o por vencer?** Si varias resultan reparadas y sin facturar, la #1 pasa a la spec como A11 y va primera; si casi todas se explican (no vino el auto, se facturó por otro canal), se descarta. La lista no está en el repo: te la pasé aparte, con un prompt para el chat de conciliación.
 2. **¿Agregamos el tipo `observacion` a los acuses** (#4)? Es un cambio de una línea en la spec 005, §4.3.
 3. **¿Adelantamos el libro de retenciones a la fase 3** (N8)?
