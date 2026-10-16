@@ -20,8 +20,8 @@ La spec 002 §4 puso el cobro como **hecho #3**, detrás de marcar no concretado
 de ingreso y entrega, con el argumento de que era el más caro de construir. Sigue siendo el más
 caro. Pero la conciliación manual cambió dos cosas que invierten la prioridad:
 
-**Primero, hay un número.** $152 M sin comprobar, de los cuales **$124 M tienen más de 60
-días**. Ninguna otra parte de este sistema tiene un número así al lado. El tablero de
+**Primero, hay un número.** La conciliación manual dejó una parte grande de lo facturado sin
+comprobar, y **la mayor parte tiene más de 60 días**. Ninguna otra parte de este sistema tiene un número así al lado. El tablero de
 presupuestos mejora una decisión; esto recupera plata que ya se facturó y no entró.
 
 **Segundo, y es lo que lo hace posible: los datos ya existen y no los carga nadie.** Están en
@@ -186,7 +186,7 @@ Dos cardinalidades que el modelo tiene que soportar y que salen de casos reales:
 - **Una OP cancela varias facturas** → varias imputaciones apuntando al mismo
   `aviso_pago_id`. Fed. Patronal agrupa; Galicia agrupa.
 - **Una factura recibe pagos parciales o residuales** → varias imputaciones sobre el mismo
-  comprobante. Fed. Patronal pagó **$84,49 contra una factura de $84,50**. Si el modelo asume
+  comprobante. Una compañía pagó **un centavo menos que el total de la factura**. Si el modelo asume
   un pago por factura, ese centavo deja la factura abierta para siempre o la cierra mintiendo.
 
 **`retencion`** · una fila por impuesto por imputación: `imputacion_id`, `impuesto`
@@ -207,8 +207,8 @@ id del borrador de Gmail, adjuntos. Es la mitad que falta del estado derivado: u
 `envio` no es deuda, es un olvido nuestro.
 
 **`autorizacion`** · la orden de reparación: compañía, siniestro, `monto_autorizado`, fecha,
-documento. Es lo que evita Mercantil 3385 (**$2,6 M facturados contra $1,29 M autorizados**) y
-el caso Rivadavia al revés ($157.000 facturados contra una orden de $284.500 — plata dejada
+documento. Es lo que evita facturar **el doble de lo autorizado** (pasó con una compañía) y
+el caso al revés: facturar **bastante menos que la orden** (pasó con otra — plata dejada
 sobre la mesa).
 
 **`tarea`** · origen (mail, regla, persona), `gmail_message_id` nullable, compañía,
@@ -266,8 +266,8 @@ deuda.** Un total que mezcla las dos cosas es un total que no se puede reclamar.
 Es la única decisión de orden que me aparté de tu lista, y la quiero justificar porque la
 prioridad que diste es por valor y la mía es por secuencia.
 
-**A4, A5 y A6 previenen problemas futuros. A8 y A7 recuperan los $152 M que ya están
-afuera**, de los cuales $124 M pasaron los 60 días. Prevenir un duplicado ahorra el costo de
+**A4, A5 y A6 previenen problemas futuros. A8 y A7 recuperan la plata que ya está
+afuera**, la mayor parte con más de 60 días. Prevenir un duplicado ahorra el costo de
 una NC; cobrar una factura de hace ocho meses trae plata. Y A8 no estrena una sola tabla: una
 vez que A1, A2 y A3 cargaron la evidencia, el semáforo es **vistas y pantalla**, lo más barato
 de toda la lista.
@@ -378,8 +378,8 @@ Medibles. El bloque está cumplido cuando **todo** esto es cierto:
 1. **El arqueo cierra al peso.** Para el período ene-2025 → sep-2026: facturado = cobrado +
    aprobado sin prueba + en curso + a reclamar + anulado + sin evidencia, contra el total de
    ARCA, **sin diferencia de un peso**.
-2. **Reproduce tu conciliación manual.** El sistema llega a los **$171 M cobrados con prueba**
-   y los **$152 M sin comprobar**, y toda diferencia queda explicada fila por fila. Tu
+2. **Reproduce tu conciliación manual.** El sistema llega a **los mismos totales de cobrado con prueba
+   y sin comprobar** que la planilla, y toda diferencia queda explicada fila por fila. Tu
    planilla es el juego de datos de prueba (P12).
 3. **Reimportar no duplica.** El mismo CSV de ARCA dos veces no agrega una fila. El mismo mail
    dos veces tampoco.
@@ -390,7 +390,7 @@ Medibles. El bloque está cumplido cuando **todo** esto es cierto:
 6. **La app no manda mails.** Test que lee el código, igual que `arquitectura.test.ts`.
 7. **Ninguna contraseña**, ni en el esquema ni en el repo. Test.
 8. **Tres toques** desde el total de una compañía hasta el PDF que respalda un cobro.
-9. **El residuo de $84,49 contra $84,50** se imputa y deja la factura cerrada, no abierta por
+9. **El residuo de un centavo** (pago un centavo menor que la factura) se imputa y deja la factura cerrada, no abierta por
    un centavo ni cerrada mintiendo.
 10. **La ND 001 revive la factura 3285**: el estado derivado cambia de anulado a lo que
     corresponda, sin que nadie edite nada a mano.
