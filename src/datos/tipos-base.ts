@@ -1,6 +1,6 @@
 /* Tipos del esquema de la base.
  *
- * ⚠️  PROVISORIO — derivado a mano de base/supabase/migrations/, no generado.
+ * ⚠️  PROVISORIO — derivado a mano de las migraciones (supabase/migrations/ del repo privado semaforo-base), no generado.
  *
  * El CLAUDE.md dice que estos tipos no se escriben a mano, y tiene razón. Esto existe
  * porque `npx supabase gen types` no corre en la máquina de Luciano (npm roto), y

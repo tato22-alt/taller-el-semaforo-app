@@ -1,13 +1,13 @@
 # Feature 004 — La frontera entre las tres piezas
 
 **Estado:** **decidida el 2026-10-07** (ver §8). RF-601 se reemplazó; RF-602 y RF-603 siguen
-**Leer después:** la [spec 005 — Cobranzas](../005-cobranzas/spec.md) contesta la pregunta de
+**Leer después:** la spec 005 — Cobranzas (en `specs/005-cobranzas/` del repo privado `semaforo-base`) contesta la pregunta de
 este documento por otro lado: esta app **sí** tiene contenido propio, y es cobranzas. Eso
 retira el RF-601 de §5 (ver 005 §8, C4) y le quita urgencia a la decisión #5 de §8 — pausar la
 app ya no está sobre la mesa. Las cinco decisiones quedaron cerradas el 2026-10-07: ver §8.
 **Fecha:** 2026-09-26
 **Método:** comparación de los tres repositorios en su estado real, no en el recordado
-**Constitución vinculante:** `base/.specify/memory/constitution.md`
+**Constitución vinculante:** `.specify/memory/constitution.md` del repo privado `semaforo-base`
 
 > **Qué contesta este documento.** Una sola pregunta, y la respuesta no es cómoda:
 > **¿qué le queda por hacer a esta aplicación, ahora que la herramienta de presupuesto
@@ -186,7 +186,7 @@ defiende activamente— aplica también a defenderlo de nosotros.
 |---|---|---|---|
 | 1 | **¿Se retira la spec 003 (el tablero como lista de presupuestos)?** | Sí. Duplica el historial | Para cuando se decidió, el tablero ya estaba construido. **Se queda como está, cerrado como prueba del stack, y no se amplía** |
 | 2 | **¿La primera pantalla de esta app es el resumen del mes?** | Sí. Es el hueco declarado y ahora tiene datos | **No.** Lo primero es cobranzas (spec 005). El resumen del mes queda en espera |
-| 3 | **¿Se especifica la vista mensual en el repo de la base?** | Sí, y va antes que cualquier código acá | En espera, con el resumen. Cuando se haga, va en `base/specs/` |
+| 3 | **¿Se especifica la vista mensual en el repo de la base?** | Sí, y va antes que cualquier código acá | En espera, con el resumen. Cuando se haga, va en `specs/` de `semaforo-base` |
 | 4 | **¿Esta app queda como sólo lectura, con test que lo verifique?** | Sí | **Reemplazado:** no escribe lo que es de la herramienta (ver RF-601 en §5) |
 | 5 | **Si no querés el resumen del mes todavía, ¿pausamos la app?** | Preferible a duplicar | **No aplica:** la app tiene contenido propio, que es cobranzas |
 

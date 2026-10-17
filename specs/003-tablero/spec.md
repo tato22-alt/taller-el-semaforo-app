@@ -5,7 +5,7 @@ de punta a punta (login, RLS, PostgREST). La spec 004 §3 mostró que, como list
 duplica el historial de la herramienta; por eso cumplió su función y se congela. Ver "Cómo quedó"
 al final
 **Alcance vigente:** `specs/002-alcance/spec.md`
-**Constitución aplicable:** `base/.specify/memory/constitution.md`
+**Constitución aplicable:** `.specify/memory/constitution.md` del repo privado `semaforo-base`
 **Base:** `semaforo-modelo-datos` @ `claude/semaforo-taller-system-eroppo` — 4 tablas, 2 vistas, **vacía**
 
 ---

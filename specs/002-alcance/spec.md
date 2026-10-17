@@ -5,7 +5,7 @@
 | **Estado** | Vigente para el **módulo de presupuestos**. Desde el 2026-10-07 la app tiene un segundo módulo, cobranzas, con su propia frontera en la spec 005. Lo que la spec 004 §4 corrigió de este documento, vale |
 | **Fecha** | 2026-09-12 |
 | **Reemplaza a** | La spec 001, retirada del repo el 2026-09-13 (queda en el historial) |
-| **Constitución vinculante** | `base/.specify/memory/constitution.md` |
+| **Constitución vinculante** | `.specify/memory/constitution.md` del repo privado `semaforo-base` |
 | **Base de datos** | `semaforo-modelo-datos`, rama `claude/semaforo-taller-system-eroppo` |
 
 > **Qué contesta este documento.** Dos preguntas: **dónde termina la app**, y **cómo se

@@ -8,13 +8,14 @@ Punto de entrada cuando volvés. Si esto y el código se contradicen, gana el c�
 
 ## Las piezas
 
-El sistema vivía en tres repositorios. **Desde el 2026-10-07 son dos:** la base se mudó a este
-repo, bajo `base/`, conservando sus 52 commits. Esto es lo que hay en cada pieza, medido, no
-supuesto.
+El 2026-10-07 la base se mudó a este repo, bajo `base/`, conservando sus 52 commits. **El
+2026-10-17 se separó otra vez, a un repo privado, `semaforo-base`**, con toda su historia y con la
+spec y los planes de cobranzas: este repo es público y no tiene por qué mostrar el esquema completo
+ni cómo se cobra. Esto es lo que hay en cada pieza, medido, no supuesto.
 
 | Pieza | Qué es | Estado real |
 |---|---|---|
-| **`base/`** en este repo<br>(subtree de `semaforo-modelo-datos`) | La base de datos. **Es también la API**, vía PostgREST. **Desde el 2026-10-07 el esquema se escribe acá**; el repo de origen quedó como histórico | ✅ **Funcionando y verificada.** 4 tablas, 2 vistas, 0 triggers, **23 migraciones** (la 20 es M1, roles; la 21 es M2, fichas de compañía y tipos de comprobante; la 22 es M3, el libro de ARCA; la 23 es M4, las vistas del arqueo y de las notas de crédito). RLS activa y forzada, `anon` revocado. **Ya tiene presupuestos reales**, emitidos desde la herramienta (visto el 2026-10-08 en el sitio publicado). El talonario de papel terminó en el 15999; la numeración digital arranca en el 16000 |
+| **`semaforo-base`** (privado) | La base de datos. **Es también la API**, vía PostgREST. **Desde el 2026-10-17 el esquema se escribe ahí**, y la spec y los planes de cobranzas también. `semaforo-modelo-datos` sigue como histórico | ✅ **Funcionando y verificada.** 4 tablas, 2 vistas, 0 triggers, **23 migraciones** (la 20 es M1, roles; la 21 es M2, fichas de compañía y tipos de comprobante; la 22 es M3, el libro de ARCA; la 23 es M4, las vistas del arqueo y de las notas de crédito). RLS activa y forzada, `anon` revocado. **Ya tiene presupuestos reales**, emitidos desde la herramienta (visto el 2026-10-08 en el sitio publicado). El talonario de papel terminó en el 15999; la numeración digital arranca en el 16000 |
 | **`semaforo-presupuesto`** | La herramienta de presupuestos, **en producción**. Se queda en su repo | ✅ **Conectada y en uso.** Emite, numera con `fn_proximo_numero_presupuesto()`, tiene historial con buscador, y su ficha interna escribe `no_concretado` y `origen` |
 | **La app** (la raíz de este repo) | Login y tablero | 🟡 **Lee la base de punta a punta.** Login contra Supabase Auth y tablero leyendo `vw_presupuestos`, **probado el 2026-10-07**. **Escribe sólo `importacion` y `comprobante`** (la pantalla Importar), y un test lo verifica. 81 tests en verde. **Publicada en https://tato22-alt.github.io/taller-el-semaforo-app/** desde el 2026-10-08: Luciano entró desde el sitio y vio los presupuestos reales |
 
@@ -87,7 +88,7 @@ Uno por vez, y cada uno termina cuando **se vio funcionar**, no cuando está esc
 | 1.7 | ~~Las cuatro preguntas que bloqueaban la spec 005 (P1 a P4)~~ | ✅ **Contestadas el 2026-10-07** | Ver la spec 005 §8 y §9 |
 | 2 | ~~Prender Pages~~ | ✅ **Hecho y visto el 2026-10-08** | Source en *GitHub Actions*, las dos variables cargadas, corrida #5 en verde. Cada push a `main` publica solo, y sólo si pasan los tests |
 | 3 | **Pasar la planilla de la conciliación manual** (P12) | Luciano | Es el juego de datos de prueba: sin ella, "llega a los totales de la conciliación al peso" no se puede verificar contra nada |
-| 4 | **Fase 1 de cobranzas** — **aprobada el 2026-10-08.** Plan en `specs/005-cobranzas/plan.md`. **M1 (roles) aplicada y verificada el 2026-10-08: 12 de 12 ok** contra la base real, (una persona ve todos; el robot y una sesión sin rol, ninguno). M2 (datos maestros) y M3 (el libro de ARCA) aplicadas y verificadas el mismo día, 12 de 12 y 15 de 15. La pantalla **Importar** está publicada y **se usó con datos reales el 2026-10-08: todos los comprobantes**, y **reimportar dio 0 nuevas**. M4 (vistas del arqueo y de las notas de crédito) aplicada y verificada el mismo día, 13 de 13. **Pantalla Revisar (notas de crédito y débito) hecha el 2026-10-08**: ahí se resuelven las NC ambiguas y se vincula la ND 001, el último criterio de la fase 1; falta usarla con los datos reales. **Lo que queda, decidido el 2026-10-08:** comparar el arqueo contra ARCA lo hace Luciano por su lado, junto con su conciliación. Las fichas de compañía las arma Luciano con otra IA, que devuelve un SQL para pegar en el editor; **la pantalla Ficha de compañía queda en espera**, porque con las fichas cargadas así sólo serviría para corregir alguna. **Fichas cargadas el 2026-10-15:** las 24 aseguradoras del libro de ARCA, con nombre, alias y las casillas de aviso vistas en los mails; plazo, canal y portal quedan vacíos hasta que se sepan | Luciano aplica, Claude construye | **Va antes que la fase 0** (decisión del 2026-10-07): no depende de nada y da el total contra el que se mide todo lo demás |
+| 4 | **Fase 1 de cobranzas** — **aprobada el 2026-10-08.** Plan en `specs/005-cobranzas/plan.md` de `semaforo-base`. **M1 (roles) aplicada y verificada el 2026-10-08: 12 de 12 ok** contra la base real, (una persona ve todos; el robot y una sesión sin rol, ninguno). M2 (datos maestros) y M3 (el libro de ARCA) aplicadas y verificadas el mismo día, 12 de 12 y 15 de 15. La pantalla **Importar** está publicada y **se usó con datos reales el 2026-10-08: todos los comprobantes**, y **reimportar dio 0 nuevas**. M4 (vistas del arqueo y de las notas de crédito) aplicada y verificada el mismo día, 13 de 13. **Pantalla Revisar (notas de crédito y débito) hecha el 2026-10-08**: ahí se resuelven las NC ambiguas y se vincula la ND 001, el último criterio de la fase 1; falta usarla con los datos reales. **Lo que queda, decidido el 2026-10-08:** comparar el arqueo contra ARCA lo hace Luciano por su lado, junto con su conciliación. Las fichas de compañía las arma Luciano con otra IA, que devuelve un SQL para pegar en el editor; **la pantalla Ficha de compañía queda en espera**, porque con las fichas cargadas así sólo serviría para corregir alguna. **Fichas cargadas el 2026-10-15:** las 24 aseguradoras del libro de ARCA, con nombre, alias y las casillas de aviso vistas en los mails; plazo, canal y portal quedan vacíos hasta que se sepan | Luciano aplica, Claude construye | **Va antes que la fase 0** (decisión del 2026-10-07): no depende de nada y da el total contra el que se mide todo lo demás |
 | 5 | **Fase 0 — escrita el 2026-10-08, instalada el 2026-10-15.** `robot/`: un barrido de Gmail que guarda cada aviso (con el texto de sus PDF) y cada factura enviada en una planilla de la cuenta del taller, y los lectores de nueve compañías (Federación Patronal, La Segunda, LPS, Río Uruguay, Nación, San Cristóbal, Sancor, Galicia/SURA y La Caja), cinco de ellos leyendo el PDF y controlando que bruto = neto + retenciones; contra 10 PDF reales, 8 cierran al centavo. Probado con tests sobre mails inventados y con Gmail, Drive y la planilla simulados; **instalado en la cuenta del taller el 2026-10-15**: la primera corrida contra el Gmail real guardó los primeros avisos; falta que llegue a "Al día." y contar los estados. Instalación paso a paso en `robot/README.md` | Luciano lo instala con la cuenta del taller; Claude escribe los lectores que siguen | Es el corpus contra el que se escriben y se miden los doce lectores. Sigue con N3 sin contestar: el código no lleva ningún dato real, así que vale para cualquier respuesta |
 | 6 | **Fase 2:** parsers e imputaciones (A2, A3) + pantalla **Revisar** | Claude | El núcleo. Acá entra la plata |
 | 7 | **Fase 3:** el semáforo y las tareas (A8, A7) | Claude | No estrena tablas: son vistas |
@@ -106,22 +107,19 @@ derivación de la spec 002 §3.2.
 
 ## Dónde está cada cosa en este repo
 
+En el repo privado `semaforo-base` están el esquema (`supabase/migrations/`, 23 migraciones), la
+constitución, las specs del modelo, y en `specs/005-cobranzas/` la spec de cobranzas (A1 a A10,
+el modelo, las preguntas), sus planes, las automatizaciones evaluadas y una verificación
+`qa-m*.sql` por migración. `node --test` ahí corre el chequeo de las migraciones nuevas.
+
 ```
 CLAUDE.md                        Contexto y reglas de esta app. Se lee al inicio de cada sesión
 ESTADO.md                        Este archivo
-.specify/memory/constitution.md  Puntero a base/.specify/memory/constitution.md
-base/                            LA BASE DE DATOS (subtree, 52 commits propios)
-  .specify/memory/constitution.md  Los diez principios (v3.0.1). Vinculantes para todo el repo
-  supabase/migrations/             El esquema: 23 migraciones
-  specs/                           Las specs del modelo de datos
-  docs/diccionario-datos.md        Qué es cada tabla y cada columna
+.specify/memory/constitution.md  Puntero a la constitución, que vive en semaforo-base
 specs/README.md                  Cómo se trabaja con SDD y el estado de cada spec
 specs/002-alcance/spec.md        Los límites del módulo de presupuestos y qué se puede derivar
 specs/003-tablero/spec.md        El tablero. Cerrada como prueba del stack
 specs/004-frontera/spec.md       La frontera entre la herramienta, la base y esta app
-specs/005-cobranzas/spec.md      COBRANZAS: el segundo módulo. A1 a A10, el modelo, las preguntas
-specs/005-cobranzas/plan.md      La fase 1, aprobada: decisiones, migraciones M1 a M4, la app
-specs/005-cobranzas/qa-m*.sql    Una verificación por migración: se pega después de aplicarla
 robot/                           El Apps Script de la fase 0: lectores de avisos (con tests) y el barrido de Gmail
 .github/workflows/pages.yml      Build, tests y publicación. Si los tests fallan, no publica
 src/
@@ -135,7 +133,7 @@ src/
 
 ## Investigación del 2026-10-08
 
-Qué conviene automatizar después del robot de pagos, medido contra 21 meses de correo: [`specs/005-cobranzas/automatizaciones-evaluadas.md`](specs/005-cobranzas/automatizaciones-evaluadas.md). La que más plata podría recuperar no estaba en la spec: **órdenes de trabajo sin factura visible** (las órdenes vencen al año). Una orden sin factura no prueba un auto reparado: Luciano las revisa con su conciliación, empezando por las vigentes.
+Qué conviene automatizar después del robot de pagos, medido contra 21 meses de correo: `specs/005-cobranzas/automatizaciones-evaluadas.md`, en `semaforo-base`. La que más plata podría recuperar no estaba en la spec: **órdenes de trabajo sin factura visible** (las órdenes vencen al año). Una orden sin factura no prueba un auto reparado: Luciano las revisa con su conciliación, empezando por las vigentes.
 
 ## Decisiones abiertas
 
@@ -159,7 +157,8 @@ Qué conviene automatizar después del robot de pagos, medido contra 21 meses de
 | ¿Dónde vive el Apps Script? | En `robot/`, en este repo |
 | ¿Fase 0 o fase 1 primero? | Fase 1 |
 | P16 / N2 — ¿el robot escribe imputaciones? | No. Escribe `aviso_linea` y una vista hace el cruce exacto con el comprobante (plan, D4). Lo que decide una persona va en `imputacion` |
-| ¿Dónde viven la spec y el plan de cobranzas? | En `specs/005-cobranzas/`, una sola vez. No se duplican en `base/specs/` |
+| ¿Dónde viven la spec y el plan de cobranzas? | En `specs/005-cobranzas/` del repo privado `semaforo-base`, una sola vez *(2026-10-17)* |
+| ¿Dónde vive el esquema? *(2026-10-17)* | En el repo privado `semaforo-base`, con su historia. Este repo es público para que GitHub Pages lo publique gratis, y no lleva SQL del esquema, datos reales ni documentos del negocio |
 | ¿Qué tablas no escribe esta app? | Las cuatro de la herramienta: `trabajos`, `trabajo_items`, `clientes` y `vehiculos` |
 | N10 — ¿cómo se aplican las migraciones? *(2026-10-08)* | Se siguen pegando en el SQL Editor, una por vez, cada una con su verificación `qa-…sql` que devuelve una tabla de `ok`/`FALLA`. La CLI no corre en la máquina de Luciano |
 | Fase 1 de cobranzas *(2026-10-08)* | **Aprobada**, con P9 (sólo NC de candidato único), P10 (se importan también las B) y P11 (desde ene-2025) |

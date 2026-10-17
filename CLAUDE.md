@@ -44,29 +44,34 @@ ser útil algún día", no va.
 
 **Estado del modelo:** hoy la base tiene presupuestos y, desde el 2026-10-08, las tablas de la
 fase 1 de cobranzas (roles, fichas de compañía y el libro de ARCA). No inventes columnas de datos
-que la base todavía no tiene: las de cobranzas se especifican en `specs/005-cobranzas/` (una sola
-spec y un solo plan para todo el bloque) y se migran en `base/supabase/migrations/`.
+que la base todavía no tiene: las de cobranzas se especifican en `specs/005-cobranzas/` del repo
+privado `semaforo-base` (una sola spec y un solo plan para todo el bloque) y se migran en su
+`supabase/migrations/`.
 
 ---
 
 ## El contrato con la base
 
-**La base vive en este mismo repo, bajo `base/`** (mudada el 2026-10-07 desde
-`tato22-alt/semaforo-modelo-datos`, conservando sus 52 commits). Su
-`base/.specify/memory/constitution.md` es vinculante para todo lo que hay acá adentro.
+**La base vive en un repo privado: `tato22-alt/semaforo-base`** (separada de esta app el
+2026-10-17, conservando toda su historia). Ahí están el esquema (`supabase/migrations/`), la
+constitución (`.specify/memory/constitution.md`), las specs del modelo y la spec y los planes de
+cobranzas (`specs/005-cobranzas/`). **Su constitución es vinculante para todo lo que hay acá
+adentro**, aunque el archivo no esté en este repo: para trabajar en la app, la sesión necesita
+también ese repo.
 
-`base/` es un *subtree*, no una copia: mantiene la historia del repo de origen y se puede
-sincronizar con él. **Las migraciones se escriben ahí, no en `src/`**, y se siguen aplicando a
-mano en el editor SQL del panel de Supabase — tener el archivo en el repo no las despliega.
+**Por qué está separada (decidido el 2026-10-17).** Este repo es público, porque GitHub Pages
+gratis sólo publica desde repos públicos. El esquema completo y los documentos de cobranzas
+(cómo se cobra y a quién) no tienen por qué estarlo. Lo que se pierde: un cambio de esquema y el
+código que lo usa ya no van en el mismo commit. Lo que no cambia: hay **un solo** esquema, en un
+solo repo. La forma de la base sigue viéndose acá, en `src/datos/tipos-base.ts`: eso no es un
+secreto, lo que protege los datos es la RLS.
 
-**Dónde manda el esquema (decidido el 2026-10-07).** El repo `semaforo-modelo-datos` —antes
-`gestion-taller-sql-server`— **queda como histórico y no se toca más.** Toda migración nueva se
-escribe en `base/supabase/migrations/` de este repo. Hay una sola razón y es la de siempre: dos
-copias del mismo esquema terminan dejando de coincidir, y la que mande va a ser la que alguien
-recuerde haber editado. Acá hay una sola.
+**Las migraciones se escriben en `semaforo-base`, nunca acá**, y se siguen aplicando a mano en el
+editor SQL del panel de Supabase — tener el archivo en un repo no las despliega. **En este repo
+no va ningún SQL del esquema, ningún dato real ni ningún documento con datos del negocio.**
 
-Esto no quiere decir que no haya más migraciones: cobranzas (spec 005) necesita una docena de
-tablas. Quiere decir que se escriben acá.
+`tato22-alt/semaforo-modelo-datos` —antes `gestion-taller-sql-server`— es el origen de la base y
+**queda como histórico: no se toca.**
 
 **No hay backend.** Supabase expone el esquema como REST vía PostgREST. La base *es* la API.
 El robot de cobranzas (un Apps Script que lee Gmail, en `robot/`) no es un backend de la app:
@@ -132,15 +137,15 @@ modelado, no el tipo.
 
 Los tipos de la base no se escriben a mano: se generan con
 `supabase gen types typescript --project-id osslhkvdclrbukjqwpnt` y se guardan en
-`src/datos/tipos-base.ts`. **Regeneralos cada vez que se agregue una migración a
-`base/supabase/migrations/`** — ahora que están en el mismo repo, un cambio de esquema y el
-código que lo usa pueden ir en el mismo commit, que es la mitad del motivo de haberlos juntado.
+`src/datos/tipos-base.ts`. **Regeneralos cada vez que se agregue una migración en
+`semaforo-base`**: el archivo es el único puente entre los dos repos, y si queda viejo, la app
+compila contra una base que ya no existe.
 **Hoy el archivo es provisorio:** se escribió a partir de las migraciones porque el generador no
 corre en la máquina de Luciano. Está marcado así en su encabezado; cuando el generador corra,
 gana el generado.
 
-**Este repo es la app y la base:** `tato22-alt/taller-el-semaforo-app`. La app en la raíz,
-el modelo de datos en `base/`. La herramienta de presupuesto **no se muda**: sigue en
+**Este repo es la app:** `tato22-alt/taller-el-semaforo-app`, público. El modelo de datos está
+en `tato22-alt/semaforo-base`, privado. La herramienta de presupuesto **no se muda**: sigue en
 producción en `tato22-alt/semaforo-presupuesto` y se queda ahí (decidido el 2026-09-13).
 
 **Gotcha de Pages:** el sitio se sirve en un subpath (`/taller-el-semaforo-app/`), así que un
@@ -165,15 +170,16 @@ src/             LA APP
   app.tsx
 specs/           las specs de la app
 robot/           el Apps Script de cobranzas (fase 0): lectores puros con tests, y el barrido de Gmail
-base/            LA BASE (subtree, con su propia historia)
+
+LA BASE, en el repo privado tato22-alt/semaforo-base:
   supabase/migrations/   el esquema. 23 migraciones
-  specs/                 las specs del modelo de datos
+  specs/                 las specs del modelo de datos, y 005-cobranzas
   docs/                  diccionario de datos
   .specify/memory/constitution.md   LOS DIEZ PRINCIPIOS
 ```
 
-**Nada de `src/` importa nada de `base/`.** `base/` es SQL y documentos; el puente entre los
-dos es `src/datos/tipos-base.ts`, generado desde el esquema.
+**El puente entre la app y la base es uno solo: `src/datos/tipos-base.ts`**, generado desde el
+esquema.
 
 La regla es una sola y se puede verificar leyendo imports:
 
