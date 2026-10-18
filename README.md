@@ -1,12 +1,7 @@
 # El Semáforo — aplicación
 
-Sistema de gestión para un taller de chapa y pintura en Villa Gesell, Buenos Aires. Es un
-taller familiar real, con tres personas cargando datos, y esta aplicación se usa desde el
-celular mientras se trabaja.
+Sistema de gestión para un taller de chapa y pintura en Villa Gesell, Buenos Aires.
 
-**El problema no es "no tenemos un sistema".** Es que hoy nadie puede contestar de memoria
-qué autos hay en el taller, hace cuánto están, y quién debe plata. Todo eso vive repartido
-entre un talonario de papel, WhatsApp y la memoria de quien atendió.
 
 ---
 
