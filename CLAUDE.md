@@ -268,6 +268,17 @@ cosas distintas lo garantizan, y conviene no confundirlas:
 
 ---
 
+## Conectores (regla de Luciano, 2026-10-18)
+
+**Sugerí los conectores que mejoren el sistema** (Supabase, Gmail, Google Drive, GitHub…) apenas
+uno ahorre trabajo o pasos manuales, sin esperar a que Luciano los pida: para qué serviría y qué
+riesgo trae, en una línea. Vale para todos sus proyectos; está también en su memoria de Notion.
+
+- **Supabase está conectado desde el 2026-10-18.** Leer la base para verificar (consultas, QA,
+  advisors) se puede hacer sin preguntar. **Aplicar una migración o cambiar datos, sólo con su OK
+  en ese momento**, igual que un push.
+- Nada de lo que se lea con un conector (datos reales) va a un repo público.
+
 ## Por dónde seguir
 
 El orden de trabajo vive en `ESTADO.md`, no acá: este archivo dice cómo se trabaja, aquél qué
