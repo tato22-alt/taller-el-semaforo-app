@@ -16,7 +16,7 @@ constitución del modelo  →  CLAUDE.md  →  spec  →  plan  →  tareas
 
 | Capa | Dónde | Contesta | Cambia... |
 |---|---|---|---|
-| **Constitución** | `base/.specify/memory/constitution.md` | ¿Qué principios no se negocian nunca? | Casi nunca, y con enmienda escrita |
+| **Constitución** | `.specify/memory/constitution.md` del repo privado `semaforo-base` | ¿Qué principios no se negocian nunca? | Casi nunca, y con enmienda escrita |
 | **Contexto de la app** | `CLAUDE.md` en la raíz | ¿Cómo se trabaja en este repo? | Cuando cambia el stack o el alcance |
 | **Especificación** | `specs/00X-nombre/spec.md` | ¿Qué tiene que lograr y **dónde termina**? | Cuando cambia el problema |
 | **Plan** | `specs/00X-nombre/plan.md` | ¿Con qué estructura y decisiones técnicas? | Cuando cambia una decisión técnica |
@@ -26,7 +26,7 @@ constitución del modelo  →  CLAUDE.md  →  spec  →  plan  →  tareas
 arriba. Una spec no puede violar la constitución. Una tarea no puede agregar algo que la
 spec dejó explícitamente afuera.
 
-**Hay una sola constitución** y vive en `base/`, el modelo de datos. Acá no se escribe otra
+**Hay una sola constitución** y vive en el modelo de datos, el repo privado `semaforo-base`. Acá no se escribe otra
 (ver [`.specify/memory/constitution.md`](../.specify/memory/constitution.md), que ahora es
 solo un puntero y explica por qué).
 
@@ -47,7 +47,7 @@ y acá está escrito por qué".
 | [002](./002-alcance/spec.md) | Alcance y límites — módulo de presupuestos | Vigente, con las correcciones de la 004 §4 |
 | [003](./003-tablero/spec.md) | Tablero | **Cerrada (2026-10-07)** como prueba del stack. No se amplía |
 | [004](./004-frontera/spec.md) | La frontera entre las tres piezas | **Decidida (2026-10-07).** RF-601 reemplazado |
-| [005](./005-cobranzas/spec.md) | **Cobranzas: automatizaciones sobre evidencia** | **Borrador. Es el MVP.** Los cuatro choques de §8 están resueltos. [Plan de la fase 1](./005-cobranzas/plan.md) aprobado el 2026-10-08; el plan completo y la auditoría, fuera del repo hasta contestar N3 |
+| 005 | **Cobranzas: automatizaciones sobre evidencia** | **Borrador. Es el MVP.** Los cuatro choques de §8 están resueltos. Plan de la fase 1 aprobado el 2026-10-08. **La spec y sus planes viven en `specs/005-cobranzas/` del repo privado `semaforo-base` desde el 2026-10-17**: llevan datos del negocio |
 
 ## Cómo se revisa una spec
 

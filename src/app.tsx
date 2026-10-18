@@ -3,6 +3,7 @@ import { usarSesion } from './ui/usarSesion'
 import { Tablero } from './ui/Tablero'
 import { Ficha } from './ui/Ficha'
 import { Importar } from './ui/Importar'
+import { Revisar } from './ui/Revisar'
 import { Login } from './ui/Login'
 import { cerrarSesion } from './datos/sesion'
 import { textoDeFallo } from './dominio/resultado'
@@ -19,6 +20,7 @@ export function App() {
           <nav className="navegacion">
             {ruta.pantalla !== 'tablero' && <a href="#/">Tablero</a>}
             {ruta.pantalla !== 'importar' && <a href="#/importar">Importar facturas</a>}
+            {ruta.pantalla !== 'revisar' && <a href="#/revisar">Revisar notas</a>}
           </nav>
         )}
       </header>
@@ -50,6 +52,7 @@ export function App() {
           <Ficha idTrabajo={ruta.idTrabajo} />
         )}
         {estado.fase === 'adentro' && ruta.pantalla === 'importar' && <Importar />}
+        {estado.fase === 'adentro' && ruta.pantalla === 'revisar' && <Revisar />}
       </main>
     </div>
   )

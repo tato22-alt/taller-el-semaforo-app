@@ -7,16 +7,17 @@ Sistema de gestión para un taller de chapa y pintura en Villa Gesell, Buenos Ai
 
 ## Qué hay en este repositorio
 
-**El modelo de datos y la aplicación, juntos.** La base vive en `base/` —migraciones, vistas,
-políticas de RLS, las specs del modelo y la constitución de principios— y la aplicación en la
-raíz. Están en el mismo repo a propósito: un cambio de esquema y el código que lo consume
-pueden viajar en el mismo commit, y la definición de un número vive en un solo lugar.
+**La aplicación.** El modelo de datos —migraciones, vistas, políticas de RLS, las specs del
+modelo y la constitución de principios— vive en un repo privado, `semaforo-base`, desde el
+2026-10-17. Este repo es público para poder publicarse en GitHub Pages, y por eso no lleva el
+esquema completo, datos reales ni documentos del negocio. La app conoce la forma de la base por
+`src/datos/tipos-base.ts`.
 
 ## Estado: en construcción
 
 | | |
 |---|---|
-| **Base de datos** (`base/`) | ✅ Aplicada y verificada — 22 migraciones, 57/57 verificaciones, RLS activa y forzada |
+| **Base de datos** (repo privado `semaforo-base`) | ✅ Aplicada y verificada — 23 migraciones, 57/57 verificaciones, RLS activa y forzada |
 | **Herramienta de presupuestos** | ✅ En producción, emitiendo contra la base |
 | **Esta aplicación** (raíz) | 🟡 Login y tablero leyendo la base, probados de punta a punta. 44 tests en verde. Todavía no está publicada |
 
@@ -26,18 +27,17 @@ orden de trabajo. El alcance y los límites, en
 
 ---
 
-## Alcance: dos módulos, y nada más
+## Alcance: crece por flujos de trabajo
 
 **Presupuestos.** La herramienta que arma, numera e imprime vive en su propio repo y está en
 producción. Acá hay un tablero que los lee, construido como prueba del stack.
 
 **Cobranzas.** Cuánto deben, quién, desde cuándo, y qué hay que hacer hoy para cobrarlo, a
-partir de lo que ya está escrito en ARCA y en Gmail. Especificado en
-[`specs/005-cobranzas/spec.md`](./specs/005-cobranzas/spec.md); todavía no construido.
+partir de lo que ya está escrito en ARCA y en Gmail. Especificado en la spec 005, que vive en el repo privado `semaforo-base`; en construcción.
 
-Lo que no entra en esos dos módulos, no entra. El alcance se defiende activamente: el riesgo
-real de un proyecto así no es quedarse corto, es convertirse en "uno que hace todo pero no hace
-nada", y eso pasa de a un feature razonable por vez.
+La app crece con los procesos del taller: cada flujo nuevo entra con su spec, y cada dato que se
+pide cargar tiene que devolver más de lo que cuesta. Lo próximo: siniestros, peritos y fotos de
+cada caso.
 
 ---
 
@@ -74,9 +74,8 @@ que lo que protege los datos no es esconderla, es la RLS:
   quien las creó.
 - Verificado con un login real de punta a punta, no solo a nivel de rol.
 
-Nada de eso hay que creérmelo: las políticas están en
-[`base/supabase/migrations/`](./base/supabase/migrations/), en `20260907120600_rls_tablas.sql`
-y `20260907120700_revocar_anon.sql`.
+Las políticas están en las migraciones del repo privado `semaforo-base`
+(`20260907120600_rls_tablas.sql` y `20260907120700_revocar_anon.sql`, entre otras).
 
 Hay datos de personas reales que no eligieron estar ahí. Ninguna credencial va al repositorio
 y ninguna URL con datos reales queda sin autenticación.
@@ -126,12 +125,11 @@ src/                     la aplicación
   datos/     única capa que conoce Supabase. Devuelve tipos del dominio
   ui/        componentes y pantallas. No conoce Supabase
 specs/                   las specs de la aplicación
-base/                    el modelo de datos
-  supabase/migrations/   el esquema, 22 migraciones
-  specs/                 las specs del modelo
-  docs/                  diccionario de datos
-  .specify/memory/       la constitución: diez principios no negociables
+robot/                   el Apps Script de cobranzas: lee avisos de pago de Gmail
 ```
+
+El modelo de datos (esquema, specs del modelo, constitución) está en el repo privado
+`semaforo-base`.
 
 La regla se verifica leyendo los imports: si un componente necesita el cliente de Supabase, la
 capa de datos está incompleta.
@@ -151,15 +149,15 @@ Una tarea termina cuando **funciona y se vio funcionar**, no cuando el código e
 
 ---
 
-## El otro repositorio
+## Los otros repositorios
 
 | Repo | Qué contiene |
 |---|---|
+| `semaforo-base` (privado) | El modelo de datos: el esquema, la constitución, las specs del modelo y la de cobranzas |
 | [`semaforo-presupuesto`](https://github.com/tato22-alt/semaforo-presupuesto) | La herramienta de presupuestos, en producción. **No se muda acá:** emitir un presupuesto son cuatro escrituras encadenadas sin transacción, y esa lógica duplicada en dos aplicaciones termina comportándose distinto en cada una |
 
-El modelo de datos estaba en
-[`semaforo-modelo-datos`](https://github.com/tato22-alt/semaforo-modelo-datos) y se
-mudó a `base/` el 2026-10-07, conservando sus 52 commits.
+El modelo de datos nació en `semaforo-modelo-datos`, se mudó a este repo el 2026-10-07 y a
+`semaforo-base` el 2026-10-17, siempre conservando su historia.
 
 ---
 
