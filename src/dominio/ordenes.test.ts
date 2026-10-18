@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { agruparOrdenes, estadoDeOrden, sePuedeBorrar, validarOrden, vencimientoEnPalabras, type Orden } from './ordenes'
+import { agruparOrdenes, estadoDeOrden, sePuedeBorrar, vencimientoEnPalabras, type Orden } from './ordenes'
 
 const orden = (o: Partial<Orden>): Orden => ({
   id: 1, compania: 'Compañía inventada', siniestro: 'ZZ-1', patente: null, fechaEmision: '2026-01-01',
@@ -56,36 +56,5 @@ describe('el vencimiento en palabras', () => {
     expect(vencimientoEnPalabras(12)).toBe('vence en 12 días')
     expect(vencimientoEnPalabras(-1)).toBe('venció ayer')
     expect(vencimientoEnPalabras(-3)).toBe('venció hace 3 días')
-  })
-})
-
-describe('cargar una orden a mano', () => {
-  const base = { cuitCompania: '30000000000', siniestro: ' ZZ-1 ', patente: ' ab123cd ', fechaEmision: '2026-10-01', monto: '', perito: '' }
-
-  it('pide compañía, siniestro y fecha', () => {
-    expect(validarOrden({ ...base, cuitCompania: '' })).toMatchObject({ ok: false })
-    expect(validarOrden({ ...base, siniestro: '  ' })).toMatchObject({ ok: false })
-    expect(validarOrden({ ...base, fechaEmision: '' })).toMatchObject({ ok: false })
-  })
-
-  it('limpia el siniestro y la patente, y deja vacío lo opcional', () => {
-    expect(validarOrden(base)).toEqual({
-      ok: true,
-      orden: { cuitCompania: '30000000000', siniestro: 'ZZ-1', patente: 'AB123CD', fechaEmision: '2026-10-01', montoAutorizado: null, perito: null },
-    })
-  })
-
-  it('entiende el monto como lo escribe una persona, sin pasar por float', () => {
-    const monto = (m: string) => {
-      const r = validarOrden({ ...base, monto: m })
-      return r.ok ? r.orden.montoAutorizado : r.motivo
-    }
-    expect(monto('150000')).toBe('150000')
-    expect(monto('150.000')).toBe('150000')
-    expect(monto('$ 150.000,50')).toBe('150000.50')
-    expect(monto('150000,5')).toBe('150000.50')
-    expect(monto('150000.50')).toBe('150000.50')
-    expect(monto('1.234.567,89')).toBe('1234567.89')
-    expect(validarOrden({ ...base, monto: 'mucho' })).toMatchObject({ ok: false })
   })
 })

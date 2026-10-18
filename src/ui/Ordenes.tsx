@@ -1,22 +1,19 @@
 /* Órdenes de trabajo: que ninguna venza sin facturar. Spec 010 de semaforo-base.
  *
  * Arriba lo que hay que atender (por vencer y vencidas sin factura), ordenado por monto: la base lo
- * manda así. Después las vigentes, y al final las resueltas. Abajo, el formulario para cargar una
- * orden que llegó por portal o por WhatsApp. La pantalla pinta y llama: qué grupo, qué frase y qué
- * se puede borrar lo decide dominio/ordenes.ts. */
+ * manda así. Después las vigentes, y al final las resueltas. Nadie las carga: las sube el robot
+ * cuando llegan por mail (RF-1005). La pantalla pinta y llama: qué grupo, qué frase y qué se puede
+ * borrar lo decide dominio/ordenes.ts. */
 
-import { useCallback, useEffect, useState, type FormEvent } from 'react'
-import { anularOrden, borrarOrden, cargarOrden, leerCompanias, leerOrdenes, type Compania } from '../datos/ordenes'
+import { useCallback, useEffect, useState } from 'react'
+import { anularOrden, borrarOrden, leerOrdenes } from '../datos/ordenes'
 import { formatearPesos } from '../dominio/dinero'
 import { formatearFecha, hoyEnElTaller } from '../dominio/fechas'
-import { agruparOrdenes, estadoDeOrden, sePuedeBorrar, validarOrden, vencimientoEnPalabras, type Formulario, type Orden } from '../dominio/ordenes'
+import { agruparOrdenes, estadoDeOrden, sePuedeBorrar, vencimientoEnPalabras, type Orden } from '../dominio/ordenes'
 import { textoDeFallo, type Fallo, type Resultado } from '../dominio/resultado'
-
-const FORMULARIO_VACIO: Formulario = { cuitCompania: '', siniestro: '', patente: '', fechaEmision: hoyEnElTaller(), monto: '', perito: '' }
 
 export function Ordenes() {
   const [ordenes, setOrdenes] = useState<readonly Orden[] | Fallo | null>(null)
-  const [companias, setCompanias] = useState<readonly Compania[]>([])
   const [fallo, setFallo] = useState<Fallo | null>(null)
   const [ocupado, setOcupado] = useState(false)
 
@@ -24,19 +21,15 @@ export function Ordenes() {
     void leerOrdenes().then((r) => setOrdenes(r.ok ? r.dato : r.fallo))
   }, [])
   useEffect(cargar, [cargar])
-  useEffect(() => {
-    void leerCompanias().then((r) => (r.ok ? setCompanias(r.dato) : setFallo(r.fallo)))
-  }, [])
 
   /** Toda escritura pasa por acá: se hace, y se vuelve a leer de la base lo que quedó. */
-  async function hacer(accion: () => Promise<Resultado<null>>): Promise<boolean> {
+  async function hacer(accion: () => Promise<Resultado<null>>): Promise<void> {
     setOcupado(true)
     setFallo(null)
     const r = await accion()
     if (!r.ok) setFallo(r.fallo)
     setOcupado(false)
     cargar()
-    return r.ok
   }
 
   if (ordenes === null) return <p className="apagado">Buscando órdenes de trabajo…</p>
@@ -47,6 +40,7 @@ export function Ordenes() {
   return (
     <div className="ordenes">
       <h2>Órdenes de trabajo</h2>
+      <p className="apagado">Llegan solas: el robot las toma del mail.</p>
       {fallo !== null && <p className="error">{textoDeFallo(fallo)}</p>}
 
       <section>
@@ -72,13 +66,11 @@ export function Ordenes() {
           ))}
         </details>
       )}
-
-      <CargarOrden companias={companias} ocupado={ocupado} hacer={hacer} />
     </div>
   )
 }
 
-type Hacer = (accion: () => Promise<Resultado<null>>) => Promise<boolean>
+type Hacer = (accion: () => Promise<Resultado<null>>) => Promise<void>
 
 function TarjetaOrden({ orden: o, ocupado, hacer }: { orden: Orden; ocupado: boolean; hacer: Hacer }) {
   const estado = estadoDeOrden(o)
@@ -126,63 +118,5 @@ function TarjetaOrden({ orden: o, ocupado, hacer }: { orden: Orden; ocupado: boo
         </p>
       )}
     </div>
-  )
-}
-
-function CargarOrden({ companias, ocupado, hacer }: { companias: readonly Compania[]; ocupado: boolean; hacer: Hacer }) {
-  const [f, setF] = useState<Formulario>(FORMULARIO_VACIO)
-  const [motivo, setMotivo] = useState<string | null>(null)
-  const campo = (nombre: keyof Formulario) => ({
-    value: f[nombre],
-    onChange: (e: { target: { value: string } }) => setF({ ...f, [nombre]: e.target.value }),
-  })
-
-  async function alEnviar(e: FormEvent) {
-    e.preventDefault()
-    const v = validarOrden(f)
-    if (!v.ok) {
-      setMotivo(v.motivo)
-      return
-    }
-    setMotivo(null)
-    if (await hacer(() => cargarOrden(v.orden))) setF({ ...FORMULARIO_VACIO, fechaEmision: hoyEnElTaller() })
-  }
-
-  return (
-    <form className="tarjeta formulario" onSubmit={(e) => void alEnviar(e)}>
-      <h3>Cargar una orden</h3>
-      <p className="apagado">Para las que llegan por portal o por WhatsApp.</p>
-      <label>
-        Compañía
-        <select {...campo('cuitCompania')}>
-          <option value="">Elegí…</option>
-          {companias.map((c) => (
-            <option key={c.cuit} value={c.cuit}>{c.nombre}</option>
-          ))}
-        </select>
-      </label>
-      <label>
-        Número de siniestro
-        <input {...campo('siniestro')} />
-      </label>
-      <label>
-        Patente
-        <input {...campo('patente')} autoCapitalize="characters" />
-      </label>
-      <label>
-        Fecha de la orden
-        <input type="date" {...campo('fechaEmision')} />
-      </label>
-      <label>
-        Monto autorizado (si lo sabés)
-        <input {...campo('monto')} inputMode="decimal" placeholder="150.000,50" />
-      </label>
-      <label>
-        Perito (si lo sabés)
-        <input {...campo('perito')} />
-      </label>
-      <button type="submit" disabled={ocupado}>{ocupado ? 'Guardando…' : 'Guardar la orden'}</button>
-      {motivo !== null && <p className="error">{motivo}</p>}
-    </form>
   )
 }

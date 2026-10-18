@@ -33,7 +33,7 @@ describe('órdenes de Orion', () => {
       tipo: 'orden', plataforma: 'orion', compania: 'Sancor', siniestro: '2000000001',
       patente: 'AB123CD', vehiculo: 'FORD KA 15 S 4P', perito: 'JUAN PEREZINVENTADO', peritoMail: null,
       monto: '150000.00', franquicia: null,
-      repuestos: 'Los repuestos los entrega Autopartes Ejemplo en 5 días', lector: 'ordenes v1',
+      repuestos: 'Los repuestos los entrega Autopartes Ejemplo en 5 días', lector: 'ordenes v2',
     })
   })
 
@@ -53,7 +53,7 @@ describe('órdenes de Orion', () => {
 
   it('el número de siniestro con letras se corta donde empieza la marca, no antes', () => {
     const r = leer({ remitente: ORION, asunto: 'Orden De Trabajo ZAASA-0001AUT1234567DS7654321TOYOTA-COROLLA-AB123CD-PERITO-INVENTADO' })
-    expect(r).toMatchObject({ compania: 'Zurich', siniestro: '0001AUT1234567DS7654321', vehiculo: 'TOYOTA COROLLA' })
+    expect(r).toMatchObject({ compania: 'Zurich ex QBE', siniestro: '0001AUT1234567DS7654321', vehiculo: 'TOYOTA COROLLA' })
   })
 
   it('una orden que dice "dejar sin efecto" es una anulación', () => {
@@ -80,7 +80,7 @@ describe('órdenes de La Mercantil', () => {
     })).toEqual({
       tipo: 'orden', plataforma: 'mercantil', compania: 'Mercantil Andina', siniestro: '900000000001',
       patente: 'AB123CD', vehiculo: null, perito: 'PEREZ JUAN', peritoMail: 'perito.inventado@ejemplo.com',
-      monto: null, franquicia: null, repuestos: null, lector: 'ordenes v1',
+      monto: null, franquicia: null, repuestos: null, lector: 'ordenes v2',
     })
   })
 
@@ -101,7 +101,7 @@ describe('lo que no es una orden', () => {
 })
 
 describe('el barrido guarda las órdenes en su pestaña', () => {
-  it('una orden de Orion queda como propuesta, con el id de Drive de su PDF', () => {
+  it('una orden de Orion queda en la planilla, con el id de Drive de su PDF', () => {
     const filas: unknown[][] = []
     const hoja = { getLastRow: () => 1, getRange: () => ({ setValues: (f: unknown[][]) => { filas.push(...f) } }) }
     const contexto = {
@@ -125,7 +125,74 @@ describe('el barrido guarda las órdenes en su pestaña', () => {
       guardarOrden: (id: string, hojas: Record<string, typeof hoja>) => void
     }
     guardarOrden('msg-orden-1', { ordenes: hoja })
-    expect(filas).toEqual([['msg-orden-1', '2026-01-02 10:00', 'orion', 'orden', 'Zurich', '77', 'AB123CD', 'TOYOTA ETIOS',
-      'PERITO INVENTADO', '', '200000.00', '', 'repuesto envía Autopartes Ejemplo en 3 días', 'drive-orden-1', 'ordenes v1']])
+    expect(filas).toEqual([['msg-orden-1', '2026-01-02 10:00', 'orion', 'orden', 'Zurich ex QBE', '77', 'AB123CD', 'TOYOTA ETIOS',
+      'PERITO INVENTADO', '', '200000.00', '', 'repuesto envía Autopartes Ejemplo en 3 días', 'drive-orden-1', 'ordenes v2', '']])
+  })
+})
+
+describe('las compañías de Orion van con el nombre exacto de su ficha', () => {
+  it.each([
+    ['SAN-CRISTÓBAL-SMSG---CASA-CENTRAL-1234FORD-KA-AB123CD-PERITO-INVENTADO', 'San Cristóbal', '1234'],
+    ['SEGUROS-BERNARDINO-RIVADAVIA-COOP-LTDA-5678FIAT-ARGO-AB123CD-PERITO-INVENTADO', 'Rivadavia', '5678'],
+    ['PROVINCIA-SEGUROS-9012CHEVROLET-PRISMA-AB123CD-PERITO-INVENTADO', 'Provincia', '9012'],
+    ['ALLIANZ-ARGENTINA---CÍA-DE-SEGUROS-GRALES-SA-C0042TOYOTA-HILUX-ABC123-PERITO-INVENTADO', 'Allianz', 'C0042'],
+  ])('%s', (asunto, compania, siniestro) => {
+    expect(leer({ remitente: ORION, asunto: `Orden De Trabajo ${asunto}` })).toMatchObject({ compania, siniestro })
+  })
+})
+
+describe('el robot sube las órdenes a la base', () => {
+  type Fila = string[]
+  const fila = (id: string, fecha: string, tipo: string, base = ''): Fila =>
+    [id, fecha, 'orion', tipo, 'Sancor', '111', 'AB123CD', 'FORD KA', 'PERITO INVENTADO', '', '1000.50', '', '', '', 'ordenes v2', base]
+
+  function correr(filas: Fila[], props: Record<string, string>, contesta: (cuerpo: Record<string, unknown>) => string) {
+    const llamadas: { url: string; cuerpo: Record<string, unknown> }[] = []
+    const escritas: Record<number, unknown> = {}
+    const hoja = {
+      getDataRange: () => ({ getValues: () => [['encabezado'], ...filas] }),
+      getRange: (f: number, c: number) => ({ setValue: (v: unknown) => { if (c === 16) escritas[f] = v } }),
+    }
+    const contexto = {
+      PropertiesService: { getScriptProperties: () => ({ getProperty: (k: string) => props[k] ?? null }) },
+      UrlFetchApp: { fetch: (url: string, o: { payload: string }) => {
+        const cuerpo = JSON.parse(o.payload) as Record<string, unknown>
+        llamadas.push({ url, cuerpo })
+        if (url.includes('/auth/')) return { getResponseCode: () => 200, getContentText: () => '{"access_token":"t"}' }
+        return { getResponseCode: () => 200, getContentText: () => JSON.stringify(contesta(cuerpo)) }
+      } },
+    }
+    const { subirOrdenes } = runInNewContext(readFileSync(join(import.meta.dirname, 'robot.gs'), 'utf8') + '\n;({ subirOrdenes })', contexto) as {
+      subirOrdenes: (h: typeof hoja) => string
+    }
+    return { mensaje: subirOrdenes(hoja), llamadas, escritas }
+  }
+  const PROPS = { SUPABASE_URL: 'https://ejemplo.supabase.co', SUPABASE_CLAVE_PUBLICA: 'k', ROBOT_MAIL: 'robot@ejemplo.com', ROBOT_CLAVE: 'c' }
+
+  it('sin las propiedades no sube nada, y lo dice', () => {
+    const r = correr([fila('m1', '2026-01-01 10:00', 'orden')], {}, () => 'cargada')
+    expect(r.llamadas).toHaveLength(0)
+    expect(r.mensaje).toContain('faltan las propiedades')
+  })
+
+  it('sube de la más vieja a la más nueva, y la anulación después de su orden', () => {
+    const r = correr([
+      fila('anula', '2026-01-05 10:00', 'anulacion'),
+      fila('orden', '2026-01-02 10:00', 'orden'),
+    ], PROPS, (c) => (c.p_tipo === 'orden' ? 'cargada' : 'anulada'))
+    const rpc = r.llamadas.filter((l) => l.url.endsWith('/rpc/fn_robot_guarda_orden'))
+    expect(rpc.map((l) => l.cuerpo.p_gmail_message_id)).toEqual(['orden', 'anula'])
+    expect(rpc[0]?.cuerpo).toMatchObject({ p_compania: 'Sancor', p_siniestro: '111', p_fecha: '2026-01-02', p_monto: '1000.50' })
+    expect(r.escritas).toEqual({ 2: 'anulada', 3: 'cargada' })
+  })
+
+  it('no vuelve a mandar lo terminado, y reintenta lo que quedó sin compañía', () => {
+    const r = correr([
+      fila('ya', '2026-01-01 10:00', 'orden', 'cargada'),
+      fila('otro', '2026-01-01 11:00', 'otro'),
+      fila('reintento', '2026-01-02 10:00', 'orden', 'sin_compania'),
+    ], PROPS, () => 'cargada')
+    const rpc = r.llamadas.filter((l) => l.url.includes('/rpc/'))
+    expect(rpc.map((l) => l.cuerpo.p_gmail_message_id)).toEqual(['reintento'])
   })
 })

@@ -743,8 +743,9 @@ function leerNacion(mail) {
  *      "Anulación de Orden de reparación – Siniestro: N – Tasación N – Dominio: X"
  *    El perito y su mail vienen en el cuerpo; el monto queda en su portal.
  *
- * El robot no decide nada: lo que lee es una propuesta, y la orden entra a la base cuando una
- * persona la confirma (RF-1005). Por eso, ante la duda, deja el campo vacío antes que adivinar. */
+ * Lo que lee entra solo a la base (RF-1005, enmendado el 2026-10-18: nadie las carga a mano). Por
+ * eso, ante la duda, deja el campo vacío antes que adivinar: un monto vacío se completa, uno
+ * equivocado pasa desapercibido. */
 
 /* El tipo Mail está en comun.js: en Apps Script todos los archivos comparten el ámbito. */
 
@@ -765,16 +766,24 @@ function leerNacion(mail) {
  * }} OrdenLeida
  */
 
-const VERSION_ORDENES = 1
+const VERSION_ORDENES = 2
 
-/* El comienzo del asunto de Orion, por compañía. Lo que no está acá se guarda con la compañía
- * vacía: la elige la persona que confirma. */
+/* El comienzo del asunto de Orion, por compañía, y el nombre de su ficha en la base (tiene que ser
+ * idéntico: la base busca la compañía por ese nombre). Una compañía que no está acá queda en la
+ * planilla sin cargar, con "sin_compania": hay que sumarla a esta lista. */
 const COMPANIAS_ORION = [
   ['SANCOR-COOPERATIVA-DE-SEGUROS-LTDA---CASA-CENTRAL', 'Sancor'],
   ['LA-SEGUNDA-COOP-LTDA-DE-SEGUROS-GRALES', 'La Segunda'],
   ['RÍO-URUGUAY-COOP-DE-SEGUROS-LTDA---CASA-CENTRAL', 'Río Uruguay'],
   ['RIO-URUGUAY-COOP-DE-SEGUROS-LTDA---CASA-CENTRAL', 'Río Uruguay'],
-  ['ZAASA', 'Zurich'],
+  ['SAN-CRISTÓBAL-SMSG---CASA-CENTRAL', 'San Cristóbal'],
+  ['SAN-CRISTOBAL-SMSG---CASA-CENTRAL', 'San Cristóbal'],
+  ['SEGUROS-BERNARDINO-RIVADAVIA-COOP-LTDA', 'Rivadavia'],
+  ['PROVINCIA-SEGUROS', 'Provincia'],
+  ['ALLIANZ-ARGENTINA---CÍA-DE-SEGUROS-GRALES-SA', 'Allianz'],
+  ['ALLIANZ-ARGENTINA---CIA-DE-SEGUROS-GRALES-SA', 'Allianz'],
+  // Zurich Aseguradora Argentina S.A.: la que antes era QBE, no Zurich Argentina.
+  ['ZAASA', 'Zurich ex QBE'],
 ]
 
 /* Las marcas con las que empieza el vehículo: es donde termina el número de siniestro. */
@@ -863,8 +872,8 @@ function leerOrdenMercantil(mail) {
 }
 
 /**
- * El total de la orden en el PDF, si se encuentra uno solo y claro. Si no, null: lo carga la
- * persona que confirma. Mejor vacío que un monto equivocado.
+ * El total de la orden en el PDF, si se encuentra uno solo y claro. Si no, null: la orden entra
+ * sin monto. Mejor vacío que un monto equivocado.
  * @param {string} texto
  * @returns {string | null}
  */
@@ -1189,6 +1198,8 @@ function leerSancor(mail) {
  *   retenciones  las retenciones que informa cada aviso
  *   acuses       "recibimos / aprobamos tu factura", "la fecha de pago es…": NO son pagos (R3)
  *   enviados     las facturas que mandó el taller, con el asunto estándar
+ *   ordenes      las órdenes de trabajo (spec 010). Éstas además se suben solas a la base: la
+ *                columna "base" dice qué contestó (cargada, ya_estaba, sin_compania…)
  *
  * Permisos (appsscript.json): leer Gmail, crear archivos propios en Drive, escribir en esta
  * planilla, y llamar a la API de Drive para sacar el texto de los PDF. Ninguno deja mandar,
@@ -1211,7 +1222,7 @@ const COLUMNAS = {
   retenciones: ['message_id', 'certificado', 'concepto', 'impuesto', 'importe'],
   acuses: ['message_id', 'fecha', 'remitente', 'tipo', 'factura_como_dice', 'punto_venta', 'numero', 'siniestro', 'monto', 'fecha_prometida', 'referencia', 'lector'],
   enviados: ['message_id', 'fecha', 'para', 'asunto', 'tipo', 'factura', 'siniestro', 'orden_de_compra'],
-  ordenes: ['message_id', 'fecha', 'plataforma', 'tipo', 'compania', 'siniestro', 'patente', 'vehiculo', 'perito', 'perito_mail', 'monto', 'franquicia', 'repuestos', 'pdfs_drive', 'lector'],
+  ordenes: ['message_id', 'fecha', 'plataforma', 'tipo', 'compania', 'siniestro', 'patente', 'vehiculo', 'perito', 'perito_mail', 'monto', 'franquicia', 'repuestos', 'pdfs_drive', 'lector', 'base'],
 }
 
 /* De dónde llegan las órdenes de trabajo (spec 010). Se barren aparte de los avisos de pago. */
@@ -1267,7 +1278,8 @@ function barrer() {
     (id) => guardarOrden(id, hojas),
     inicio,
   )
-  console.log(`Avisos nuevos: ${nuevosAvisos.guardados}. Envíos nuevos: ${nuevosEnvios.guardados}. Órdenes nuevas: ${nuevasOrdenes.guardados}.` +
+  const subidas = subirOrdenes(hojas.ordenes)
+  console.log(`Avisos nuevos: ${nuevosAvisos.guardados}. Envíos nuevos: ${nuevosEnvios.guardados}. Órdenes nuevas: ${nuevasOrdenes.guardados}. ${subidas}` +
     (nuevosAvisos.cortado || nuevosEnvios.cortado || nuevasOrdenes.cortado ? ' Quedan más: la próxima corrida sigue.' : ' Al día.'))
 }
 
@@ -1335,7 +1347,7 @@ function guardarAviso(id, hojas) {
   agregar(hojas.acuses, filasDeAcuses(aviso, leido))
 }
 
-/** Una orden de trabajo: lo que el robot leyó es una propuesta que confirma una persona (RF-1005).
+/** Una orden de trabajo, a su pestaña. A la base la sube después subirOrdenes (RF-1005).
  *  Lo que no es una orden (un recordatorio) se guarda igual, con tipo "otro", para no volver a leerlo. */
 function guardarOrden(id, hojas) {
   const msg = Gmail.Users.Messages.get('me', id, { format: 'full' })
@@ -1347,9 +1359,67 @@ function guardarOrden(id, hojas) {
   const { idsDrive, textoPdf } = guardarPdfs(id, partes, fecha)
   const o = leerOrden({ remitente, asunto, cuerpo, textoPdf })
   agregar(hojas.ordenes, [o === null
-    ? [id, fecha, '', 'otro', '', '', '', '', '', '', '', '', '', idsDrive.join('\n'), '']
+    ? [id, fecha, '', 'otro', '', '', '', '', '', '', '', '', '', idsDrive.join('\n'), '', '']
     : [id, fecha, o.plataforma, o.tipo, o.compania || '', o.siniestro || '', o.patente || '', o.vehiculo || '', o.perito || '',
-        o.peritoMail || '', o.monto || '', o.franquicia || '', o.repuestos || '', idsDrive.join('\n'), o.lector]])
+        o.peritoMail || '', o.monto || '', o.franquicia || '', o.repuestos || '', idsDrive.join('\n'), o.lector, '']])
+}
+
+/* ------------------------------------------------------------------------------------------- */
+/* La base (spec 010: las órdenes se cargan solas)                                              */
+/* ------------------------------------------------------------------------------------------- */
+
+/* Lo que contesta la base y ya no hace falta volver a mandar. Cualquier otra cosa (sin_compania, un
+ * error de red) se reintenta en la próxima corrida: así, sumar una compañía a la lista del lector
+ * alcanza para que sus órdenes entren solas. */
+const SUBIDA_TERMINADA = ['cargada', 'ya_estaba', 'reenvio', 'anulada']
+
+/**
+ * Sube a la base las órdenes de la pestaña que todavía no entraron, de la más vieja a la más nueva:
+ * una anulación tiene que llegar después de su orden. El robot entra con su propio usuario (rol
+ * robot) y sólo puede llamar a fn_robot_guarda_orden: no lee ni borra nada.
+ *
+ * Necesita cuatro propiedades del script: SUPABASE_URL, SUPABASE_CLAVE_PUBLICA, ROBOT_MAIL y
+ * ROBOT_CLAVE. Si faltan, no sube nada y lo dice: la planilla se sigue llenando igual.
+ * @returns {string} una línea para el registro
+ */
+function subirOrdenes(hoja) {
+  const props = PropertiesService.getScriptProperties()
+  const url = props.getProperty('SUPABASE_URL')
+  const clave = props.getProperty('SUPABASE_CLAVE_PUBLICA')
+  const mail = props.getProperty('ROBOT_MAIL')
+  const contrasenia = props.getProperty('ROBOT_CLAVE')
+  if (!url || !clave || !mail || !contrasenia) return 'Órdenes sin subir: faltan las propiedades del robot.'
+
+  const pendientes = hoja.getDataRange().getValues().slice(1)
+    .map((f, i) => ({ f, fila: i + 2 }))
+    .filter(({ f }) => (f[3] === 'orden' || f[3] === 'anulacion') && !SUBIDA_TERMINADA.includes(String(f[15])))
+    .sort((a, b) => String(a.f[1]).localeCompare(String(b.f[1])))
+  if (pendientes.length === 0) return 'Órdenes en la base: al día.'
+
+  const sesion = UrlFetchApp.fetch(`${url}/auth/v1/token?grant_type=password`, {
+    method: 'post', contentType: 'application/json', headers: { apikey: clave },
+    payload: JSON.stringify({ email: mail, password: contrasenia }), muteHttpExceptions: true,
+  })
+  if (sesion.getResponseCode() !== 200) return `Órdenes sin subir: el robot no pudo entrar a la base (HTTP ${sesion.getResponseCode()}).`
+  const token = JSON.parse(sesion.getContentText()).access_token
+
+  let cargadas = 0
+  for (const { f, fila } of pendientes) {
+    const r = UrlFetchApp.fetch(`${url}/rest/v1/rpc/fn_robot_guarda_orden`, {
+      method: 'post', contentType: 'application/json', headers: { apikey: clave, Authorization: `Bearer ${token}` },
+      muteHttpExceptions: true,
+      payload: JSON.stringify({
+        p_gmail_message_id: String(f[0]), p_tipo: f[3], p_compania: String(f[4]), p_siniestro: String(f[5]),
+        p_patente: String(f[6]) || null, p_fecha: String(f[1]).slice(0, 10),
+        // El monto viaja como texto, igual que lo guarda la planilla: no pasa por un float.
+        p_monto: String(f[10]) || null, p_perito: String(f[8]) || null, p_perito_mail: String(f[9]) || null,
+      }),
+    })
+    const respuesta = r.getResponseCode() === 200 ? JSON.parse(r.getContentText()) : `error HTTP ${r.getResponseCode()}: ${r.getContentText().slice(0, 200)}`
+    hoja.getRange(fila, 16).setValue(respuesta)
+    if (respuesta === 'cargada' || respuesta === 'anulada') cargadas++
+  }
+  return `Órdenes a la base: ${cargadas} de ${pendientes.length} pendientes.`
 }
 
 /**

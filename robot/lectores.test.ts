@@ -603,9 +603,13 @@ describe('el robot', () => {
     }
   })
 
+  /* Desde que el robot sube las órdenes a la base, el código nombra "password" y "apikey": son los
+   * campos que pide Supabase para entrar. Lo que no puede aparecer es un VALOR: las claves salen de
+   * las propiedades del script, nunca de una cadena escrita acá. */
   it('no hay credenciales en el código (R2)', () => {
     for (const { nombre, texto } of codigo) {
-      expect(texto, nombre).not.toMatch(/service_role|password|contraseña\s*[:=]|apikey|anon_key/i)
+      expect(texto, nombre).not.toMatch(/service_role|anon_key|eyJ[\w-]{10,}|sb_(secret|publishable)_/i)
+      expect(texto, nombre).not.toMatch(/(password|apikey|contraseña|clave)\s*[:=]\s*['"`]/i)
     }
   })
 })

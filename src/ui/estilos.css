@@ -245,11 +245,3 @@ details summary { cursor: pointer; color: var(--acento); margin-bottom: 0.5rem; 
 .orden-vencida { border-left: 4px solid #dc2626; }
 .orden-anulada, .orden-facturada { opacity: 0.75; }
 .ordenes details { display: grid; gap: 0.6rem; }
-.formulario select {
-  font: inherit;
-  padding: 0.6rem 0.7rem;
-  border: 1px solid var(--borde);
-  border-radius: 0.5rem;
-  background: var(--papel);
-  color: var(--tinta);
-}

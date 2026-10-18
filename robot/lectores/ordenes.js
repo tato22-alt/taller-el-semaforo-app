@@ -13,8 +13,9 @@
  *      "Anulación de Orden de reparación – Siniestro: N – Tasación N – Dominio: X"
  *    El perito y su mail vienen en el cuerpo; el monto queda en su portal.
  *
- * El robot no decide nada: lo que lee es una propuesta, y la orden entra a la base cuando una
- * persona la confirma (RF-1005). Por eso, ante la duda, deja el campo vacío antes que adivinar. */
+ * Lo que lee entra solo a la base (RF-1005, enmendado el 2026-10-18: nadie las carga a mano). Por
+ * eso, ante la duda, deja el campo vacío antes que adivinar: un monto vacío se completa, uno
+ * equivocado pasa desapercibido. */
 
 /* El tipo Mail está en comun.js: en Apps Script todos los archivos comparten el ámbito. */
 
@@ -35,16 +36,24 @@
  * }} OrdenLeida
  */
 
-const VERSION_ORDENES = 1
+const VERSION_ORDENES = 2
 
-/* El comienzo del asunto de Orion, por compañía. Lo que no está acá se guarda con la compañía
- * vacía: la elige la persona que confirma. */
+/* El comienzo del asunto de Orion, por compañía, y el nombre de su ficha en la base (tiene que ser
+ * idéntico: la base busca la compañía por ese nombre). Una compañía que no está acá queda en la
+ * planilla sin cargar, con "sin_compania": hay que sumarla a esta lista. */
 const COMPANIAS_ORION = [
   ['SANCOR-COOPERATIVA-DE-SEGUROS-LTDA---CASA-CENTRAL', 'Sancor'],
   ['LA-SEGUNDA-COOP-LTDA-DE-SEGUROS-GRALES', 'La Segunda'],
   ['RÍO-URUGUAY-COOP-DE-SEGUROS-LTDA---CASA-CENTRAL', 'Río Uruguay'],
   ['RIO-URUGUAY-COOP-DE-SEGUROS-LTDA---CASA-CENTRAL', 'Río Uruguay'],
-  ['ZAASA', 'Zurich'],
+  ['SAN-CRISTÓBAL-SMSG---CASA-CENTRAL', 'San Cristóbal'],
+  ['SAN-CRISTOBAL-SMSG---CASA-CENTRAL', 'San Cristóbal'],
+  ['SEGUROS-BERNARDINO-RIVADAVIA-COOP-LTDA', 'Rivadavia'],
+  ['PROVINCIA-SEGUROS', 'Provincia'],
+  ['ALLIANZ-ARGENTINA---CÍA-DE-SEGUROS-GRALES-SA', 'Allianz'],
+  ['ALLIANZ-ARGENTINA---CIA-DE-SEGUROS-GRALES-SA', 'Allianz'],
+  // Zurich Aseguradora Argentina S.A.: la que antes era QBE, no Zurich Argentina.
+  ['ZAASA', 'Zurich ex QBE'],
 ]
 
 /* Las marcas con las que empieza el vehículo: es donde termina el número de siniestro. */
@@ -133,8 +142,8 @@ function leerOrdenMercantil(mail) {
 }
 
 /**
- * El total de la orden en el PDF, si se encuentra uno solo y claro. Si no, null: lo carga la
- * persona que confirma. Mejor vacío que un monto equivocado.
+ * El total de la orden en el PDF, si se encuentra uno solo y claro. Si no, null: la orden entra
+ * sin monto. Mejor vacío que un monto equivocado.
  * @param {string} texto
  * @returns {string | null}
  */

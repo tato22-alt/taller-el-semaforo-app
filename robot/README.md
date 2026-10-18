@@ -123,14 +123,31 @@ La Mercantil, a una pestaña nueva, **ordenes**: compañía, siniestro, patente,
 monto si el PDF lo dice claro, la franquicia y quién manda los repuestos, si el mail lo menciona.
 Las anulaciones quedan con tipo `anulacion`; lo que no es una orden (un recordatorio), con `otro`.
 
-Es una **propuesta**: la orden entra a la app cuando una persona la confirma (spec 010, RF-1005).
-Si un campo no se pudo leer con seguridad, queda vacío: mejor vacío que equivocado.
+**Se cargan solas** (spec 010, RF-1005, enmendado el 2026-10-18): después de leer Gmail, `barrer`
+sube a la base cada orden que todavía no entró, de la más vieja a la más nueva, y anota en la
+columna **base** qué contestó: `cargada`, `ya_estaba`, `reenvio` (la compañía mandó la misma orden
+otra vez), `anulada`, o algo para reintentar (`sin_compania`, `sin_orden_para_anular`, un error). Lo
+que no terminó se reintenta en la próxima corrida. Si un campo no se pudo leer con seguridad, queda
+vacío: mejor vacío que equivocado.
 
-Para tenerlo: pegá el `robot.gs` nuevo y ejecutá `barrer`. La pestaña se crea sola.
+El robot entra a la base con **su propio usuario**, con rol `robot`, y sólo puede llamar a una
+función (`fn_robot_guarda_orden`): no lee, no borra, no toca facturas. Para conectarlo, una vez:
+
+1. En Supabase → Authentication → Users → **Add user**: un mail para el robot y una contraseña
+   larga, con "Auto confirm" tildado.
+2. Darle el rol `robot` (lo hace Claude con tu OK, o en el SQL Editor):
+   `update auth.users set raw_app_meta_data = raw_app_meta_data || '{"rol":"robot"}' where email = '<mail del robot>';`
+3. En el editor de Apps Script → Configuración del proyecto → **Propiedades del script**, cuatro:
+   `SUPABASE_URL`, `SUPABASE_CLAVE_PUBLICA` (la publishable, la misma de la app), `ROBOT_MAIL` y
+   `ROBOT_CLAVE`.
+4. Pegá el `robot.gs` nuevo y ejecutá `barrer`.
+
+Sin las propiedades, el robot sigue llenando la planilla y lo avisa en el registro: no se rompe nada.
 
 ## Lo que esta planilla NO es
 
 - **No es la base.** En la fase 2 lo mismo pasa a Supabase, con un usuario `robot@` que sólo
   puede insertar evidencia (spec 005 §3, plan D2). Hasta entonces, nada de acá suma a ningún saldo.
+  Las órdenes de trabajo son la primera pieza que ya va a la base (arriba).
 - **No va al repo.** Tiene datos reales (montos, números de factura, CBU enmascarados). El repo
   es público: acá sólo hay código y mails inventados para los tests.
