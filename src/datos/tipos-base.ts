@@ -483,6 +483,76 @@ export type Database = {
           },
         ]
       }
+      /* Feature 010: las órdenes de trabajo de las compañías. Vencen al año (en la vista). */
+      orden_trabajo: {
+        Row: {
+          id_orden: number
+          cuit_compania: string
+          siniestro: string
+          patente: string | null
+          fecha_emision: string
+          monto_autorizado: number | null
+          perito: string | null
+          perito_mail: string | null
+          origen: string
+          gmail_message_id: string | null
+          anulada_en: string | null
+          anulada_motivo: string | null
+          id_comprobante: number | null
+          creado_en: string
+          creado_por: string | null
+        }
+        Insert: {
+          id_orden?: never
+          cuit_compania: string
+          siniestro: string
+          patente?: string | null
+          fecha_emision: string
+          monto_autorizado?: number | null
+          perito?: string | null
+          perito_mail?: string | null
+          origen?: string
+          gmail_message_id?: string | null
+          anulada_en?: string | null
+          anulada_motivo?: string | null
+          id_comprobante?: number | null
+          creado_en?: string
+          creado_por?: string | null
+        }
+        Update: {
+          id_orden?: never
+          cuit_compania?: string
+          siniestro?: string
+          patente?: string | null
+          fecha_emision?: string
+          monto_autorizado?: number | null
+          perito?: string | null
+          perito_mail?: string | null
+          origen?: string
+          gmail_message_id?: string | null
+          anulada_en?: string | null
+          anulada_motivo?: string | null
+          id_comprobante?: number | null
+          creado_en?: string
+          creado_por?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'orden_trabajo_cuit_compania_fkey'
+            columns: ['cuit_compania']
+            isOneToOne: false
+            referencedRelation: 'compania'
+            referencedColumns: ['cuit']
+          },
+          {
+            foreignKeyName: 'orden_trabajo_id_comprobante_fkey'
+            columns: ['id_comprobante']
+            isOneToOne: false
+            referencedRelation: 'comprobante'
+            referencedColumns: ['id_comprobante']
+          },
+        ]
+      }
     }
     Views: {
       /* Las 21 columnas del presupuesto ya derivadas. Es de donde lee esta app.
@@ -560,6 +630,47 @@ export type Database = {
           factura_fecha: string | null
           candidatas: number | null
           estado: string | null
+        }
+        Relationships: []
+      }
+      /* Feature 010: cada orden con su vencimiento y su factura. dias_para_vencer negativo = vencida. */
+      vw_ordenes_trabajo: {
+        Row: {
+          id_orden: number | null
+          cuit_compania: string | null
+          compania: string | null
+          siniestro: string | null
+          patente: string | null
+          fecha_emision: string | null
+          vence: string | null
+          dias_para_vencer: number | null
+          monto_autorizado: number | null
+          perito: string | null
+          perito_mail: string | null
+          origen: string | null
+          anulada: boolean | null
+          anulada_en: string | null
+          anulada_motivo: string | null
+          id_comprobante: number | null
+          factura_punto_venta: number | null
+          factura_numero: number | null
+          factura_neto: number | null
+          factura_total: number | null
+        }
+        Relationships: []
+      }
+      /* Feature 010, RF-1008: cada factura contra lo autorizado en sus órdenes. */
+      vw_factura_contra_autorizado: {
+        Row: {
+          id_comprobante: number | null
+          punto_venta: number | null
+          numero: number | null
+          fecha_emision: string | null
+          factura_neto: number | null
+          factura_total: number | null
+          ordenes: number | null
+          autorizado: number | null
+          ordenes_sin_monto: number | null
         }
         Relationships: []
       }

@@ -231,3 +231,25 @@ body {
 .notas li { overflow-wrap: anywhere; }
 .notas .enlace { margin-left: 0.5rem; }
 details summary { cursor: pointer; color: var(--acento); margin-bottom: 0.5rem; }
+
+/* --- Órdenes de trabajo ------------------------------------------------ */
+
+.ordenes { display: grid; gap: 1.25rem; }
+.ordenes section { display: grid; gap: 0.6rem; }
+.ordenes h3 { margin: 0; font-size: 1rem; }
+.orden p { margin: 0.2rem 0; }
+.orden-encabezado { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: baseline; }
+.orden .acciones { display: flex; gap: 1rem; }
+/* El color dice cuán urgente es; el texto lo dice igual, para quien no distingue colores. */
+.orden-por_vencer { border-left: 4px solid #d97706; }
+.orden-vencida { border-left: 4px solid #dc2626; }
+.orden-anulada, .orden-facturada { opacity: 0.75; }
+.ordenes details { display: grid; gap: 0.6rem; }
+.formulario select {
+  font: inherit;
+  padding: 0.6rem 0.7rem;
+  border: 1px solid var(--borde);
+  border-radius: 0.5rem;
+  background: var(--papel);
+  color: var(--tinta);
+}
