@@ -106,6 +106,7 @@ function Encabezado({ tipo, nota }: { tipo: string; nota: Comprobante & { recept
 function NotaPorDecidir({ nota, ocupado, decidir }: { nota: NotaCredito; ocupado: boolean; decidir: Decidir }) {
   // Sin candidata del mismo importe: se ofrecen las facturas del cliente, y elegir una es un ajuste.
   const [otras, setOtras] = useState<readonly Comprobante[] | null>(null)
+  const [falloLista, setFalloLista] = useState<Fallo | null>(null)
   const elegir = (idDestino: number, motivo: Motivo) => decidir(() => vincular({ idOrigen: nota.id, idDestino, motivo }))
 
   return (
@@ -127,8 +128,9 @@ function NotaPorDecidir({ nota, ocupado, decidir }: { nota: NotaCredito; ocupado
       {nota.estado === 'sin_candidata' && (
         <>
           <p>No hay ninguna factura de este cliente por el mismo importe.</p>
+          {falloLista !== null && <p className="error">{textoDeFallo(falloLista)}</p>}
           {otras === null ? (
-            <button type="button" disabled={ocupado || nota.cuitReceptor === null} onClick={() => void delCliente(nota.cuitReceptor ?? '', 'factura').then((r) => r.ok && setOtras(r.dato))}>
+            <button type="button" disabled={ocupado || nota.cuitReceptor === null} onClick={() => void delCliente(nota.cuitReceptor ?? '', 'factura').then((r) => (r.ok ? setOtras(r.dato) : setFalloLista(r.fallo)))}>
               Ver las facturas de este cliente
             </button>
           ) : (
@@ -142,6 +144,7 @@ function NotaPorDecidir({ nota, ocupado, decidir }: { nota: NotaCredito; ocupado
 
 function NotaDebitoTarjeta({ nota, creditos, ocupado, decidir }: { nota: NotaDebito; creditos: readonly NotaCredito[]; ocupado: boolean; decidir: Decidir }) {
   const [ncs, setNcs] = useState<readonly Comprobante[] | null>(null)
+  const [falloLista, setFalloLista] = useState<Fallo | null>(null)
   const revertida = nota.vinculo ? creditos.find((c) => c.id === nota.vinculo?.idDestino) : undefined
 
   return (
@@ -157,8 +160,9 @@ function NotaDebitoTarjeta({ nota, creditos, ocupado, decidir }: { nota: NotaDeb
       ) : (
         <>
           <p>¿Revierte alguna nota de crédito de este cliente? Si es así, la factura que esa nota anulaba vuelve a deberse.</p>
+          {falloLista !== null && <p className="error">{textoDeFallo(falloLista)}</p>}
           {ncs === null ? (
-            <button type="button" disabled={ocupado || nota.cuitReceptor === null} onClick={() => void delCliente(nota.cuitReceptor ?? '', 'nota_credito').then((r) => r.ok && setNcs(r.dato))}>
+            <button type="button" disabled={ocupado || nota.cuitReceptor === null} onClick={() => void delCliente(nota.cuitReceptor ?? '', 'nota_credito').then((r) => (r.ok ? setNcs(r.dato) : setFalloLista(r.fallo)))}>
               Ver las notas de crédito de este cliente
             </button>
           ) : (

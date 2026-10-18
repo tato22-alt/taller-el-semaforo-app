@@ -1047,7 +1047,7 @@ const MAX_CELDA = 49000
 
 const COLUMNAS = {
   remitentes: ['remitente', 'compañía'],
-  avisos: ['message_id', 'fecha', 'remitente', 'asunto', 'cuerpo', 'pdfs', 'texto_pdf', 'lector', 'version', 'estado', 'motivo', 'control'],
+  avisos: ['message_id', 'fecha', 'remitente', 'asunto', 'cuerpo', 'pdfs', 'texto_pdf', 'lector', 'version', 'estado', 'motivo', 'control', 'pdfs_drive'],
   lineas: ['message_id', 'fecha_aviso', 'remitente', 'tipo', 'op', 'fecha_pago', 'factura_como_dice', 'punto_venta', 'numero', 'siniestro', 'bruto', 'neto', 'neto_del_aviso', 'control', 'lector', 'version'],
   retenciones: ['message_id', 'certificado', 'concepto', 'impuesto', 'importe'],
   acuses: ['message_id', 'fecha', 'remitente', 'tipo', 'factura_como_dice', 'punto_venta', 'numero', 'siniestro', 'monto', 'fecha_prometida', 'referencia', 'lector'],
@@ -1158,19 +1158,23 @@ function guardarAviso(id, hojas) {
   const cuerpo = sinClaves(sinEnlacesDeSesion(cuerpoDe(partes)))
 
   // Los PDF van a Drive, y se les saca el texto. Se reconocen por la extensión, nunca por el tipo
-  // MIME: hay compañías que los mandan como application/octet-stream (spec 005 §5.3).
+  // MIME: hay compañías que los mandan como application/octet-stream (spec 005 §5.3). Se guarda el
+  // id de Drive de cada uno, en el mismo orden que los nombres: es lo único que distingue dos PDF
+  // del mismo día con el mismo nombre, y lo que deja llegar al archivo desde la app.
   const nombres = []
+  const idsDrive = []
   const textos = []
   for (const p of partes.filter((p) => p.filename && /\.pdf$/i.test(p.filename))) {
     const blob = Utilities.newBlob(bytesDe(id, p), 'application/pdf', p.filename)
-    Drive.Files.create({ name: `${aviso.fecha.slice(0, 10)} ${p.filename}`, parents: [carpetaDeLosPdf()] }, blob)
+    const archivo = Drive.Files.create({ name: `${aviso.fecha.slice(0, 10)} ${p.filename}`, parents: [carpetaDeLosPdf()] }, blob)
     nombres.push(p.filename)
+    idsDrive.push(archivo.id)
     textos.push(textoDePdf(blob))
   }
   const textoPdf = textos.join('\n\n----- siguiente PDF -----\n\n')
 
   const leido = leerAviso({ remitente: aviso.remitente, asunto, cuerpo, textoPdf })
-  agregar(hojas.avisos, [[id, aviso.fecha, aviso.remitente, asunto, cortar(cuerpo), nombres.join('\n'), cortar(textoPdf), ...estadoDe(leido)]])
+  agregar(hojas.avisos, [[id, aviso.fecha, aviso.remitente, asunto, cortar(cuerpo), nombres.join('\n'), cortar(textoPdf), ...estadoDe(leido), idsDrive.join('\n')]])
   agregar(hojas.lineas, filasDeLineas(aviso, leido))
   agregar(hojas.retenciones, filasDeRetenciones(id, leido))
   agregar(hojas.acuses, filasDeAcuses(aviso, leido))
@@ -1296,6 +1300,10 @@ function prepararHojas() {
       hoja.setFrozenRows(1)
       // Todo como texto: que Sheets no convierta "0002" en 2 ni "1234567.89" en otra cosa.
       hoja.getRange('A:Z').setNumberFormat('@')
+    } else if (hoja.getRange(1, columnas.length).getValue() === '') {
+      // Una planilla armada con una versión anterior: le faltan las columnas nuevas, que van siempre
+      // al final. Se completa el encabezado; las filas viejas quedan con esas celdas vacías.
+      hoja.getRange(1, 1, 1, columnas.length).setValues([columnas])
     }
     hojas[nombre] = hoja
   }

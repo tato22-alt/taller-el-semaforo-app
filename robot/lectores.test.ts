@@ -536,6 +536,50 @@ describe('el robot', () => {
     expect(limpio).toContain('Usuario taller@ejemplo.com')
   })
 
+  it('guarda el id de Drive de cada PDF, en el mismo orden que los nombres (M13)', () => {
+    // Un aviso inventado con dos PDF del mismo nombre: sin el id, no se podrían distinguir.
+    const creados: string[] = []
+    const filas: Record<string, unknown[][]> = {}
+    const hoja = (nombre: string) => ({
+      getLastRow: () => 1,
+      getRange: () => ({ setValues: (f: unknown[][]) => { filas[nombre] = [...(filas[nombre] ?? []), ...f] } }),
+    })
+    const parteTexto = { mimeType: 'text/plain', filename: '', headers: [], body: { data: 'Aviso de pago inventado' } }
+    const pdf = { mimeType: 'application/octet-stream', filename: 'aviso.pdf', headers: [], body: { data: 'pdf' } }
+    const contexto = {
+      Gmail: { Users: { Messages: { get: () => ({
+        internalDate: '0',
+        payload: { headers: [{ name: 'From', value: 'pagos@compania.example' }, { name: 'Subject', value: 'Aviso de pago' }], parts: [parteTexto, pdf, pdf] },
+      }) } } },
+      Utilities: {
+        newBlob: () => ({ getDataAsString: () => 'Aviso de pago inventado' }),
+        base64DecodeWebSafe: (d: string) => d,
+        formatDate: () => '2026-01-02 10:00',
+      },
+      Drive: { Files: {
+        create: (meta: { name: string; mimeType?: string }) => {
+          if (meta.mimeType === 'application/vnd.google-apps.document') return { id: 'ocr-temporal' }
+          creados.push(meta.name)
+          return { id: `drive-${creados.length}` }
+        },
+        remove: () => undefined,
+      } },
+      UrlFetchApp: { fetch: () => ({ getResponseCode: () => 200, getContentText: () => 'texto del PDF' }) },
+      ScriptApp: { getOAuthToken: () => 'x' },
+      PropertiesService: { getScriptProperties: () => ({ getProperty: () => 'carpeta', setProperty: () => undefined }) },
+    }
+    const { guardarAviso } = runInNewContext(readFileSync(join(CARPETA, 'robot.gs'), 'utf8') + '\n;({ guardarAviso })', contexto) as {
+      guardarAviso: (id: string, hojas: Record<string, ReturnType<typeof hoja>>) => void
+    }
+    guardarAviso('msg-1', { avisos: hoja('avisos'), lineas: hoja('lineas'), retenciones: hoja('retenciones'), acuses: hoja('acuses') })
+
+    const fila = filas.avisos?.[0] ?? []
+    expect(creados).toEqual(['2026-01-02 aviso.pdf', '2026-01-02 aviso.pdf'])
+    expect(fila).toHaveLength(13)
+    expect(fila[5]).toBe('aviso.pdf\naviso.pdf')
+    expect(fila[12]).toBe('drive-1\ndrive-2')
+  })
+
   it('robot.gs, el archivo que se pega, está al día con sus fuentes (node robot/armar.mjs)', () => {
     expect(readFileSync(join(CARPETA, 'robot.gs'), 'utf8')).toBe(armar())
   })

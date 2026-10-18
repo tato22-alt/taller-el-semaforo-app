@@ -102,6 +102,20 @@ Los PDF quedan en la carpeta **Cobranzas · avisos de pago (robot)** de ese Driv
 2. Se ejecuta **`releer`**: vuelve a leer todos los avisos de la planilla con los lectores
    nuevos, **sin ir a Gmail**, y rehace *lineas* y *retenciones*.
 
+## La versión del 2026-10-18: el id de Drive de cada PDF
+
+La pestaña *avisos* suma una columna al final, **`pdfs_drive`**: el id de Drive de cada PDF, en el
+mismo orden que los nombres de `pdfs`. Sirve para llegar al archivo desde la app y para distinguir
+dos PDF del mismo día con el mismo nombre.
+
+1. Pegá el `robot.gs` nuevo en lugar del anterior y guardá.
+2. Ejecutá **`barrer`**. El encabezado de la columna nueva se agrega solo.
+
+Los avisos que ya estaban guardados quedan con esa columna vacía. **Si todavía no llegó a "Al día."**,
+conviene empezar de cero para que todos tengan su id: borrá las filas de *avisos*, *lineas*,
+*retenciones* y *acuses* (dejando el encabezado), mandá a la papelera los PDF de la carpeta
+"Cobranzas · avisos de pago (robot)" y volvé a ejecutar `barrer` hasta "Al día.".
+
 ## Lo que esta planilla NO es
 
 - **No es la base.** En la fase 2 lo mismo pasa a Supabase, con un usuario `robot@` que sólo
