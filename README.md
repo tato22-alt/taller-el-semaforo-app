@@ -27,7 +27,7 @@ orden de trabajo. El alcance y los límites, en
 
 ---
 
-## Alcance: dos módulos, y nada más
+## Alcance: crece por flujos de trabajo
 
 **Presupuestos.** La herramienta que arma, numera e imprime vive en su propio repo y está en
 producción. Acá hay un tablero que los lee, construido como prueba del stack.
@@ -35,9 +35,9 @@ producción. Acá hay un tablero que los lee, construido como prueba del stack.
 **Cobranzas.** Cuánto deben, quién, desde cuándo, y qué hay que hacer hoy para cobrarlo, a
 partir de lo que ya está escrito en ARCA y en Gmail. Especificado en la spec 005, que vive en el repo privado `semaforo-base`; en construcción.
 
-Lo que no entra en esos dos módulos, no entra. El alcance se defiende activamente: el riesgo
-real de un proyecto así no es quedarse corto, es convertirse en "uno que hace todo pero no hace
-nada", y eso pasa de a un feature razonable por vez.
+La app crece con los procesos del taller: cada flujo nuevo entra con su spec, y cada dato que se
+pide cargar tiene que devolver más de lo que cuesta. Lo próximo: siniestros, peritos y fotos de
+cada caso.
 
 ---
 

@@ -153,6 +153,7 @@ Qué conviene automatizar después del robot de pagos: `specs/005-cobranzas/auto
 | P1 — ¿el robot que escribe evidencia viola el principio VI? | No. Escrito como aclaración en la constitución, v3.0.1 |
 | P2 — ¿se enmienda el principio IX para la conciliación bancaria? | Todavía no. Se decide al llegar a la fase 5 |
 | P3 — ¿se abre el alcance de tres pantallas? | Sí, como **segundo módulo declarado**: Cobranzas, con su propia frontera. Escrito en el `CLAUDE.md` |
+| ¿La app tiene un tope de módulos? *(2026-10-18)* | **No.** Crece por flujos de trabajo, cada uno con su spec. Siguen la regla madre y el principio IX. Escrito en el `CLAUDE.md` |
 | P4 — RF-601 | Se reemplaza por "la app no escribe lo que es de la herramienta". El test sigue diciendo "no escribe nada" hasta el commit de la primera escritura de cobranzas |
 | ¿Dónde vive el Apps Script? | En `robot/`, en este repo |
 | ¿Fase 0 o fase 1 primero? | Fase 1 |

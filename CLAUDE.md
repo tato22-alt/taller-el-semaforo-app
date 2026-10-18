@@ -12,11 +12,21 @@ qué autos hay, hace cuánto están, y quién debe plata.
 
 ---
 
-## Alcance: dos módulos, cada uno con su frontera
+## Alcance: crece por flujos de trabajo, cada uno con su spec
 
-El alcance se abrió una sola vez, el 2026-10-07, y de una forma precisa: **no "ahora son ocho
-pantallas", sino un segundo módulo declarado** con su propia lista de lo que hace y lo que no.
-Si el alcance se abre sin redefinirlo, el principio IX deja de poder decir no a nada.
+**Decidido por Luciano el 2026-10-18:** la app tiene que servir para todos los procesos del taller
+que se vayan pensando, y automatizar todo lo que se pueda. No hay un tope de módulos. Lo que la
+ordena es esto:
+
+- **Cada flujo nuevo entra con su spec aprobada**, que dice qué hace y qué no. El mapa de los flujos
+  particular y asegurado, con qué se puede automatizar en cada paso, está en
+  `docs/flujos-de-trabajo.md` de `semaforo-base`.
+- **La regla madre sigue mandando:** cada dato que se pide cargar tiene que devolver más de lo que
+  cuesta. Lo que se puede derivar o leer solo (ARCA, Gmail, el presupuesto digital), no se carga.
+- **El principio IX sigue vigente:** lo que lista como fuera (stock, RRHH, etapas de la reparación,
+  registro manual de comunicaciones, entre otros) sólo entra con una enmienda escrita.
+
+Hoy hay dos módulos especificados, y los dos siguen con su frontera:
 
 ### Módulo 1 — Presupuestos (spec 002)
 
@@ -39,8 +49,8 @@ la spec 005 §6: **Cobranzas, Ficha de factura, Revisar, Ficha de compañía y A
 más **Importar** (subir el CSV de ARCA), que entró con el plan de la fase 1, y nada más. Lo que este módulo no hace está en la spec 005 §10, y se defiende igual que el
 resto.
 
-Fuera de esos dos módulos no entra nada. Defendé el alcance activamente: si suena a "podría
-ser útil algún día", no va.
+Lo próximo, en borrador: siniestros, peritos y fotos del caso (spec 009 de `semaforo-base`). Si
+algo suena a "podría ser útil algún día" y no a un paso de un flujo real, no va.
 
 **Estado del modelo:** hoy la base tiene presupuestos y, desde el 2026-10-08, las tablas de la
 fase 1 de cobranzas (roles, fichas de compañía y el libro de ARCA). No inventes columnas de datos
