@@ -1,0 +1,131 @@
+/* El lector de órdenes de trabajo del robot. Spec 010 de semaforo-base.
+ *
+ * Todos los mails de acá son INVENTADOS, con la forma de los reales (H3: el repo es público).
+ * Siniestros, patentes, peritos y montos no son de nadie. */
+
+import { readFileSync, readdirSync } from 'node:fs'
+import { join } from 'node:path'
+import { runInNewContext } from 'node:vm'
+import { describe, expect, it } from 'vitest'
+
+const DIR = join(import.meta.dirname, 'lectores')
+type Mail = { remitente: string; asunto: string; cuerpo: string; textoPdf: string }
+const fuentes = readdirSync(DIR).filter((n) => n.endsWith('.js')).sort()
+const { leerOrden } = runInNewContext(
+  fuentes.map((n) => readFileSync(join(DIR, n), 'utf8')).join('\n') + '\n;({ leerOrden })',
+  {},
+) as { leerOrden: (m: Mail) => unknown }
+
+const leer = (m: Partial<Mail>) =>
+  JSON.parse(JSON.stringify(leerOrden({ remitente: '', asunto: '', cuerpo: '', textoPdf: '', ...m }))) as Record<string, unknown> | null
+
+const ORION = 'Sistemas <sistemas@mg.sistema-orion.com>'
+const MERCANTIL = 'no-responder@mail.lamercantil.flowable-managed.com'
+
+describe('órdenes de Orion', () => {
+  it('saca compañía, siniestro, vehículo, patente y perito del asunto', () => {
+    expect(leer({
+      remitente: ORION,
+      asunto: 'Orden De Trabajo SANCOR-COOPERATIVA-DE-SEGUROS-LTDA---CASA-CENTRAL-2000000001FORD-KA-15-S-4P-AB123CD-JUAN-PEREZINVENTADO',
+      cuerpo: 'Buenas tardes, envío orden. Los repuestos los entrega Autopartes Ejemplo en 5 días.',
+      textoPdf: 'Orden de trabajo\nMano de obra 100.000,00\nRepuestos 50.000,00\nTotal: $ 150.000,00',
+    })).toEqual({
+      tipo: 'orden', plataforma: 'orion', compania: 'Sancor', siniestro: '2000000001',
+      patente: 'AB123CD', vehiculo: 'FORD KA 15 S 4P', perito: 'JUAN PEREZINVENTADO', peritoMail: null,
+      monto: '150000.00', franquicia: null,
+      repuestos: 'Los repuestos los entrega Autopartes Ejemplo en 5 días', lector: 'ordenes v1',
+    })
+  })
+
+  it('anota la franquicia si el cuerpo la menciona, y entiende las patentes viejas', () => {
+    const r = leer({
+      remitente: ORION,
+      asunto: 'Orden De Trabajo LA-SEGUNDA-COOP-LTDA-DE-SEGUROS-GRALES-010120269999999FIAT-PALIO-14-ABC123-ANA-GOMEZINVENTADA',
+      cuerpo: 'Estimados: envío orden de trabajo, asegurado abona franquicia en taller.',
+    })
+    expect(r).toMatchObject({ compania: 'La Segunda', siniestro: '010120269999999', patente: 'ABC123', franquicia: 'asegurado abona franquicia en taller' })
+  })
+
+  it('la franquicia con monto no se corta en el punto de los miles', () => {
+    const r = leer({ remitente: ORION, asunto: 'Orden De Trabajo ZAASA-1TOYOTA-ETIOS-AB123CD-P-I', cuerpo: 'Envío orden de trabajo, asegurado abona franquicia $340.000 en taller. Saludos.' })
+    expect(r).toMatchObject({ franquicia: 'asegurado abona franquicia $340.000 en taller' })
+  })
+
+  it('el número de siniestro con letras se corta donde empieza la marca, no antes', () => {
+    const r = leer({ remitente: ORION, asunto: 'Orden De Trabajo ZAASA-0001AUT1234567DS7654321TOYOTA-COROLLA-AB123CD-PERITO-INVENTADO' })
+    expect(r).toMatchObject({ compania: 'Zurich', siniestro: '0001AUT1234567DS7654321', vehiculo: 'TOYOTA COROLLA' })
+  })
+
+  it('una orden que dice "dejar sin efecto" es una anulación', () => {
+    const r = leer({ remitente: ORION, asunto: 'Orden De Trabajo ZAASA-0001AUT1TOYOTA-ETIOS-AB123CD-PERITO-INVENTADO', cuerpo: 'Dejar sin efecto esta orden.' })
+    expect(r).toMatchObject({ tipo: 'anulacion' })
+  })
+
+  it('una compañía que no conoce queda vacía, y el siniestro también: lo completa una persona', () => {
+    const r = leer({ remitente: ORION, asunto: 'Orden De Trabajo OTRA-COMPANIA-SEGUROS-123456RENAULT-CLIO-AB123CD-PERITO-INVENTADO' })
+    expect(r).toMatchObject({ compania: null, siniestro: null, patente: 'AB123CD', vehiculo: 'RENAULT CLIO' })
+  })
+
+  it('si el PDF no tiene un total claro, el monto queda vacío', () => {
+    expect(leer({ remitente: ORION, asunto: 'Orden De Trabajo ZAASA-1TOYOTA-ETIOS-AB123CD-P-I', textoPdf: 'sin montos' })).toMatchObject({ monto: null })
+  })
+})
+
+describe('órdenes de La Mercantil', () => {
+  it('saca siniestro, patente, perito y su mail', () => {
+    expect(leer({
+      remitente: MERCANTIL,
+      asunto: 'Orden de reparación – Siniestro 900000000001 – Tasación 123456 – Dominio AB123CD',
+      cuerpo: 'Se le ha asignado una orden de reparación.\n\nEn caso de ser necesario contactar al perito interviniente,*PEREZ JUAN*, podrás hacerlo así:\n\nEmail: Perito.Inventado@ejemplo.com\n',
+    })).toEqual({
+      tipo: 'orden', plataforma: 'mercantil', compania: 'Mercantil Andina', siniestro: '900000000001',
+      patente: 'AB123CD', vehiculo: null, perito: 'PEREZ JUAN', peritoMail: 'perito.inventado@ejemplo.com',
+      monto: null, franquicia: null, repuestos: null, lector: 'ordenes v1',
+    })
+  })
+
+  it('reconoce la anulación', () => {
+    const r = leer({ remitente: MERCANTIL, asunto: 'Anulación de Orden de reparación – Siniestro: 900000000001 – Tasación 123456 – Dominio: AB123CD' })
+    expect(r).toMatchObject({ tipo: 'anulacion', siniestro: '900000000001', patente: 'AB123CD' })
+  })
+
+  it('un recordatorio de actualizar el estado no es una orden', () => {
+    expect(leer({ remitente: MERCANTIL, asunto: 'Actualización de estado de reparación – Siniestro 900000000001 – Dominio AB123CD' })).toBeNull()
+  })
+})
+
+describe('lo que no es una orden', () => {
+  it('un mail de otro remitente no se lee como orden', () => {
+    expect(leer({ remitente: 'pagos@compania.example', asunto: 'Orden De Trabajo algo' })).toBeNull()
+  })
+})
+
+describe('el barrido guarda las órdenes en su pestaña', () => {
+  it('una orden de Orion queda como propuesta, con el id de Drive de su PDF', () => {
+    const filas: unknown[][] = []
+    const hoja = { getLastRow: () => 1, getRange: () => ({ setValues: (f: unknown[][]) => { filas.push(...f) } }) }
+    const contexto = {
+      Gmail: { Users: { Messages: { get: () => ({
+        internalDate: '0',
+        payload: {
+          headers: [{ name: 'From', value: ORION }, { name: 'Subject', value: 'Orden De Trabajo ZAASA-77TOYOTA-ETIOS-AB123CD-PERITO-INVENTADO' }],
+          parts: [
+            { mimeType: 'text/plain', filename: '', headers: [], body: { data: 'Envío orden, repuesto envía Autopartes Ejemplo en 3 días' } },
+            { mimeType: 'application/pdf', filename: 'informeOrdenTrabajo.pdf', headers: [], body: { data: 'pdf' } },
+          ],
+        },
+      }) } } },
+      Utilities: { newBlob: (d: string) => ({ getDataAsString: () => d }), base64DecodeWebSafe: (d: string) => d, formatDate: () => '2026-01-02 10:00' },
+      Drive: { Files: { create: (m: { mimeType?: string }) => ({ id: m.mimeType === 'application/vnd.google-apps.document' ? 'ocr' : 'drive-orden-1' }), remove: () => undefined } },
+      UrlFetchApp: { fetch: () => ({ getResponseCode: () => 200, getContentText: () => 'Total: $ 200.000,00' }) },
+      ScriptApp: { getOAuthToken: () => 'x' },
+      PropertiesService: { getScriptProperties: () => ({ getProperty: () => 'carpeta', setProperty: () => undefined }) },
+    }
+    const { guardarOrden } = runInNewContext(readFileSync(join(import.meta.dirname, 'robot.gs'), 'utf8') + '\n;({ guardarOrden })', contexto) as {
+      guardarOrden: (id: string, hojas: Record<string, typeof hoja>) => void
+    }
+    guardarOrden('msg-orden-1', { ordenes: hoja })
+    expect(filas).toEqual([['msg-orden-1', '2026-01-02 10:00', 'orion', 'orden', 'Zurich', '77', 'AB123CD', 'TOYOTA ETIOS',
+      'PERITO INVENTADO', '', '200000.00', '', 'repuesto envía Autopartes Ejemplo en 3 días', 'drive-orden-1', 'ordenes v1']])
+  })
+})

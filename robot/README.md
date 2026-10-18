@@ -116,6 +116,18 @@ conviene empezar de cero para que todos tengan su id: borrá las filas de *aviso
 *retenciones* y *acuses* (dejando el encabezado), mandá a la papelera los PDF de la carpeta
 "Cobranzas · avisos de pago (robot)" y volvé a ejecutar `barrer` hasta "Al día.".
 
+## Las órdenes de trabajo (desde el 2026-10-18)
+
+El barrido también trae las **órdenes de trabajo** de Orion (`sistemas@mg.sistema-orion.com`) y de
+La Mercantil, a una pestaña nueva, **ordenes**: compañía, siniestro, patente, vehículo, perito, el
+monto si el PDF lo dice claro, la franquicia y quién manda los repuestos, si el mail lo menciona.
+Las anulaciones quedan con tipo `anulacion`; lo que no es una orden (un recordatorio), con `otro`.
+
+Es una **propuesta**: la orden entra a la app cuando una persona la confirma (spec 010, RF-1005).
+Si un campo no se pudo leer con seguridad, queda vacío: mejor vacío que equivocado.
+
+Para tenerlo: pegá el `robot.gs` nuevo y ejecutá `barrer`. La pestaña se crea sola.
+
 ## Lo que esta planilla NO es
 
 - **No es la base.** En la fase 2 lo mismo pasa a Supabase, con un usuario `robot@` que sólo

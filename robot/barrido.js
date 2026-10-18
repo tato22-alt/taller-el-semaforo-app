@@ -30,7 +30,11 @@ const COLUMNAS = {
   retenciones: ['message_id', 'certificado', 'concepto', 'impuesto', 'importe'],
   acuses: ['message_id', 'fecha', 'remitente', 'tipo', 'factura_como_dice', 'punto_venta', 'numero', 'siniestro', 'monto', 'fecha_prometida', 'referencia', 'lector'],
   enviados: ['message_id', 'fecha', 'para', 'asunto', 'tipo', 'factura', 'siniestro', 'orden_de_compra'],
+  ordenes: ['message_id', 'fecha', 'plataforma', 'tipo', 'compania', 'siniestro', 'patente', 'vehiculo', 'perito', 'perito_mail', 'monto', 'franquicia', 'repuestos', 'pdfs_drive', 'lector'],
 }
+
+/* De dónde llegan las órdenes de trabajo (spec 010). Se barren aparte de los avisos de pago. */
+const REMITENTES_ORDENES = ['sistemas@mg.sistema-orion.com', 'no-responder@mail.lamercantil.flowable-managed.com']
 
 /* Los remitentes conocidos el 2026-10-08. Se cargan en la pestaña sólo si está vacía; de ahí en
  * más manda la pestaña. Son casillas automáticas de las compañías, no de personas. */
@@ -76,8 +80,14 @@ function barrer() {
     (id) => guardarEnvio(id, hojas),
     inicio,
   )
-  console.log(`Avisos nuevos: ${nuevosAvisos.guardados}. Envíos nuevos: ${nuevosEnvios.guardados}.` +
-    (nuevosAvisos.cortado || nuevosEnvios.cortado ? ' Quedan más: la próxima corrida sigue.' : ' Al día.'))
+  const nuevasOrdenes = barrerConsulta(
+    `from:(${REMITENTES_ORDENES.join(' OR ')}) subject:(orden) after:${DESDE}`,
+    idsGuardados(hojas.ordenes),
+    (id) => guardarOrden(id, hojas),
+    inicio,
+  )
+  console.log(`Avisos nuevos: ${nuevosAvisos.guardados}. Envíos nuevos: ${nuevosEnvios.guardados}. Órdenes nuevas: ${nuevasOrdenes.guardados}.` +
+    (nuevosAvisos.cortado || nuevosEnvios.cortado || nuevasOrdenes.cortado ? ' Quedan más: la próxima corrida sigue.' : ' Al día.'))
 }
 
 /**
@@ -135,27 +145,50 @@ function guardarAviso(id, hojas) {
   const asunto = encabezado(msg, 'Subject')
   const cuerpo = sinClaves(sinEnlacesDeSesion(cuerpoDe(partes)))
 
-  // Los PDF van a Drive, y se les saca el texto. Se reconocen por la extensión, nunca por el tipo
-  // MIME: hay compañías que los mandan como application/octet-stream (spec 005 §5.3). Se guarda el
-  // id de Drive de cada uno, en el mismo orden que los nombres: es lo único que distingue dos PDF
-  // del mismo día con el mismo nombre, y lo que deja llegar al archivo desde la app.
-  const nombres = []
-  const idsDrive = []
-  const textos = []
-  for (const p of partes.filter((p) => p.filename && /\.pdf$/i.test(p.filename))) {
-    const blob = Utilities.newBlob(bytesDe(id, p), 'application/pdf', p.filename)
-    const archivo = Drive.Files.create({ name: `${aviso.fecha.slice(0, 10)} ${p.filename}`, parents: [carpetaDeLosPdf()] }, blob)
-    nombres.push(p.filename)
-    idsDrive.push(archivo.id)
-    textos.push(textoDePdf(blob))
-  }
-  const textoPdf = textos.join('\n\n----- siguiente PDF -----\n\n')
+  const { nombres, idsDrive, textoPdf } = guardarPdfs(id, partes, aviso.fecha)
 
   const leido = leerAviso({ remitente: aviso.remitente, asunto, cuerpo, textoPdf })
   agregar(hojas.avisos, [[id, aviso.fecha, aviso.remitente, asunto, cortar(cuerpo), nombres.join('\n'), cortar(textoPdf), ...estadoDe(leido), idsDrive.join('\n')]])
   agregar(hojas.lineas, filasDeLineas(aviso, leido))
   agregar(hojas.retenciones, filasDeRetenciones(id, leido))
   agregar(hojas.acuses, filasDeAcuses(aviso, leido))
+}
+
+/** Una orden de trabajo: lo que el robot leyó es una propuesta que confirma una persona (RF-1005).
+ *  Lo que no es una orden (un recordatorio) se guarda igual, con tipo "otro", para no volver a leerlo. */
+function guardarOrden(id, hojas) {
+  const msg = Gmail.Users.Messages.get('me', id, { format: 'full' })
+  const partes = aplanar(msg.payload)
+  const fecha = fechaDe(msg)
+  const remitente = encabezado(msg, 'From')
+  const asunto = encabezado(msg, 'Subject')
+  const cuerpo = sinClaves(sinEnlacesDeSesion(cuerpoDe(partes)))
+  const { idsDrive, textoPdf } = guardarPdfs(id, partes, fecha)
+  const o = leerOrden({ remitente, asunto, cuerpo, textoPdf })
+  agregar(hojas.ordenes, [o === null
+    ? [id, fecha, '', 'otro', '', '', '', '', '', '', '', '', '', idsDrive.join('\n'), '']
+    : [id, fecha, o.plataforma, o.tipo, o.compania || '', o.siniestro || '', o.patente || '', o.vehiculo || '', o.perito || '',
+        o.peritoMail || '', o.monto || '', o.franquicia || '', o.repuestos || '', idsDrive.join('\n'), o.lector]])
+}
+
+/**
+ * Los PDF de un mail van a Drive, y se les saca el texto. Se reconocen por la extensión, nunca por
+ * el tipo MIME: hay compañías que los mandan como application/octet-stream (spec 005 §5.3). Se
+ * guarda el id de Drive de cada uno, en el mismo orden que los nombres: es lo único que distingue
+ * dos PDF del mismo día con el mismo nombre, y lo que deja llegar al archivo desde la app.
+ */
+function guardarPdfs(id, partes, fecha) {
+  const nombres = []
+  const idsDrive = []
+  const textos = []
+  for (const p of partes.filter((p) => p.filename && /\.pdf$/i.test(p.filename))) {
+    const blob = Utilities.newBlob(bytesDe(id, p), 'application/pdf', p.filename)
+    const archivo = Drive.Files.create({ name: `${fecha.slice(0, 10)} ${p.filename}`, parents: [carpetaDeLosPdf()] }, blob)
+    nombres.push(p.filename)
+    idsDrive.push(archivo.id)
+    textos.push(textoDePdf(blob))
+  }
+  return { nombres, idsDrive, textoPdf: textos.join('\n\n----- siguiente PDF -----\n\n') }
 }
 
 function guardarEnvio(id, hojas) {
