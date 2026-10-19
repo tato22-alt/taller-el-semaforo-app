@@ -36,7 +36,7 @@
  * }} OrdenLeida
  */
 
-const VERSION_ORDENES = 2
+const VERSION_ORDENES = 3
 
 /* El comienzo del asunto de Orion, por compañía, y el nombre de su ficha en la base (tiene que ser
  * idéntico: la base busca la compañía por ese nombre). Una compañía que no está acá queda en la
@@ -99,7 +99,7 @@ function leerOrdenOrion(mail) {
   const vehiculo = marca ? enPalabras(sinCompania.slice(marca.i)) : null
 
   return {
-    tipo: /dejar sin efecto|no dar curso|anulad/i.test(mail.cuerpo) ? 'anulacion' : 'orden',
+    tipo: esAnulacionOrion(mail.cuerpo) ? 'anulacion' : 'orden',
     plataforma: 'orion',
     compania,
     siniestro,
@@ -114,6 +114,17 @@ function leerOrdenOrion(mail) {
     repuestos: frase(mail.cuerpo, /[^,\n.]*repuesto(?:[^,\n.]|\.(?=\d))*/i),
     lector: `ordenes v${VERSION_ORDENES}`,
   }
+}
+
+/**
+ * Orion manda la anulación con el mismo asunto que la orden: lo dice el cuerpo ("dejar sin efecto
+ * esta orden", "no dar curso a esta orden"). Si el cuerpo sólo deja sin efecto la orden ANTERIOR, el
+ * mail es la orden nueva que la reemplaza: se lee como orden, para que no se pierda.
+ * @param {string} cuerpo
+ */
+function esAnulacionOrion(cuerpo) {
+  if (!/dejar sin efecto|no dar curso|anulad/i.test(cuerpo)) return false
+  return !/(orden|la) anterior/i.test(cuerpo) || /esta orden/i.test(cuerpo)
 }
 
 /** @param {Mail} mail @returns {OrdenLeida | null} */

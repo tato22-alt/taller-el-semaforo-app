@@ -88,7 +88,7 @@ function barrer() {
     (id) => guardarOrden(id, hojas),
     inicio,
   )
-  const subidas = subirOrdenes(hojas.ordenes)
+  const subidas = subirOrdenes(hojas.ordenes, inicio)
   console.log(`Avisos nuevos: ${nuevosAvisos.guardados}. Envíos nuevos: ${nuevosEnvios.guardados}. Órdenes nuevas: ${nuevasOrdenes.guardados}. ${subidas}` +
     (nuevosAvisos.cortado || nuevosEnvios.cortado || nuevasOrdenes.cortado ? ' Quedan más: la próxima corrida sigue.' : ' Al día.'))
 }
@@ -183,6 +183,9 @@ function guardarOrden(id, hojas) {
  * alcanza para que sus órdenes entren solas. */
 const SUBIDA_TERMINADA = ['cargada', 'ya_estaba', 'reenvio', 'anulada']
 
+/** Hasta cuándo puede subir órdenes una corrida: un margen antes de los 6 minutos de Apps Script. */
+const LIMITE_SUBIDA_MS = 5.25 * 60 * 1000
+
 /**
  * Sube a la base las órdenes de la pestaña que todavía no entraron, de la más vieja a la más nueva:
  * una anulación tiene que llegar después de su orden. El robot entra con su propio usuario (rol
@@ -190,9 +193,10 @@ const SUBIDA_TERMINADA = ['cargada', 'ya_estaba', 'reenvio', 'anulada']
  *
  * Necesita cuatro propiedades del script: SUPABASE_URL, SUPABASE_CLAVE_PUBLICA, ROBOT_MAIL y
  * ROBOT_CLAVE. Si faltan, no sube nada y lo dice: la planilla se sigue llenando igual.
+ * Comparte el reloj con el barrido: si se acaba el tiempo, corta y la próxima corrida sigue.
  * @returns {string} una línea para el registro
  */
-function subirOrdenes(hoja) {
+function subirOrdenes(hoja, inicio = Date.now()) {
   const props = PropertiesService.getScriptProperties()
   const url = props.getProperty('SUPABASE_URL')
   const clave = props.getProperty('SUPABASE_CLAVE_PUBLICA')
@@ -214,7 +218,9 @@ function subirOrdenes(hoja) {
   const token = JSON.parse(sesion.getContentText()).access_token
 
   let cargadas = 0
+  let hechas = 0
   for (const { f, fila } of pendientes) {
+    if (Date.now() - inicio > LIMITE_SUBIDA_MS) return `Órdenes a la base: ${cargadas} de ${hechas}; quedan ${pendientes.length - hechas}, siguen en la próxima corrida.`
     const r = UrlFetchApp.fetch(`${url}/rest/v1/rpc/fn_robot_guarda_orden`, {
       method: 'post', contentType: 'application/json', headers: { apikey: clave, Authorization: `Bearer ${token}` },
       muteHttpExceptions: true,
@@ -228,6 +234,7 @@ function subirOrdenes(hoja) {
     const respuesta = r.getResponseCode() === 200 ? JSON.parse(r.getContentText()) : `error HTTP ${r.getResponseCode()}: ${r.getContentText().slice(0, 200)}`
     hoja.getRange(fila, 16).setValue(respuesta)
     if (respuesta === 'cargada' || respuesta === 'anulada') cargadas++
+    hechas++
   }
   return `Órdenes a la base: ${cargadas} de ${pendientes.length} pendientes.`
 }

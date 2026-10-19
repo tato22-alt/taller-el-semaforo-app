@@ -609,7 +609,9 @@ describe('el robot', () => {
   it('no hay credenciales en el código (R2)', () => {
     for (const { nombre, texto } of codigo) {
       expect(texto, nombre).not.toMatch(/service_role|anon_key|eyJ[\w-]{10,}|sb_(secret|publishable)_/i)
-      expect(texto, nombre).not.toMatch(/(password|apikey|contraseña|clave)\s*[:=]\s*['"`]/i)
+      expect(texto, nombre).not.toMatch(/(password|apikey|contrase(?:ñ|ni)a|clave)['"]?\s*[:=]\s*['"`]/i)
+      expect(texto, nombre).not.toMatch(/setProperty\(\s*['"`]\w+['"`]\s*,\s*['"`]/)
+      expect(texto, nombre).not.toMatch(/Bearer [\w.-]{8,}/)
     }
   })
 })

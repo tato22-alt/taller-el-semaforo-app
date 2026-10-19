@@ -33,7 +33,7 @@ describe('órdenes de Orion', () => {
       tipo: 'orden', plataforma: 'orion', compania: 'Sancor', siniestro: '2000000001',
       patente: 'AB123CD', vehiculo: 'FORD KA 15 S 4P', perito: 'JUAN PEREZINVENTADO', peritoMail: null,
       monto: '150000.00', franquicia: null,
-      repuestos: 'Los repuestos los entrega Autopartes Ejemplo en 5 días', lector: 'ordenes v2',
+      repuestos: 'Los repuestos los entrega Autopartes Ejemplo en 5 días', lector: 'ordenes v3',
     })
   })
 
@@ -61,6 +61,15 @@ describe('órdenes de Orion', () => {
     expect(r).toMatchObject({ tipo: 'anulacion' })
   })
 
+  it.each([
+    ['Dejar sin efecto esta orden y la orden anterior.', 'anulacion'],
+    ['No dar curso a la orden anterior ni a esta orden.', 'anulacion'],
+    ['Dejar sin efecto la orden anterior, se envía la nueva con el monto corregido.', 'orden'],
+    ['Envío orden. Saludos.', 'orden'],
+  ])('"%s" es %s', (cuerpo, tipo) => {
+    expect(leer({ remitente: ORION, asunto: 'Orden De Trabajo ZAASA-0001AUT1TOYOTA-ETIOS-AB123CD-PERITO-INVENTADO', cuerpo })).toMatchObject({ tipo })
+  })
+
   it('una compañía que no conoce queda vacía, y el siniestro también: lo completa una persona', () => {
     const r = leer({ remitente: ORION, asunto: 'Orden De Trabajo OTRA-COMPANIA-SEGUROS-123456RENAULT-CLIO-AB123CD-PERITO-INVENTADO' })
     expect(r).toMatchObject({ compania: null, siniestro: null, patente: 'AB123CD', vehiculo: 'RENAULT CLIO' })
@@ -80,7 +89,7 @@ describe('órdenes de La Mercantil', () => {
     })).toEqual({
       tipo: 'orden', plataforma: 'mercantil', compania: 'Mercantil Andina', siniestro: '900000000001',
       patente: 'AB123CD', vehiculo: null, perito: 'PEREZ JUAN', peritoMail: 'perito.inventado@ejemplo.com',
-      monto: null, franquicia: null, repuestos: null, lector: 'ordenes v2',
+      monto: null, franquicia: null, repuestos: null, lector: 'ordenes v3',
     })
   })
 
@@ -126,7 +135,7 @@ describe('el barrido guarda las órdenes en su pestaña', () => {
     }
     guardarOrden('msg-orden-1', { ordenes: hoja })
     expect(filas).toEqual([['msg-orden-1', '2026-01-02 10:00', 'orion', 'orden', 'Zurich ex QBE', '77', 'AB123CD', 'TOYOTA ETIOS',
-      'PERITO INVENTADO', '', '200000.00', '', 'repuesto envía Autopartes Ejemplo en 3 días', 'drive-orden-1', 'ordenes v2', '']])
+      'PERITO INVENTADO', '', '200000.00', '', 'repuesto envía Autopartes Ejemplo en 3 días', 'drive-orden-1', 'ordenes v3', '']])
   })
 })
 
@@ -144,9 +153,9 @@ describe('las compañías de Orion van con el nombre exacto de su ficha', () => 
 describe('el robot sube las órdenes a la base', () => {
   type Fila = string[]
   const fila = (id: string, fecha: string, tipo: string, base = ''): Fila =>
-    [id, fecha, 'orion', tipo, 'Sancor', '111', 'AB123CD', 'FORD KA', 'PERITO INVENTADO', '', '1000.50', '', '', '', 'ordenes v2', base]
+    [id, fecha, 'orion', tipo, 'Sancor', '111', 'AB123CD', 'FORD KA', 'PERITO INVENTADO', '', '1000.50', '', '', '', 'ordenes v3', base]
 
-  function correr(filas: Fila[], props: Record<string, string>, contesta: (cuerpo: Record<string, unknown>) => string) {
+  function correr(filas: Fila[], props: Record<string, string>, contesta: (cuerpo: Record<string, unknown>) => string, inicio = Date.now()) {
     const llamadas: { url: string; cuerpo: Record<string, unknown> }[] = []
     const escritas: Record<number, unknown> = {}
     const hoja = {
@@ -163,9 +172,9 @@ describe('el robot sube las órdenes a la base', () => {
       } },
     }
     const { subirOrdenes } = runInNewContext(readFileSync(join(import.meta.dirname, 'robot.gs'), 'utf8') + '\n;({ subirOrdenes })', contexto) as {
-      subirOrdenes: (h: typeof hoja) => string
+      subirOrdenes: (h: typeof hoja, inicio: number) => string
     }
-    return { mensaje: subirOrdenes(hoja), llamadas, escritas }
+    return { mensaje: subirOrdenes(hoja, inicio), llamadas, escritas }
   }
   const PROPS = { SUPABASE_URL: 'https://ejemplo.supabase.co', SUPABASE_CLAVE_PUBLICA: 'k', ROBOT_MAIL: 'robot@ejemplo.com', ROBOT_CLAVE: 'c' }
 
@@ -184,6 +193,12 @@ describe('el robot sube las órdenes a la base', () => {
     expect(rpc.map((l) => l.cuerpo.p_gmail_message_id)).toEqual(['orden', 'anula'])
     expect(rpc[0]?.cuerpo).toMatchObject({ p_compania: 'Sancor', p_siniestro: '111', p_fecha: '2026-01-02', p_monto: '1000.50' })
     expect(r.escritas).toEqual({ 2: 'anulada', 3: 'cargada' })
+  })
+
+  it('si se acaba el tiempo de la corrida, corta y deja el resto para la próxima', () => {
+    const r = correr([fila('m1', '2026-01-01 10:00', 'orden')], PROPS, () => 'cargada', 0)
+    expect(r.llamadas.filter((l) => l.url.includes('/rpc/'))).toHaveLength(0)
+    expect(r.mensaje).toContain('siguen en la próxima corrida')
   })
 
   it('no vuelve a mandar lo terminado, y reintenta lo que quedó sin compañía', () => {
