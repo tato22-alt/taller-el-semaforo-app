@@ -18,10 +18,11 @@ type FilaOrden = {
   id_orden: number; compania: string; siniestro: string; patente: string | null
   fecha_emision: string; vence: string; dias_para_vencer: number
   monto_autorizado: string | null; perito: string | null
-  anulada: boolean; id_comprobante: number | null
+  vehiculo: string | null; observaciones: string | null
+  anulada: boolean; anulada_por_mail: string | null; id_comprobante: number | null
 }
 
-const COLUMNAS = 'id_orden, compania, siniestro, patente, fecha_emision, vence, dias_para_vencer, monto_autorizado, perito, anulada, id_comprobante'
+const COLUMNAS = 'id_orden, compania, siniestro, patente, fecha_emision, vence, dias_para_vencer, monto_autorizado, perito, vehiculo, observaciones, anulada, anulada_por_mail, id_comprobante'
 
 /** Todas las órdenes, de la de mayor monto a la de menor. Las que no tienen monto, al final. */
 export async function leerOrdenes(base: ClienteBase | null = null): Promise<Resultado<readonly Orden[]>> {
@@ -41,6 +42,16 @@ export async function anularOrden(idOrden: number, fecha: string, motivo: string
   const cliente = await clienteConSesion(base)
   if (!cliente.ok) return cliente
   const r = await cliente.dato.from('orden_trabajo').update({ anulada_en: fecha, anulada_motivo: motivo }).eq('id_orden', idOrden)
+  return r.error !== null ? mal(clasificar(r.error)) : bien(null)
+}
+
+/** "No la anularon": deshace una anulación equivocada. La orden vuelve a contar para las alertas. */
+export async function desanularOrden(idOrden: number, base: ClienteBase | null = null): Promise<Resultado<null>> {
+  const cliente = await clienteConSesion(base)
+  if (!cliente.ok) return cliente
+  const r = await cliente.dato.from('orden_trabajo')
+    .update({ anulada_en: null, anulada_motivo: null, anulada_por_mail: null })
+    .eq('id_orden', idOrden)
   return r.error !== null ? mal(clasificar(r.error)) : bien(null)
 }
 
@@ -66,7 +77,10 @@ function orden(f: FilaOrden): Orden {
     diasParaVencer: f.dias_para_vencer,
     montoAutorizado: f.monto_autorizado,
     perito: f.perito,
+    vehiculo: f.vehiculo,
+    observaciones: f.observaciones,
     anulada: f.anulada,
+    anuladaPorMail: f.anulada_por_mail !== null,
     facturada: f.id_comprobante !== null,
   }
 }

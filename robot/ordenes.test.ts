@@ -33,7 +33,7 @@ describe('órdenes de Orion', () => {
       tipo: 'orden', plataforma: 'orion', compania: 'Sancor', siniestro: '2000000001',
       patente: 'AB123CD', vehiculo: 'FORD KA 15 S 4P', perito: 'JUAN PEREZINVENTADO', peritoMail: null,
       monto: '150000.00', franquicia: null,
-      repuestos: 'Los repuestos los entrega Autopartes Ejemplo en 5 días', lector: 'ordenes v3',
+      repuestos: 'Los repuestos los entrega Autopartes Ejemplo en 5 días', referencia: null, lector: 'ordenes v4',
     })
   })
 
@@ -89,7 +89,7 @@ describe('órdenes de La Mercantil', () => {
     })).toEqual({
       tipo: 'orden', plataforma: 'mercantil', compania: 'Mercantil Andina', siniestro: '900000000001',
       patente: 'AB123CD', vehiculo: null, perito: 'PEREZ JUAN', peritoMail: 'perito.inventado@ejemplo.com',
-      monto: null, franquicia: null, repuestos: null, lector: 'ordenes v3',
+      monto: null, franquicia: null, repuestos: null, referencia: 'Tasación 123456', lector: 'ordenes v4',
     })
   })
 
@@ -135,7 +135,7 @@ describe('el barrido guarda las órdenes en su pestaña', () => {
     }
     guardarOrden('msg-orden-1', { ordenes: hoja })
     expect(filas).toEqual([['msg-orden-1', '2026-01-02 10:00', 'orion', 'orden', 'Zurich ex QBE', '77', 'AB123CD', 'TOYOTA ETIOS',
-      'PERITO INVENTADO', '', '200000.00', '', 'repuesto envía Autopartes Ejemplo en 3 días', 'drive-orden-1', 'ordenes v3', '']])
+      'PERITO INVENTADO', '', '200000.00', '', 'repuesto envía Autopartes Ejemplo en 3 días', 'drive-orden-1', 'ordenes v4', '', '']])
   })
 })
 
@@ -153,7 +153,7 @@ describe('las compañías de Orion van con el nombre exacto de su ficha', () => 
 describe('el robot sube las órdenes a la base', () => {
   type Fila = string[]
   const fila = (id: string, fecha: string, tipo: string, base = ''): Fila =>
-    [id, fecha, 'orion', tipo, 'Sancor', '111', 'AB123CD', 'FORD KA', 'PERITO INVENTADO', '', '1000.50', '', '', '', 'ordenes v3', base]
+    [id, fecha, 'orion', tipo, 'Sancor', '111', 'AB123CD', 'FORD KA', 'PERITO INVENTADO', '', '1000.50', 'franquicia en taller', '', '', 'ordenes v4', base, '']
 
   function correr(filas: Fila[], props: Record<string, string>, contesta: (cuerpo: Record<string, unknown>) => string, inicio = Date.now()) {
     const llamadas: { url: string; cuerpo: Record<string, unknown> }[] = []
@@ -191,7 +191,8 @@ describe('el robot sube las órdenes a la base', () => {
     ], PROPS, (c) => (c.p_tipo === 'orden' ? 'cargada' : 'anulada'))
     const rpc = r.llamadas.filter((l) => l.url.endsWith('/rpc/fn_robot_guarda_orden'))
     expect(rpc.map((l) => l.cuerpo.p_gmail_message_id)).toEqual(['orden', 'anula'])
-    expect(rpc[0]?.cuerpo).toMatchObject({ p_compania: 'Sancor', p_siniestro: '111', p_fecha: '2026-01-02', p_monto: '1000.50' })
+    expect(rpc[0]?.cuerpo).toMatchObject({ p_compania: 'Sancor', p_siniestro: '111', p_fecha: '2026-01-02', p_monto: '1000.50',
+      p_vehiculo: 'FORD KA', p_referencia: null, p_observaciones: 'franquicia en taller' })
     expect(r.escritas).toEqual({ 2: 'anulada', 3: 'cargada' })
   })
 

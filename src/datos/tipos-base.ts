@@ -501,6 +501,11 @@ export type Database = {
           id_comprobante: number | null
           creado_en: string
           creado_por: string | null
+          vehiculo: string | null
+          referencia: string | null
+          observaciones: string | null
+          reenvio_de: number | null
+          anulada_por_mail: string | null
         }
         Insert: {
           id_orden?: never
@@ -518,6 +523,11 @@ export type Database = {
           id_comprobante?: number | null
           creado_en?: string
           creado_por?: string | null
+          vehiculo?: string | null
+          referencia?: string | null
+          observaciones?: string | null
+          reenvio_de?: number | null
+          anulada_por_mail?: string | null
         }
         Update: {
           id_orden?: never
@@ -535,6 +545,11 @@ export type Database = {
           id_comprobante?: number | null
           creado_en?: string
           creado_por?: string | null
+          vehiculo?: string | null
+          referencia?: string | null
+          observaciones?: string | null
+          reenvio_de?: number | null
+          anulada_por_mail?: string | null
         }
         Relationships: [
           {
@@ -656,6 +671,12 @@ export type Database = {
           factura_numero: number | null
           factura_neto: number | null
           factura_total: number | null
+          vehiculo: string | null
+          referencia: string | null
+          observaciones: string | null
+          anulada_por_mail: string | null
+          /* Cuántas veces la compañía mandó de nuevo la misma orden. Los reenvíos no salen en la vista. */
+          reenvios: number | null
         }
         Relationships: []
       }
@@ -685,6 +706,16 @@ export type Database = {
       /* El rol de la sesión (persona | robot), leído del token. Nulo sin rol. M1 de cobranzas. */
       fn_rol: {
         Args: Record<PropertyKey, never>
+        Returns: string
+      }
+      /* Feature 010: sólo el robot. Guarda una orden leída de Gmail, o anula las de un siniestro. */
+      fn_robot_guarda_orden: {
+        Args: {
+          p_gmail_message_id: string; p_tipo: string; p_compania: string; p_siniestro: string
+          p_patente: string | null; p_fecha: string; p_monto: string | null; p_perito: string | null
+          p_perito_mail: string | null; p_vehiculo: string | null; p_referencia: string | null
+          p_observaciones: string | null
+        }
         Returns: string
       }
       fn_normalizar_nombre: {

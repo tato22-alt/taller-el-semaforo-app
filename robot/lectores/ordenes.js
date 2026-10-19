@@ -32,11 +32,12 @@
  *   readonly monto: string | null,
  *   readonly franquicia: string | null,
  *   readonly repuestos: string | null,
+ *   readonly referencia: string | null,
  *   readonly lector: string,
  * }} OrdenLeida
  */
 
-const VERSION_ORDENES = 3
+const VERSION_ORDENES = 4
 
 /* El comienzo del asunto de Orion, por compañía, y el nombre de su ficha en la base (tiene que ser
  * idéntico: la base busca la compañía por ese nombre). Una compañía que no está acá queda en la
@@ -112,6 +113,7 @@ function leerOrdenOrion(mail) {
     // no el final de la frase.
     franquicia: frase(mail.cuerpo, /[^,\n.]*franquicia(?:[^,\n.]|\.(?=\d))*/i),
     repuestos: frase(mail.cuerpo, /[^,\n.]*repuesto(?:[^,\n.]|\.(?=\d))*/i),
+    referencia: null,
     lector: `ordenes v${VERSION_ORDENES}`,
   }
 }
@@ -136,6 +138,8 @@ function leerOrdenMercantil(mail) {
   const patente = /dominio:?\s*([A-Z]{2}\d{3}[A-Z]{2}|[A-Z]{3}\d{3})/i.exec(asunto)
   const perito = /perito interviniente,?\s*\*?([^*\n]+?)\*?,/i.exec(mail.cuerpo)
   const mailPerito = /email:\s*([^\s<>]+@[^\s<>]+)/i.exec(mail.cuerpo)
+  // La tasación distingue una orden de otra del mismo siniestro (una ampliación trae otra).
+  const tasacion = /tasaci[oó]n:?\s*(\d+)/i.exec(asunto)
   return {
     tipo: esAnulacion ? 'anulacion' : 'orden',
     plataforma: 'mercantil',
@@ -148,6 +152,7 @@ function leerOrdenMercantil(mail) {
     monto: null,
     franquicia: null,
     repuestos: null,
+    referencia: tasacion ? `Tasación ${tasacion[1] ?? ''}` : null,
     lector: `ordenes v${VERSION_ORDENES}`,
   }
 }

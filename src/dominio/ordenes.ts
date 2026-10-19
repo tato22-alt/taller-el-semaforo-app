@@ -15,7 +15,12 @@ export type Orden = {
   /** NUMERIC: llega como texto y así se queda. Nulo si la compañía no lo dice en el mail. */
   readonly montoAutorizado: string | null
   readonly perito: string | null
+  readonly vehiculo: string | null
+  /** Lo que dice el mail de la franquicia y los repuestos, tal cual. */
+  readonly observaciones: string | null
   readonly anulada: boolean
+  /** La anuló el robot por un mail (y no una persona): se puede deshacer si se equivocó. */
+  readonly anuladaPorMail: boolean
   readonly facturada: boolean
 }
 

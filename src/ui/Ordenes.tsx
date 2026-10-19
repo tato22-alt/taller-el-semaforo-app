@@ -6,7 +6,7 @@
  * borrar lo decide dominio/ordenes.ts. */
 
 import { useCallback, useEffect, useState } from 'react'
-import { anularOrden, borrarOrden, leerOrdenes } from '../datos/ordenes'
+import { anularOrden, borrarOrden, desanularOrden, leerOrdenes } from '../datos/ordenes'
 import { formatearPesos } from '../dominio/dinero'
 import { formatearFecha, hoyEnElTaller } from '../dominio/fechas'
 import { agruparOrdenes, estadoDeOrden, sePuedeBorrar, vencimientoEnPalabras, type Orden } from '../dominio/ordenes'
@@ -79,14 +79,32 @@ function TarjetaOrden({ orden: o, ocupado, hacer }: { orden: Orden; ocupado: boo
       <p className="orden-encabezado">
         <strong>{o.compania}</strong> · siniestro {o.siniestro}
         {o.patente !== null && <span className="patente">{o.patente}</span>}
+        {o.vehiculo !== null && <span className="apagado">{o.vehiculo}</span>}
         <span className="monto">{o.montoAutorizado === null ? 'sin monto' : formatearPesos(o.montoAutorizado)}</span>
       </p>
       <p className="apagado">
-        {estado === 'anulada' && 'Anulada por la compañía'}
+        {estado === 'anulada' && (o.anuladaPorMail ? 'Anulada por la compañía (lo leyó el robot del mail)' : 'Anulada por la compañía')}
         {estado === 'facturada' && 'Facturada'}
         {estado !== 'anulada' && estado !== 'facturada' && `${vencimientoEnPalabras(o.diasParaVencer)} (${formatearFecha(o.vence)})`}
         {o.perito !== null && ` · perito ${o.perito}`}
       </p>
+      {o.observaciones !== null && <p className="apagado">{o.observaciones}</p>}
+      {estado === 'anulada' && (
+        <p className="acciones">
+          <button
+            type="button"
+            className="enlace"
+            disabled={ocupado}
+            onClick={() => {
+              if (window.confirm(`¿La orden del siniestro ${o.siniestro} sigue vigente? Vuelve a contar para los avisos.`)) {
+                void hacer(() => desanularOrden(o.id))
+              }
+            }}
+          >
+            No la anularon
+          </button>
+        </p>
+      )}
       {(estado === 'por_vencer' || estado === 'vigente' || estado === 'vencida') && (
         <p className="acciones">
           <button

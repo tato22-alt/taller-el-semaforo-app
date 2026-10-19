@@ -126,8 +126,10 @@ Las anulaciones quedan con tipo `anulacion`; lo que no es una orden (un recordat
 **Se cargan solas** (spec 010, RF-1005, enmendado el 2026-10-18): después de leer Gmail, `barrer`
 sube a la base cada orden que todavía no entró, de la más vieja a la más nueva, y anota en la
 columna **base** qué contestó: `cargada`, `ya_estaba`, `reenvio` (la compañía mandó la misma orden
-otra vez), `anulada`, o algo para reintentar (`sin_compania`, `sin_orden_para_anular`, un error). Lo
-que no terminó se reintenta en la próxima corrida. Si un campo no se pudo leer con seguridad, queda
+otra vez: se guarda igual, apuntando a la original, y no cuenta dos veces), `anulada`, o algo para
+reintentar (`sin_compania`, `sin_orden_para_anular`, un error). Lo que no terminó se reintenta en la
+próxima corrida. **Nada se pierde:** a la base van también el vehículo, la tasación de La Mercantil y
+lo que dice el mail de la franquicia y los repuestos; y una anulación se puede deshacer desde la app. Si un campo no se pudo leer con seguridad, queda
 vacío: mejor vacío que equivocado.
 
 El robot entra a la base con **su propio usuario**, con rol `robot`, y sólo puede llamar a una

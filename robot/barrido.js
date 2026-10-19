@@ -32,7 +32,7 @@ const COLUMNAS = {
   retenciones: ['message_id', 'certificado', 'concepto', 'impuesto', 'importe'],
   acuses: ['message_id', 'fecha', 'remitente', 'tipo', 'factura_como_dice', 'punto_venta', 'numero', 'siniestro', 'monto', 'fecha_prometida', 'referencia', 'lector'],
   enviados: ['message_id', 'fecha', 'para', 'asunto', 'tipo', 'factura', 'siniestro', 'orden_de_compra'],
-  ordenes: ['message_id', 'fecha', 'plataforma', 'tipo', 'compania', 'siniestro', 'patente', 'vehiculo', 'perito', 'perito_mail', 'monto', 'franquicia', 'repuestos', 'pdfs_drive', 'lector', 'base'],
+  ordenes: ['message_id', 'fecha', 'plataforma', 'tipo', 'compania', 'siniestro', 'patente', 'vehiculo', 'perito', 'perito_mail', 'monto', 'franquicia', 'repuestos', 'pdfs_drive', 'lector', 'base', 'referencia'],
 }
 
 /* De dónde llegan las órdenes de trabajo (spec 010). Se barren aparte de los avisos de pago. */
@@ -169,9 +169,9 @@ function guardarOrden(id, hojas) {
   const { idsDrive, textoPdf } = guardarPdfs(id, partes, fecha)
   const o = leerOrden({ remitente, asunto, cuerpo, textoPdf })
   agregar(hojas.ordenes, [o === null
-    ? [id, fecha, '', 'otro', '', '', '', '', '', '', '', '', '', idsDrive.join('\n'), '', '']
+    ? [id, fecha, '', 'otro', '', '', '', '', '', '', '', '', '', idsDrive.join('\n'), '', '', '']
     : [id, fecha, o.plataforma, o.tipo, o.compania || '', o.siniestro || '', o.patente || '', o.vehiculo || '', o.perito || '',
-        o.peritoMail || '', o.monto || '', o.franquicia || '', o.repuestos || '', idsDrive.join('\n'), o.lector, '']])
+        o.peritoMail || '', o.monto || '', o.franquicia || '', o.repuestos || '', idsDrive.join('\n'), o.lector, '', o.referencia || '']])
 }
 
 /* ------------------------------------------------------------------------------------------- */
@@ -229,6 +229,9 @@ function subirOrdenes(hoja, inicio = Date.now()) {
         p_patente: String(f[6]) || null, p_fecha: String(f[1]).slice(0, 10),
         // El monto viaja como texto, igual que lo guarda la planilla: no pasa por un float.
         p_monto: String(f[10]) || null, p_perito: String(f[8]) || null, p_perito_mail: String(f[9]) || null,
+        p_vehiculo: String(f[7]) || null, p_referencia: String(f[16] ?? '') || null,
+        // Lo que dice el mail de la franquicia y los repuestos: va a la base tal cual, para no perderlo.
+        p_observaciones: [f[11], f[12]].map(String).filter((x) => x !== '' && x !== 'undefined').join(' · ') || null,
       }),
     })
     const respuesta = r.getResponseCode() === 200 ? JSON.parse(r.getContentText()) : `error HTTP ${r.getResponseCode()}: ${r.getContentText().slice(0, 200)}`
