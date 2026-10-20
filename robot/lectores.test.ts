@@ -16,7 +16,7 @@ import { armar } from './armar.mjs'
 const CARPETA = import.meta.dirname
 const DIR_LECTORES = join(CARPETA, 'lectores')
 
-type Mail = { remitente: string; asunto: string; cuerpo: string; textoPdf: string }
+type Mail = { remitente: string; asunto: string; cuerpo: string; textoPdf: string; adjuntos: string[]; copia: string }
 type Lectores = {
   direccionDe: (from: string) => string
   aImporte: (texto: string) => string | null
@@ -42,7 +42,7 @@ type Leido = {
 
 /* El resultado sale de otro contexto de vm: se pasa por JSON para compararlo con objetos de acá. */
 const leer = (mail: Partial<Mail>) =>
-  JSON.parse(JSON.stringify(L.leerAviso({ remitente: '', asunto: '', cuerpo: '', textoPdf: '', ...mail }))) as Leido
+  JSON.parse(JSON.stringify(L.leerAviso({ remitente: '', asunto: '', cuerpo: '', textoPdf: '', adjuntos: [], copia: '', ...mail }))) as Leido
 
 const impuestos = (r: Leido) => r.retenciones.map((x) => [x.impuesto, x.importe, x.certificado])
 

@@ -243,5 +243,11 @@ details summary { cursor: pointer; color: var(--acento); margin-bottom: 0.5rem; 
 /* El color dice cuán urgente es; el texto lo dice igual, para quien no distingue colores. */
 .orden-por_vencer { border-left: 4px solid #d97706; }
 .orden-vencida { border-left: 4px solid #dc2626; }
-.orden-anulada, .orden-facturada { opacity: 0.75; }
+.orden-anulada, .orden-facturada, .orden-cerrada, .orden-descartada { opacity: 0.75; }
 .ordenes details { display: grid; gap: 0.6rem; }
+/* Para confirmar (RF-1014): lo primero que se ve, distinto de lo que ya cuenta para los avisos. */
+.para-confirmar .orden { border-left: 4px dashed var(--acento); }
+.orden .acciones { flex-wrap: wrap; align-items: center; }
+.orden .acciones select, .orden .acciones input { padding: 0.3rem; border: 1px solid var(--borde); border-radius: 6px; font: inherit; background: var(--papel); color: var(--tinta); }
+.orden .acciones button:not(.enlace) { padding: 0.4rem 0.8rem; border: 0; border-radius: 6px; background: var(--acento); color: #fff; font: inherit; cursor: pointer; }
+.orden .acciones button:disabled { opacity: 0.6; cursor: default; }

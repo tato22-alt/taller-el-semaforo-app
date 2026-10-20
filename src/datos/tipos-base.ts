@@ -487,8 +487,10 @@ export type Database = {
       orden_trabajo: {
         Row: {
           id_orden: number
-          cuit_compania: string
-          siniestro: string
+          /* Nula sólo mientras está a confirmar y el robot no supo la compañía (RF-1014). */
+          cuit_compania: string | null
+          /* Nulo sólo mientras está a confirmar y el robot no pudo leer el número (RF-1014). */
+          siniestro: string | null
           patente: string | null
           fecha_emision: string
           monto_autorizado: number | null
@@ -506,11 +508,18 @@ export type Database = {
           observaciones: string | null
           reenvio_de: number | null
           anulada_por_mail: string | null
+          /* RF-1014: el robot la adivinó; hasta que una persona la confirma no cuenta. */
+          a_confirmar: boolean
+          /* RF-1014: "No es una orden". No se borra. */
+          descartada_en: string | null
+          /* RF-1013: "No se hizo". Sale de los avisos y queda anotada. */
+          cerrada_en: string | null
+          cerrada_motivo: string | null
         }
         Insert: {
           id_orden?: never
-          cuit_compania: string
-          siniestro: string
+          cuit_compania?: string | null
+          siniestro?: string | null
           patente?: string | null
           fecha_emision: string
           monto_autorizado?: number | null
@@ -528,11 +537,15 @@ export type Database = {
           observaciones?: string | null
           reenvio_de?: number | null
           anulada_por_mail?: string | null
+          a_confirmar?: boolean
+          descartada_en?: string | null
+          cerrada_en?: string | null
+          cerrada_motivo?: string | null
         }
         Update: {
           id_orden?: never
-          cuit_compania?: string
-          siniestro?: string
+          cuit_compania?: string | null
+          siniestro?: string | null
           patente?: string | null
           fecha_emision?: string
           monto_autorizado?: number | null
@@ -550,6 +563,10 @@ export type Database = {
           observaciones?: string | null
           reenvio_de?: number | null
           anulada_por_mail?: string | null
+          a_confirmar?: boolean
+          descartada_en?: string | null
+          cerrada_en?: string | null
+          cerrada_motivo?: string | null
         }
         Relationships: [
           {
@@ -677,6 +694,13 @@ export type Database = {
           anulada_por_mail: string | null
           /* Cuántas veces la compañía mandó de nuevo la misma orden. Los reenvíos no salen en la vista. */
           reenvios: number | null
+          /* RF-1014: falta que una persona diga si es una orden. Falso en las descartadas. */
+          a_confirmar: boolean | null
+          descartada: boolean | null
+          /* RF-1013: "No se hizo". */
+          cerrada: boolean | null
+          cerrada_en: string | null
+          cerrada_motivo: string | null
         }
         Relationships: []
       }
@@ -708,13 +732,14 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: string
       }
-      /* Feature 010: sólo el robot. Guarda una orden leída de Gmail, o anula las de un siniestro. */
+      /* Feature 010: sólo el robot. Guarda una orden leída de Gmail (segura, o a confirmar si la
+       * adivinó: RF-1014, aunque no sepa la compañía ni el siniestro), o anula las de un siniestro. */
       fn_robot_guarda_orden: {
         Args: {
-          p_gmail_message_id: string; p_tipo: string; p_compania: string; p_siniestro: string
+          p_gmail_message_id: string; p_tipo: string; p_compania: string | null; p_siniestro: string | null
           p_patente: string | null; p_fecha: string; p_monto: string | null; p_perito: string | null
           p_perito_mail: string | null; p_vehiculo: string | null; p_referencia: string | null
-          p_observaciones: string | null
+          p_observaciones: string | null; p_a_confirmar?: boolean
         }
         Returns: string
       }

@@ -146,8 +146,15 @@ function leerAcuseGrant(mail) {
  *   lineas: LineaAviso[], retenciones: Retencion[], control: Control
  * }} AvisoLeido
  * @typedef {{ estado: 'sin_lector' | 'no_entendido', lector: string | null, version: number | null, motivo: string }} AvisoNoLeido
- * @typedef {{ remitente: string, asunto: string, cuerpo: string, textoPdf: string }} Mail
+ * @typedef {{
+ *   remitente: string, asunto: string, cuerpo: string, textoPdf: string,
+ *   adjuntos: string[], copia: string
+ * }} Mail
  */
+
+/* Del Mail, `adjuntos` son los nombres de los archivos, sin bajarlos: alcanzan para saber si un mail
+ * trae una orden antes de gastar en Drive (spec 010, RF-1014). `copia` es el encabezado Cc tal cual
+ * llega. Los lectores de avisos de pago no usan ninguno de los dos. */
 
 /**
  * La dirección de un encabezado From: "Fulano <a@b.com>" → "a@b.com", en minúsculas.
@@ -498,7 +505,7 @@ function leerAviso(mail) {
   return { estado: 'sin_lector', lector: null, version: null, motivo: `Todavía no hay lector para ${direccion} con ese asunto.` }
 }
 
-/* Facturas enviadas · el asunto estándar del taller: "factura n°3567 siniestro n°2004085048", u
+/* Facturas enviadas · el asunto estándar del taller: "factura n°3567 siniestro n°900000000001", u
  * "orden de compra n°…" en vez de siniestro. Una respuesta o un reenvío ("Re:", "RV:", "Fwd:")
  * no es un envío nuevo. */
 
@@ -727,21 +734,226 @@ function leerNacion(mail) {
   }, brutoDeLasLineas(lineas))
 }
 
+// ===== lectores/ordenes-para-confirmar.js =====
+
+/* Las órdenes que manda una persona: entran para confirmar. Spec 010 de semaforo-base, RF-1014.
+ *
+ * Un perito, un analista o un estudio mandan la orden desde su casilla, sin formato fijo. El robot no
+ * puede leerlas como a las de Orion, pero sí reconocer las que *parecen* una orden: el remitente o
+ * alguien en copia es de una aseguradora o de un estudio conocido, y el mail trae un PDF con nombre de
+ * orden ("ord rep", "orden de trabajo", "informe orden trabajo", "OT_…"). Ésas suben a la base
+ * marcadas para confirmar: una persona dice con un toque si es una orden o no, y hasta entonces no
+ * cuentan para los avisos. Así llegó la orden que nadie vio vencer (auditoría del 2026-10-19).
+ *
+ * Los dominios no se escriben acá: viven en la pestaña dominios_ordenes de la planilla, que se edita a
+ * mano. En el código están sólo los de las aseguradoras, para llenarla la primera vez. Los estudios y
+ * los peritos se agregan allá: son datos del negocio, y este repo es público. */
+
+/* Los dominios de las aseguradoras, con el nombre EXACTO de su ficha en la base: la base busca la
+ * compañía por ese nombre. Se cargan en la pestaña sólo si está vacía; de ahí en más manda la pestaña. */
+/** @type {readonly (readonly [string, string])[]} */
+const DOMINIOS_ORDENES_INICIALES = [
+  ['lps.com.ar', 'LPS'],
+  ['mapfre.com.ar', 'Mapfre'],
+  ['pseguros.com.ar', 'Provincia'],
+  ['victoria.com.ar', 'Victoria'],
+  ['cooperacionseguros.com.ar', 'Cooperación'],
+  ['nacion-seguros.com.ar', 'Nación'],
+  ['sancorseguros.com', 'Sancor'],
+  ['sancristobal.com.ar', 'San Cristóbal'],
+  ['riouruguay.com.ar', 'Río Uruguay'],
+  ['lasegunda.com.ar', 'La Segunda'],
+  ['allianz.com.ar', 'Allianz'],
+  ['fedpat.com.ar', 'Federación Patronal'],
+  ['lamercantil.com.ar', 'Mercantil Andina'],
+  ['triunfoseguros.com', 'Triunfo'],
+]
+
+/* Los correos que usa cualquiera. Si alguien los agregara a la pestaña, el robot traería los PDF de
+ * medio mundo, y los del propio taller: se ignoran. Un perito con casilla de Gmail no entra por acá. */
+const DOMINIOS_DE_TODOS = ['gmail.com', 'googlemail.com', 'hotmail.com', 'hotmail.com.ar', 'outlook.com', 'outlook.com.ar',
+  'live.com', 'live.com.ar', 'yahoo.com', 'yahoo.com.ar', 'icloud.com', 'fibertel.com.ar', 'speedy.com.ar']
+
+/* Un PDF con nombre de orden. Los que se vieron en el último año: "ord rep.pdf", "Ord. Rep. 123.pdf",
+ * "orden_trabajo.pdf", "Orden de reparación.pdf", "informeOrdenTrabajo.pdf", "OT_123_456.pdf",
+ * "OT 123.pdf", "O.T. 123.pdf", "04-07330 ORDEN.pdf" (así los nombran los peritos de Victoria),
+ * "Orden actualizada.pdf", "Orden 123.pdf". */
+const ADJUNTO_DE_ORDEN = /ord(?:en)?[ _.-]*(?:de[ _-]?)?(?:rep|trabajo|mano)|informe ?orden ?trabajo|^OT_|^o\.?\s?t\.?[\s_-]*\d|(?:^|[\s_-])orden(?:[\s_-]+actualizada)?(?:[\s_-]+\d+)?\.pdf$/i
+
+/* Una orden de pago, de compra o un certificado tampoco es una orden de trabajo, aunque diga "orden". */
+const ADJUNTO_QUE_NO_ES_ORDEN = /pago|compra|certificado|retenci/i
+
+/* El PDF de una orden de La Mercantil hecha a mano trae la TASACIÓN en el nombre, no el siniestro:
+ * "Orden_Reparacion_540194.pdf", "Orden_Mano_Obra_480093.pdf". */
+const ADJUNTO_CON_TASACION = /^orden_(?:reparacion|mano_obra)_(\d+)/i
+
+/**
+ * La pestaña dominios_ordenes (o la lista inicial) como mapa dominio → compañía. Acepta un "@"
+ * delante, o un mail entero ("perito@estudio.example" vale por "estudio.example"). La compañía
+ * vacía queda null: un estudio que trabaja para varias; la persona la elige al confirmar.
+ * @param {readonly (readonly unknown[])[]} filas
+ * @returns {Map<string, string | null>}
+ */
+function dominiosDeOrdenes(filas) {
+  /** @type {Map<string, string | null>} */
+  const dominios = new Map()
+  for (const f of filas) {
+    // Lo que se copia de Gmail viene como "Nombre <perito@estudio.example>": vale la dirección.
+    const escrito = String(f[0] ?? '').trim().toLowerCase()
+    const entre = /<([^<>]+)>/.exec(escrito)
+    const direccion = entre ? (entre[1] ?? '').trim() : escrito
+    const dominio = direccion.slice(direccion.lastIndexOf('@') + 1)
+    if (!/^[a-z0-9-]+(?:\.[a-z0-9-]+)+$/.test(dominio) || DOMINIOS_DE_TODOS.includes(dominio)) {
+      if (escrito !== '') console.log(`dominios_ordenes: se ignora "${escrito}" (no es un dominio, o es de un correo de todos).`)
+      continue
+    }
+    const compania = String(f[1] ?? '').trim()
+    dominios.set(dominio, compania === '' ? null : compania)
+  }
+  return dominios
+}
+
+/**
+ * ¿Parece una orden mandada por una persona? Si sí, vuelve para confirmar (aConfirmar: true).
+ * @param {Mail} mail
+ * @param {ReadonlyMap<string, string | null>} dominios
+ * @returns {OrdenLeida | null}
+ */
+function leerOrdenParaConfirmar(mail, dominios) {
+  const deOrden = mail.adjuntos.filter((n) => /\.pdf$/i.test(n) && ADJUNTO_DE_ORDEN.test(n) && !ADJUNTO_QUE_NO_ES_ORDEN.test(n))
+  const adjunto = deOrden[0]
+  if (adjunto === undefined) return null
+
+  // El remitente primero, después la copia. Un dominio conocido sin compañía (un estudio) cuenta
+  // para reconocer la orden; la compañía la da el primero que la sepa.
+  /** @type {(string | null)[]} */
+  const companias = []
+  for (const direccion of [...direccionesDe(mail.remitente), ...direccionesDe(mail.copia)]) {
+    const compania = companiaDelDominio(direccion, dominios)
+    if (compania !== undefined) companias.push(compania)
+  }
+  if (companias.length === 0) return null
+
+  const tasacion = ADJUNTO_CON_TASACION.exec(adjunto)
+  // Un mail con varias órdenes (un PDF por siniestro) entra una vez, con el primer número; quien la
+  // confirma tiene que saber que hay más.
+  const numeros = [...new Set(deOrden.map(numeroDelAdjunto).filter((n) => n !== null))]
+  return {
+    tipo: 'orden',
+    plataforma: 'otra',
+    compania: companias.find((c) => c !== null) ?? null,
+    siniestro: siniestroDeUnaPersona(mail, adjunto),
+    patente: patenteDe(mail.asunto),
+    vehiculo: null,
+    perito: null,
+    peritoMail: null,
+    // El PDF de una persona no tiene un formato conocido: el monto queda vacío antes que equivocado.
+    monto: null,
+    ...franquiciaYRepuestos(mail.cuerpo),
+    referencia: tasacion ? `Tasación ${tasacion[1] ?? ''}` : null,
+    nota: numeros.length > 1 ? `El mail trae ${deOrden.length} órdenes: ${deOrden.join(', ')}` : null,
+    aConfirmar: true,
+    lector: `ordenes v${VERSION_ORDENES}`,
+  }
+}
+
+/**
+ * El siniestro de una orden mandada por una persona, de lo más seguro a lo menos:
+ *  1. rotulado en el asunto ("Siniestro 123", "Stro. N° 12/3", "Siniestro/Carpeta: 123/1");
+ *  2. el número que abre el asunto, como lo escribe Provincia ("RE: 1234567 PEREZ INVENTADO");
+ *  3. un tramo de 8 o más dígitos entre guiones, como el asunto viejo de La Mercantil reenviado;
+ *  4. rotulado en el texto del PDF;
+ *  5. un número del nombre del PDF, separado por bordes (nunca un pedazo de un código largo), salvo
+ *     el de los PDF de La Mercantil, que es la tasación.
+ * Si nada, null: la orden entra igual para confirmar, y la persona completa el número.
+ * @param {Mail} mail
+ * @param {string} adjunto
+ * @returns {string | null}
+ */
+function siniestroDeUnaPersona(mail, adjunto) {
+  const asunto = mail.asunto
+  const rotulado = siniestroRotulado(asunto)
+  if (rotulado !== null) return rotulado
+  const abre = /^(?:(?:re|rv|fwd?|reenv\w*)\s*:\s*)*(\d{6,})\b/i.exec(asunto)
+  if (abre?.[1]) return abre[1]
+  const tramo = /(?:^|\s[–—-]\s)(\d{8,})(?=\s[–—-]\s|\s*$)/.exec(asunto)
+  if (tramo?.[1]) return tramo[1]
+  const enElPdf = siniestroRotulado(mail.textoPdf)
+  if (enElPdf !== null) return enElPdf
+  return ADJUNTO_CON_TASACION.test(adjunto) ? null : numeroDelAdjunto(adjunto)
+}
+
+/**
+ * Un número de 6 o más dígitos del nombre de un PDF, separado por bordes: "ord rep 123456.pdf" da
+ * 123456; "3f2a…-123456789abc-77-informe.pdf" no da nada (es un código, no un siniestro).
+ * @param {string} nombre
+ * @returns {string | null}
+ */
+function numeroDelAdjunto(nombre) {
+  const m = /(?:^|[\s_-])(\d{6,})(?=[\s_.-]|$)/.exec(nombre.replace(/\.pdf$/i, ''))
+  return m ? (m[1] ?? null) : null
+}
+
+/**
+ * Las direcciones de un encabezado From o Cc, en minúsculas. Por las direcciones y no por las comas:
+ * un nombre puede llevar una ("Perez, Juan" <jp@ejemplo.com>). El nombre visible no cuenta, aunque
+ * parezca un mail: '"analista@lps.com.ar" <alguien@gmail.com>' es de gmail.com, no de lps.com.ar.
+ * @param {string} encabezado
+ * @returns {string[]}
+ */
+function direccionesDe(encabezado) {
+  const sinNombres = encabezado.replace(/"(?:[^"\\]|\\.)*"/g, '')
+  const entre = [...sinNombres.matchAll(/<([^<>]+)>/g)].map((m) => m[1] ?? '')
+  const sueltas = sinNombres.replace(/<[^<>]*>/g, ' ').match(/[\w.+-]+@[\w-]+(?:\.[\w-]+)+/g) ?? []
+  return [...entre, ...sueltas].map((d) => d.trim().toLowerCase()).filter((d) => d.includes('@'))
+}
+
+/**
+ * La compañía del dominio de una dirección, si el dominio (o uno del que es subdominio) está en la
+ * lista. undefined si no está; null si está, pero sin compañía.
+ * @param {string} direccion
+ * @param {ReadonlyMap<string, string | null>} dominios
+ * @returns {string | null | undefined}
+ */
+function companiaDelDominio(direccion, dominios) {
+  const dominio = direccion.slice(direccion.lastIndexOf('@') + 1)
+  for (const [d, compania] of dominios) {
+    if (dominio === d || dominio.endsWith(`.${d}`)) return compania
+  }
+  return undefined
+}
+
 // ===== lectores/ordenes.js =====
 
 /* Las órdenes de trabajo que llegan por mail. Spec 010 de semaforo-base.
  *
- * Dos plataformas mandan casi todas:
+ * Las casillas automáticas, cuyas órdenes entran solas (RF-1005, RF-1015):
  *
- *  · Orion (sistemas@mg.sistema-orion.com), que usan varias compañías. El asunto lo dice casi todo:
+ *  · Orion, que usan varias compañías. Hoy manda desde sistemas@mg.sistema-orion.com; antes, desde
+ *    sistema.orion@cesvi.com.ar y sistemas@mg.cesvi.com.ar, a veces con "[EXTERNO]" delante del
+ *    asunto. El asunto lo dice casi todo:
  *      "Orden De Trabajo <COMPAÑÍA-CON-GUIONES>-<SINIESTRO><VEHÍCULO>-<PATENTE>-<PERITO>"
  *    El número de siniestro va pegado al vehículo, sin separador: se corta donde empieza la marca.
  *    El monto viene en el PDF adjunto. Una anulación llega con el mismo asunto, y el cuerpo dice
  *    "dejar sin efecto" o "no dar curso".
- *  · La Mercantil (…flowable-managed.com):
- *      "Orden de reparación – Siniestro N – Tasación N – Dominio X"
- *      "Anulación de Orden de reparación – Siniestro: N – Tasación N – Dominio: X"
+ *  · La Mercantil, en dos formatos de asunto:
+ *      hoy (…flowable-managed.com):
+ *        "Orden de reparación – Siniestro N – Tasación N – Dominio X"
+ *        "Anulación de Orden de reparación – Siniestro: N – Tasación N – Dominio: X"
+ *      antes (no-responder@lamercantil.com.ar), sin rótulos:
+ *        "Orden de reparación – <ASEGURADO> – <SINIESTRO> – <PATENTE>"
  *    El perito y su mail vienen en el cuerpo; el monto queda en su portal.
+ *  · Nación, por el sistema Valua (avisos@sistemavalua.info), con plantilla fija:
+ *      "ORDEN DE TRABAJO - NACION SEGUROS *STRO Nro N". El monto, en el PDF.
+ *  · Cooperación, desde la casilla de su inspector (…@cooperacionseguros.com.ar):
+ *      "ORDEN DE TRABAJO - STRO N/N …"
+ *
+ * Lo que manda una persona (un perito, un estudio) no tiene formato fijo: lo reconoce
+ * ordenes-para-confirmar.js, y entra para confirmar (RF-1014).
+ *
+ * Se parecen y no son órdenes (auditoría del 2026-10-19): las órdenes de pago, las de compra de
+ * repuestos ("Orden de compra"; en Cooperación, "ORDEN - Siniestro"), y la "Actualización de estado"
+ * y el "Aviso de Conformidad" de La Mercantil.
  *
  * Lo que lee entra solo a la base (RF-1005, enmendado el 2026-10-18: nadie las carga a mano). Por
  * eso, ante la duda, deja el campo vacío antes que adivinar: un monto vacío se completa, uno
@@ -752,7 +964,7 @@ function leerNacion(mail) {
 /**
  * @typedef {{
  *   readonly tipo: 'orden' | 'anulacion',
- *   readonly plataforma: 'orion' | 'mercantil',
+ *   readonly plataforma: 'orion' | 'mercantil' | 'nacion' | 'cooperacion' | 'otra',
  *   readonly compania: string | null,
  *   readonly siniestro: string | null,
  *   readonly patente: string | null,
@@ -763,11 +975,30 @@ function leerNacion(mail) {
  *   readonly franquicia: string | null,
  *   readonly repuestos: string | null,
  *   readonly referencia: string | null,
+ *   readonly nota: string | null,
+ *   readonly aConfirmar: boolean,
  *   readonly lector: string,
  * }} OrdenLeida
  */
 
-const VERSION_ORDENES = 4
+/* `aConfirmar` es true sólo en las que el robot adivinó (RF-1014): hasta que una persona dice que es
+ * una orden, no cuenta para los avisos ni para lo autorizado. `nota` es lo que tiene que saber quien la
+ * confirma y no entra en otro campo (por ejemplo, que el mail trae más de una orden). */
+
+const VERSION_ORDENES = 6
+
+/* Las casillas de Orion: la de hoy y las dos que usó hasta fines de 2025. */
+const REMITENTES_ORION = ['sistemas@mg.sistema-orion.com', 'sistema.orion@cesvi.com.ar', 'sistemas@mg.cesvi.com.ar']
+
+/* Lo que se parece a una orden y no es, por el asunto. Vale para las casillas automáticas, que
+ * deciden por el asunto. En el mail de una persona manda el adjunto: si trae un PDF con nombre de
+ * orden, entra para confirmar aunque el asunto diga otra cosa (un falso positivo cuesta un toque; un
+ * falso negativo se pierde). */
+const NO_ES_ORDEN = /[oó]rden(?:es)? de (?:pago|compra)|actualizaci[oó]n de estado|aviso de conformidad/i
+
+/* Cooperación pide repuestos con el asunto "ORDEN - Siniestro …" (a veces detrás de un "RE:"): es una
+ * compra, no una orden de trabajo. Sólo en Cooperación: en otra compañía ese asunto puede ser una orden. */
+const COMPRA_COOPERACION = /(?:^|:\s*)orden\s*[-–—]\s*siniestro/i
 
 /* El comienzo del asunto de Orion, por compañía, y el nombre de su ficha en la base (tiene que ser
  * idéntico: la base busca la compañía por ese nombre). Una compañía que no está acá queda en la
@@ -795,15 +1026,42 @@ const MARCAS = ['ALFA-ROMEO', 'AUDI', 'BAIC', 'BMW', 'CHERY', 'CHEVROLET', 'CITR
 const PATENTE_Y_PERITO = /-([A-Z]{2}\d{3}[A-Z]{2}|[A-Z]{3}\d{3})-([A-ZÁÉÍÓÚÑ-]+)$/
 
 /**
- * Lee una orden de trabajo. Devuelve null si el mail no es una orden (un recordatorio, un acuse).
+ * Lee una orden de trabajo. Devuelve null si el mail no es una orden (un recordatorio, un acuse, una
+ * orden de pago o de compra).
  * @param {Mail} mail
+ * @param {ReadonlyMap<string, string | null>} [dominios] de qué dominios se esperan órdenes de
+ *   personas, con su compañía: la pestaña dominios_ordenes. Sin ella, la lista inicial.
  * @returns {OrdenLeida | null}
  */
-function leerOrden(mail) {
-  const direccion = direccionDe(mail.remitente)
-  if (direccion === 'sistemas@mg.sistema-orion.com') return leerOrdenOrion(mail)
-  if (direccion.endsWith('flowable-managed.com')) return leerOrdenMercantil(mail)
-  return null
+function leerOrden(mail, dominios = dominiosDeOrdenes(DOMINIOS_ORDENES_INICIALES)) {
+  // Las casillas viejas de Orion le agregan "[EXTERNO]" al asunto.
+  const m = { ...mail, asunto: mail.asunto.replace(/^\s*\[externo\]\s*/i, '').trim() }
+  const direccion = direccionDe(m.remitente)
+  // Una casilla automática decide sola, por el asunto: lo que no entiende es un recordatorio.
+  if (esCasillaDeOrdenes(direccion)) {
+    if (NO_ES_ORDEN.test(m.asunto)) return null
+    if (REMITENTES_ORION.includes(direccion)) return leerOrdenOrion(m)
+    if (direccion === 'avisos@sistemavalua.info') return leerOrdenNacion(m)
+    return leerOrdenMercantil(m)
+  }
+  // Cooperación manda desde la casilla de su inspector, que también escribe otras cosas: si el asunto
+  // no tiene la forma de siempre, el mail todavía puede ser una orden para confirmar.
+  if (/@(?:[\w-]+\.)*cooperacionseguros\.com\.ar$/.test(direccion)) {
+    if (COMPRA_COOPERACION.test(m.asunto)) return null
+    const cooperacion = NO_ES_ORDEN.test(m.asunto) ? null : leerOrdenCooperacion(m)
+    if (cooperacion) return cooperacion
+  }
+  return leerOrdenParaConfirmar(m, dominios)
+}
+
+/**
+ * ¿Es una de las casillas automáticas que sólo mandan órdenes con plantilla fija (Orion, La Mercantil,
+ * Valua)? Ésas deciden solas; lo que no entienden no pasa a la regla de las personas.
+ * @param {string} direccion
+ */
+function esCasillaDeOrdenes(direccion) {
+  return REMITENTES_ORION.includes(direccion) || direccion.endsWith('flowable-managed.com') ||
+    direccion === 'no-responder@lamercantil.com.ar' || direccion === 'avisos@sistemavalua.info'
 }
 
 /** @param {Mail} mail @returns {OrdenLeida | null} */
@@ -839,11 +1097,10 @@ function leerOrdenOrion(mail) {
     perito,
     peritoMail: null,
     monto: montoDelPdf(mail.textoPdf),
-    // Una frase va de coma a coma (o renglón). Un punto seguido de un dígito es de miles ($340.000),
-    // no el final de la frase.
-    franquicia: frase(mail.cuerpo, /[^,\n.]*franquicia(?:[^,\n.]|\.(?=\d))*/i),
-    repuestos: frase(mail.cuerpo, /[^,\n.]*repuesto(?:[^,\n.]|\.(?=\d))*/i),
+    ...franquiciaYRepuestos(mail.cuerpo),
     referencia: null,
+    nota: null,
+    aConfirmar: false,
     lector: `ordenes v${VERSION_ORDENES}`,
   }
 }
@@ -862,10 +1119,10 @@ function esAnulacionOrion(cuerpo) {
 /** @param {Mail} mail @returns {OrdenLeida | null} */
 function leerOrdenMercantil(mail) {
   const asunto = mail.asunto
-  const esAnulacion = /anulaci[oó]n de orden de reparaci[oó]n/i.test(asunto)
+  const esAnulacion = /anulaci[oó]n\s+(?:de\s+)?(?:la\s+)?orden de reparaci[oó]n/i.test(asunto)
   if (!esAnulacion && !/^orden de reparaci[oó]n/i.test(asunto.trim())) return null
-  const siniestro = /siniestro:?\s*(\d+)/i.exec(asunto)
-  const patente = /dominio:?\s*([A-Z]{2}\d{3}[A-Z]{2}|[A-Z]{3}\d{3})/i.exec(asunto)
+  // El formato de hoy rotula cada dato ("Siniestro N"); el viejo no rotula ninguno.
+  const { siniestro, patente } = /siniestro/i.test(asunto) ? rotulosMercantil(asunto) : tramosMercantil(asunto)
   const perito = /perito interviniente,?\s*\*?([^*\n]+?)\*?,/i.exec(mail.cuerpo)
   const mailPerito = /email:\s*([^\s<>]+@[^\s<>]+)/i.exec(mail.cuerpo)
   // La tasación distingue una orden de otra del mismo siniestro (una ampliación trae otra).
@@ -874,8 +1131,8 @@ function leerOrdenMercantil(mail) {
     tipo: esAnulacion ? 'anulacion' : 'orden',
     plataforma: 'mercantil',
     compania: 'Mercantil Andina',
-    siniestro: siniestro ? (siniestro[1] ?? null) : null,
-    patente: patente ? (patente[1] ?? '').toUpperCase() : null,
+    siniestro,
+    patente,
     vehiculo: null,
     perito: perito ? (perito[1] ?? '').trim() : null,
     peritoMail: mailPerito ? (mailPerito[1] ?? '').toLowerCase() : null,
@@ -883,6 +1140,97 @@ function leerOrdenMercantil(mail) {
     franquicia: null,
     repuestos: null,
     referencia: tasacion ? `Tasación ${tasacion[1] ?? ''}` : null,
+    nota: null,
+    aConfirmar: false,
+    lector: `ordenes v${VERSION_ORDENES}`,
+  }
+}
+
+/**
+ * El asunto rotulado de La Mercantil: el de hoy, "… – Siniestro N – Tasación N – Dominio X", y el de
+ * sus anulaciones viejas, "… – Siniestro/Carpeta: N/1 – Patente: X" (el siniestro es lo de antes de la
+ * barra; lo de después es la carpeta).
+ * @param {string} asunto
+ * @returns {{ siniestro: string | null, patente: string | null }}
+ */
+function rotulosMercantil(asunto) {
+  const siniestro = /siniestro(?:\s*\/\s*carpeta)?:?\s*(\d+)/i.exec(asunto)
+  const patente = /(?:dominio|patente):?\s*([A-Z]{2}\s?\d{3}\s?[A-Z]{2}|[A-Z]{3}\s?\d{3})(?![A-Z0-9])/i.exec(asunto)
+  return {
+    siniestro: siniestro ? (siniestro[1] ?? null) : null,
+    patente: patente ? (patente[1] ?? '').replace(/\s/g, '').toUpperCase() : null,
+  }
+}
+
+/**
+ * El asunto viejo de La Mercantil no rotula nada: "Orden de reparación – <ASEGURADO> – <SINIESTRO> –
+ * <PATENTE>". El siniestro es el tramo que es todo dígitos (doce, en los que se vieron); la patente,
+ * el último tramo. El asegurado no se guarda: es el nombre de una persona y la orden no lo necesita.
+ * @param {string} asunto
+ * @returns {{ siniestro: string | null, patente: string | null }}
+ */
+function tramosMercantil(asunto) {
+  const tramos = asunto.split(/\s+[–—-]\s+/).map((t) => t.trim())
+  const siniestro = tramos.slice(1).find((t) => /^\d{8,}$/.test(t)) ?? null
+  const ultimo = (tramos[tramos.length - 1] ?? '').replace(/\s/g, '').toUpperCase()
+  return { siniestro, patente: /^(?:[A-Z]{2}\d{3}[A-Z]{2}|[A-Z]{3}\d{3})$/.test(ultimo) ? ultimo : null }
+}
+
+/** @param {Mail} mail @returns {OrdenLeida | null} */
+function leerOrdenNacion(mail) {
+  const asunto = mail.asunto
+  if (!/^orden de trabajo\b/i.test(asunto)) return null
+  // Valua es un sistema que usan otras compañías (se vieron Paraná y Galeno). Es Nación sólo si el
+  // asunto lo dice; si es Paraná, también se sabe. Cualquier otra entra para confirmar, sin compañía:
+  // si entrara como segura sin compañía, la base no la aceptaría y nadie la vería.
+  const compania = /naci[oó]n seguros/i.test(asunto) ? 'Nación' : /paran[aá] seguros/i.test(asunto) ? 'Paraná' : null
+  return {
+    tipo: 'orden',
+    plataforma: 'nacion',
+    compania,
+    siniestro: siniestroRotulado(asunto),
+    patente: patenteDe(asunto) ?? patenteRotulada(mail.textoPdf),
+    vehiculo: null,
+    perito: null,
+    peritoMail: null,
+    monto: montoDelPdf(mail.textoPdf),
+    ...franquiciaYRepuestos(mail.cuerpo),
+    referencia: null,
+    nota: null,
+    aConfirmar: compania === null,
+    lector: `ordenes v${VERSION_ORDENES}`,
+  }
+}
+
+/**
+ * Cooperación: "ORDEN DE TRABAJO - STRO N/N", "ORDEN DE TRABAJO SINIESTRO N/N" o, sin rótulo,
+ * "ORDEN DE TRABAJO - N/N …". Sin el número con barra, no es la forma de siempre.
+ * Una respuesta o un reenvío del hilo tampoco: si trae la orden adjunta, la ve la regla de las de
+ * personas, para confirmar.
+ * @param {Mail} mail
+ * @returns {OrdenLeida | null}
+ */
+function leerOrdenCooperacion(mail) {
+  const asunto = mail.asunto
+  if (/^(?:re|rv|fwd?|reenv\w*)\s*:/i.test(asunto) || !/orden de trabajo/i.test(asunto)) return null
+  const stro = /\b(?:stro|siniestro)\b\.?\s*(?:n(?:ro|[°º])?\.?\s*)?:?\s*(\d+\/\d+)/i.exec(asunto) ??
+    /orden de trabajo\s*[-–—]?\s*(\d+\/\d+)/i.exec(asunto)
+  if (!stro) return null
+  return {
+    tipo: 'orden',
+    plataforma: 'cooperacion',
+    compania: 'Cooperación',
+    siniestro: stro[1] ?? null,
+    patente: patenteDe(asunto),
+    vehiculo: null,
+    perito: null,
+    peritoMail: null,
+    // Todavía no se vio un PDF de Cooperación: hasta leerlo contra uno real, el monto queda vacío.
+    monto: null,
+    ...franquiciaYRepuestos(mail.cuerpo),
+    referencia: null,
+    nota: null,
+    aConfirmar: false,
     lector: `ordenes v${VERSION_ORDENES}`,
   }
 }
@@ -900,7 +1248,55 @@ function montoDelPdf(texto) {
   return totales.length > 0 ? (totales[totales.length - 1] ?? null) : null
 }
 
-/** "FERNANDO-ALFREDOANTIVERO" → "FERNANDO ALFREDOANTIVERO". @param {string} texto */
+/**
+ * El número de siniestro rotulado: "Siniestro 123456", "Stro. N° 123/4", "STRO Nro 99-1". Con barra
+ * o guion, como lo escriba la compañía. null si no hay rótulo: un número suelto puede ser cualquier cosa.
+ * @param {string} texto
+ * @returns {string | null}
+ */
+function siniestroRotulado(texto) {
+  // "Siniestro/Carpeta: N/1" (La Mercantil): el siniestro es lo de antes de la barra.
+  const carpeta = /\bsiniestro\s*\/\s*carpeta:?\s*(\d+)/i.exec(texto)
+  if (carpeta) return carpeta[1] ?? null
+  const m = /\b(?:siniestro|stro)\b\.?\s*(?:n(?:ro|[°º]|[uú]mero)?\.?\s*)?:?\s*(\d+(?:[/-]\d+)*)/i.exec(texto)
+  return m ? (m[1] ?? null) : null
+}
+
+/**
+ * La patente rotulada: "Dominio: AB123CD", "Patente AB 123 CD".
+ * @param {string} texto
+ * @returns {string | null}
+ */
+function patenteRotulada(texto) {
+  const m = /(?:dominio|patente)\s*:?\s*([A-Z]{2}\s?\d{3}\s?[A-Z]{2}|[A-Z]{3}\s?\d{3})(?![A-Z0-9])/i.exec(texto)
+  return m ? (m[1] ?? '').replace(/\s/g, '').toUpperCase() : null
+}
+
+/**
+ * La patente de un asunto: la rotulada y, si no hay, una suelta en mayúsculas ("… - AB123CD").
+ * Sólo en el asunto: en el texto de un PDF, una tira así puede ser un código cualquiera.
+ * @param {string} asunto
+ * @returns {string | null}
+ */
+function patenteDe(asunto) {
+  const suelta = /(?<![A-Za-z0-9])([A-Z]{2}\d{3}[A-Z]{2}|[A-Z]{3}\d{3})(?![A-Za-z0-9])/.exec(asunto)
+  return patenteRotulada(asunto) ?? (suelta ? (suelta[1] ?? null) : null)
+}
+
+/**
+ * Lo que dice el cuerpo de la franquicia y de los repuestos, tal cual. Una frase va de coma a coma (o
+ * renglón). Un punto seguido de un dígito es de miles ($340.000), no el final de la frase.
+ * @param {string} cuerpo
+ * @returns {{ franquicia: string | null, repuestos: string | null }}
+ */
+function franquiciaYRepuestos(cuerpo) {
+  return {
+    franquicia: frase(cuerpo, /[^,\n.]*franquicia(?:[^,\n.]|\.(?=\d))*/i),
+    repuestos: frase(cuerpo, /[^,\n.]*repuesto(?:[^,\n.]|\.(?=\d))*/i),
+  }
+}
+
+/** "PERITO-INVENTADO" → "PERITO INVENTADO". @param {string} texto */
 function enPalabras(texto) {
   return texto.replace(/-+/g, ' ').trim()
 }
@@ -1215,7 +1611,9 @@ function leerSancor(mail) {
  *   acuses       "recibimos / aprobamos tu factura", "la fecha de pago es…": NO son pagos (R3)
  *   enviados     las facturas que mandó el taller, con el asunto estándar
  *   ordenes      las órdenes de trabajo (spec 010). Éstas además se suben solas a la base: la
- *                columna "base" dice qué contestó (cargada, ya_estaba, sin_compania…)
+ *                columna "base" dice qué contestó (cargada, a_confirmar, ya_estaba, sin_compania…)
+ *   dominios_ordenes  de qué dominios se esperan órdenes mandadas por una persona, con su compañía
+ *                (se edita a mano: los estudios y peritos se agregan acá, no en el código)
  *
  * Permisos (appsscript.json): leer Gmail, crear archivos propios en Drive, escribir en esta
  * planilla, y llamar a la API de Drive para sacar el texto de los PDF. Ninguno deja mandar,
@@ -1238,11 +1636,16 @@ const COLUMNAS = {
   retenciones: ['message_id', 'certificado', 'concepto', 'impuesto', 'importe'],
   acuses: ['message_id', 'fecha', 'remitente', 'tipo', 'factura_como_dice', 'punto_venta', 'numero', 'siniestro', 'monto', 'fecha_prometida', 'referencia', 'lector'],
   enviados: ['message_id', 'fecha', 'para', 'asunto', 'tipo', 'factura', 'siniestro', 'orden_de_compra'],
-  ordenes: ['message_id', 'fecha', 'plataforma', 'tipo', 'compania', 'siniestro', 'patente', 'vehiculo', 'perito', 'perito_mail', 'monto', 'franquicia', 'repuestos', 'pdfs_drive', 'lector', 'base', 'referencia'],
+  ordenes: ['message_id', 'fecha', 'plataforma', 'tipo', 'compania', 'siniestro', 'patente', 'vehiculo', 'perito', 'perito_mail', 'monto', 'franquicia', 'repuestos', 'pdfs_drive', 'lector', 'base', 'referencia', 'a_confirmar', 'remitente', 'asunto', 'adjuntos', 'nota'],
+  dominios_ordenes: ['dominio', 'compañía'],
 }
 
-/* De dónde llegan las órdenes de trabajo (spec 010). Se barren aparte de los avisos de pago. */
-const REMITENTES_ORDENES = ['sistemas@mg.sistema-orion.com', 'no-responder@mail.lamercantil.flowable-managed.com']
+/* Las casillas automáticas que mandan órdenes de trabajo (spec 010, RF-1015): Orion (la de hoy y las
+ * dos viejas), La Mercantil (la de hoy y la vieja), Nación por Valua, y cualquiera de Cooperación. Se
+ * barren aparte de los avisos de pago. Las de personas las trae otra búsqueda, por dominio (RF-1014). */
+const REMITENTES_ORDENES = ['sistemas@mg.sistema-orion.com', 'sistema.orion@cesvi.com.ar', 'sistemas@mg.cesvi.com.ar',
+  'no-responder@mail.lamercantil.flowable-managed.com', 'no-responder@lamercantil.com.ar', 'avisos@sistemavalua.info',
+  'cooperacionseguros.com.ar']
 
 /* Los remitentes conocidos el 2026-10-08. Se cargan en la pestaña sólo si está vacía; de ahí en
  * más manda la pestaña. Son casillas automáticas de las compañías, no de personas. */
@@ -1288,15 +1691,29 @@ function barrer() {
     (id) => guardarEnvio(id, hojas),
     inicio,
   )
+  // Las dos búsquedas de órdenes comparten la lista de vistos: un mail que traen las dos se lee una vez.
+  const dominios = dominiosDeOrdenes(hojas.dominios_ordenes.getDataRange().getValues().slice(1))
+  const ordenesVistas = idsGuardados(hojas.ordenes)
   const nuevasOrdenes = barrerConsulta(
     `from:(${REMITENTES_ORDENES.join(' OR ')}) subject:(orden) after:${DESDE}`,
-    idsGuardados(hojas.ordenes),
-    (id) => guardarOrden(id, hojas),
+    ordenesVistas,
+    (id) => guardarOrden(id, hojas, dominios),
+    inicio,
+  )
+  // Las que manda una persona (RF-1014): de un dominio de la pestaña, como remitente o en copia, con
+  // algún PDF. Trae también avisos y pólizas de esas compañías: guardarOrden los descarta por el
+  // nombre del adjunto, sin bajarlos. Lo que manda el taller mismo no se mira.
+  const deDominios = [...dominios.keys()].join(' OR ')
+  const paraConfirmar = dominios.size === 0 ? { guardados: 0, cortado: false } : barrerConsulta(
+    `(from:(${deDominios}) OR cc:(${deDominios})) has:attachment filename:pdf -from:me after:${DESDE}`,
+    ordenesVistas,
+    (id) => guardarOrden(id, hojas, dominios),
     inicio,
   )
   const subidas = subirOrdenes(hojas.ordenes, inicio)
-  console.log(`Avisos nuevos: ${nuevosAvisos.guardados}. Envíos nuevos: ${nuevosEnvios.guardados}. Órdenes nuevas: ${nuevasOrdenes.guardados}. ${subidas}` +
-    (nuevosAvisos.cortado || nuevosEnvios.cortado || nuevasOrdenes.cortado ? ' Quedan más: la próxima corrida sigue.' : ' Al día.'))
+  console.log(`Avisos nuevos: ${nuevosAvisos.guardados}. Envíos nuevos: ${nuevosEnvios.guardados}. ` +
+    `Mails de órdenes nuevos: ${nuevasOrdenes.guardados + paraConfirmar.guardados}. ${subidas}` +
+    (nuevosAvisos.cortado || nuevosEnvios.cortado || nuevasOrdenes.cortado || paraConfirmar.cortado ? ' Quedan más: la próxima corrida sigue.' : ' Al día.'))
 }
 
 /**
@@ -1314,7 +1731,8 @@ function releer() {
   const acuses = []
   filas.forEach((f, i) => {
     const aviso = { id: String(f[0]), fecha: String(f[1]), remitente: String(f[2]) }
-    const leido = leerAviso({ remitente: aviso.remitente, asunto: String(f[3]), cuerpo: String(f[4]), textoPdf: String(f[6]) })
+    const leido = leerAviso({ remitente: aviso.remitente, asunto: String(f[3]), cuerpo: String(f[4]), textoPdf: String(f[6]),
+      adjuntos: String(f[5]).split('\n').filter((n) => n !== ''), copia: '' })
     hojas.avisos.getRange(i + 2, 8, 1, 5).setValues([estadoDe(leido)])
     lineas.push(...filasDeLineas(aviso, leido))
     retenciones.push(...filasDeRetenciones(aviso.id, leido))
@@ -1356,38 +1774,96 @@ function guardarAviso(id, hojas) {
 
   const { nombres, idsDrive, textoPdf } = guardarPdfs(id, partes, aviso.fecha)
 
-  const leido = leerAviso({ remitente: aviso.remitente, asunto, cuerpo, textoPdf })
+  const leido = leerAviso({ remitente: aviso.remitente, asunto, cuerpo, textoPdf, adjuntos: adjuntosDe(partes), copia: encabezado(msg, 'Cc') })
   agregar(hojas.avisos, [[id, aviso.fecha, aviso.remitente, asunto, cortar(cuerpo), nombres.join('\n'), cortar(textoPdf), ...estadoDe(leido), idsDrive.join('\n')]])
   agregar(hojas.lineas, filasDeLineas(aviso, leido))
   agregar(hojas.retenciones, filasDeRetenciones(id, leido))
   agregar(hojas.acuses, filasDeAcuses(aviso, leido))
 }
 
-/** Una orden de trabajo, a su pestaña. A la base la sube después subirOrdenes (RF-1005).
- *  Lo que no es una orden (un recordatorio) se guarda igual, con tipo "otro", para no volver a leerlo. */
-function guardarOrden(id, hojas) {
+/**
+ * Una orden de trabajo, a su pestaña. A la base la sube después subirOrdenes (RF-1005).
+ * Lo que no es una orden (un recordatorio, un aviso de pago) se guarda igual, con tipo "otro", para no
+ * volver a leerlo.
+ *
+ * Primero se decide sin bajar nada: alcanzan el remitente, la copia, el asunto y los NOMBRES de los
+ * adjuntos. Sólo si es una orden se suben sus PDF a Drive y se vuelve a leer con su texto (el monto
+ * está ahí). La búsqueda de las órdenes de personas trae muchos mails de las compañías que no son
+ * órdenes: bajar sus PDF sería llenar Drive y gastar el tiempo de la corrida en nada.
+ */
+function guardarOrden(id, hojas, dominios) {
+  agregar(hojas.ordenes, [filaParaMail(id, dominios)])
+}
+
+/**
+ * La fila de "ordenes" de un mail. Una que no es orden ('otro') guarda igual de quién es, el asunto,
+ * los adjuntos y con qué versión del lector se leyó: si el lector se equivocó, se encuentra y se
+ * relee con releerOrdenesOtro (nada se pierde). Los PDF de las casillas automáticas se suben a Drive
+ * aunque el mail no sea una orden; los de la búsqueda por dominio, no (son avisos y pólizas).
+ */
+function filaParaMail(id, dominios) {
   const msg = Gmail.Users.Messages.get('me', id, { format: 'full' })
   const partes = aplanar(msg.payload)
   const fecha = fechaDe(msg)
-  const remitente = encabezado(msg, 'From')
-  const asunto = encabezado(msg, 'Subject')
-  const cuerpo = sinClaves(sinEnlacesDeSesion(cuerpoDe(partes)))
+  const mail = {
+    remitente: encabezado(msg, 'From'),
+    asunto: encabezado(msg, 'Subject'),
+    cuerpo: sinClaves(sinEnlacesDeSesion(cuerpoDe(partes))),
+    textoPdf: '',
+    adjuntos: adjuntosDe(partes),
+    copia: encabezado(msg, 'Cc'),
+  }
+  if (leerOrden(mail, dominios) === null) {
+    const idsDrive = esCasillaDeOrdenes(direccionDe(mail.remitente)) ? guardarPdfs(id, partes, fecha).idsDrive : []
+    return filaDeOrden(id, fecha, null, idsDrive, mail)
+  }
   const { idsDrive, textoPdf } = guardarPdfs(id, partes, fecha)
-  const o = leerOrden({ remitente, asunto, cuerpo, textoPdf })
-  agregar(hojas.ordenes, [o === null
-    ? [id, fecha, '', 'otro', '', '', '', '', '', '', '', '', '', idsDrive.join('\n'), '', '', '']
-    : [id, fecha, o.plataforma, o.tipo, o.compania || '', o.siniestro || '', o.patente || '', o.vehiculo || '', o.perito || '',
-        o.peritoMail || '', o.monto || '', o.franquicia || '', o.repuestos || '', idsDrive.join('\n'), o.lector, '', o.referencia || '']])
+  return filaDeOrden(id, fecha, leerOrden({ ...mail, textoPdf }, dominios), idsDrive, mail)
+}
+
+/**
+ * Vuelve a leer, con el lector de hoy, los mails que quedaron como 'otro' en "ordenes": los trae de
+ * Gmail por su id y, si ahora son una orden, reemplaza la fila (sin agregar otra). Se corre a mano
+ * después de mejorar el lector o de sumar un dominio a dominios_ordenes. Comparte el límite de tiempo
+ * del barrido: si se corta, se vuelve a correr y sigue (las que ya son orden no se tocan).
+ */
+function releerOrdenesOtro() {
+  const inicio = Date.now()
+  const hojas = prepararHojas()
+  const dominios = dominiosDeOrdenes(hojas.dominios_ordenes.getDataRange().getValues().slice(1))
+  const filas = hojas.ordenes.getDataRange().getValues().slice(1)
+  let releidas = 0
+  let ahoraOrden = 0
+  for (let i = 0; i < filas.length; i++) {
+    const f = filas[i] ?? []
+    if (String(f[3]) !== 'otro') continue
+    if (Date.now() - inicio > LIMITE_MS) break
+    const nueva = filaParaMail(String(f[0]), dominios)
+    hojas.ordenes.getRange(i + 2, 1, 1, nueva.length).setValues([nueva])
+    releidas++
+    if (nueva[3] !== 'otro') ahoraOrden++
+  }
+  console.log(`Releídos ${releidas} mails que no eran orden: ${ahoraOrden} ahora son órdenes.`)
+}
+
+/** Las columnas de "ordenes", en su orden. a_confirmar dice "sí" en las que el robot adivinó (RF-1014). */
+function filaDeOrden(id, fecha, o, idsDrive, mail) {
+  const drive = idsDrive.join('\n')
+  const deDonde = [mail.remitente, mail.asunto, mail.adjuntos.join('\n')]
+  if (o === null) return [id, fecha, '', 'otro', '', '', '', '', '', '', '', '', '', drive, `ordenes v${VERSION_ORDENES}`, '', '', '', ...deDonde, '']
+  return [id, fecha, o.plataforma, o.tipo, o.compania || '', o.siniestro || '', o.patente || '', o.vehiculo || '', o.perito || '',
+    o.peritoMail || '', o.monto || '', o.franquicia || '', o.repuestos || '', drive, o.lector, '', o.referencia || '',
+    o.aConfirmar ? 'sí' : '', ...deDonde, o.nota || '']
 }
 
 /* ------------------------------------------------------------------------------------------- */
 /* La base (spec 010: las órdenes se cargan solas)                                              */
 /* ------------------------------------------------------------------------------------------- */
 
-/* Lo que contesta la base y ya no hace falta volver a mandar. Cualquier otra cosa (sin_compania, un
- * error de red) se reintenta en la próxima corrida: así, sumar una compañía a la lista del lector
- * alcanza para que sus órdenes entren solas. */
-const SUBIDA_TERMINADA = ['cargada', 'ya_estaba', 'reenvio', 'anulada']
+/* Lo que contesta la base y ya no hace falta volver a mandar. Cualquier otra cosa (sin_compania,
+ * sin_siniestro, un error de red) se reintenta en la próxima corrida: así, sumar una compañía a la
+ * lista del lector, o completar a mano el siniestro en la planilla, alcanza para que la orden entre. */
+const SUBIDA_TERMINADA = ['cargada', 'a_confirmar', 'ya_estaba', 'reenvio', 'anulada']
 
 /** Hasta cuándo puede subir órdenes una corrida: un margen antes de los 6 minutos de Apps Script. */
 const LIMITE_SUBIDA_MS = 5.25 * 60 * 1000
@@ -1431,18 +1907,22 @@ function subirOrdenes(hoja, inicio = Date.now()) {
       method: 'post', contentType: 'application/json', headers: { apikey: clave, Authorization: `Bearer ${token}` },
       muteHttpExceptions: true,
       payload: JSON.stringify({
-        p_gmail_message_id: String(f[0]), p_tipo: f[3], p_compania: String(f[4]), p_siniestro: String(f[5]),
+        p_gmail_message_id: String(f[0]), p_tipo: f[3], p_compania: String(f[4]) || null, p_siniestro: String(f[5]),
         p_patente: String(f[6]) || null, p_fecha: String(f[1]).slice(0, 10),
         // El monto viaja como texto, igual que lo guarda la planilla: no pasa por un float.
         p_monto: String(f[10]) || null, p_perito: String(f[8]) || null, p_perito_mail: String(f[9]) || null,
         p_vehiculo: String(f[7]) || null, p_referencia: String(f[16] ?? '') || null,
         // Lo que dice el mail de la franquicia y los repuestos: va a la base tal cual, para no perderlo.
-        p_observaciones: [f[11], f[12]].map(String).filter((x) => x !== '' && x !== 'undefined').join(' · ') || null,
+        // La nota (por ejemplo, que el mail trae varias órdenes) también, para quien la confirma.
+        p_observaciones: [f[11], f[12], f[21]].map((x) => String(x ?? '')).filter((x) => x !== '' && x !== 'undefined').join(' · ') || null,
+        // Las que el robot adivinó (RF-1014): entran aunque no sepa la compañía, y no cuentan hasta que
+        // una persona las confirma. Las filas de antes de esta columna no la tienen: no son a confirmar.
+        p_a_confirmar: String(f[17] ?? '') === 'sí',
       }),
     })
     const respuesta = r.getResponseCode() === 200 ? JSON.parse(r.getContentText()) : `error HTTP ${r.getResponseCode()}: ${r.getContentText().slice(0, 200)}`
     hoja.getRange(fila, 16).setValue(respuesta)
-    if (respuesta === 'cargada' || respuesta === 'anulada') cargadas++
+    if (respuesta === 'cargada' || respuesta === 'a_confirmar' || respuesta === 'anulada') cargadas++
     hechas++
   }
   return `Órdenes a la base: ${cargadas} de ${pendientes.length} pendientes.`
@@ -1487,6 +1967,11 @@ function fechaDe(msg) {
 
 function aplanar(parte) {
   return [parte, ...(parte.parts || []).flatMap(aplanar)]
+}
+
+/** Los nombres de los archivos adjuntos, sin bajarlos. */
+function adjuntosDe(partes) {
+  return partes.filter((p) => p.filename).map((p) => p.filename)
 }
 
 /** El servicio de Gmail devuelve los datos en base64 "web-safe"; según la versión, ya decodificados. */
@@ -1596,6 +2081,7 @@ function prepararHojas() {
     hojas[nombre] = hoja
   }
   if (hojas.remitentes.getLastRow() < 2) agregar(hojas.remitentes, REMITENTES_INICIALES)
+  if (hojas.dominios_ordenes.getLastRow() < 2) agregar(hojas.dominios_ordenes, DOMINIOS_ORDENES_INICIALES)
   return hojas
 }
 
