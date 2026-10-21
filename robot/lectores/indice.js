@@ -58,10 +58,12 @@ function leerAviso(mail) {
  * @returns {AsuntoEnvio | null}
  */
 function leerAsuntoEnvio(asunto) {
-  // "factura n°3567", y también "Factura: 3567", como lo escribe Allianz al responder.
-  const factura = /factura\s*(?:n\s*[°º.]?|:)\s*(\d+)/i.exec(asunto)
+  // "factura n°3567", y también como se escribió a mano alguna vez: "Factura: 3567", "Factura : 3567",
+  // "factura °3110", "FACTURA N° 3585", "Factura 3308", "factura de crédito electrónica n°045".
+  const factura = /factura\s*(?:de\s+cr[eé]dito\s+electr[oó]nica\s*)?(?:n(?:ro)?\s*[°º.]?|[°º])?\s*:?\s*(\d+)/i.exec(asunto)
   if (!factura) return null
-  const siniestro = /siniestro\s*n\s*[°º.]?\s*(\S+)/i.exec(asunto)
+  // "siniestro n°…", "Siniestro: …", "Siniestro …", con o sin espacio antes del número.
+  const siniestro = /siniestro\s*(?:n(?:ro)?\s*[°º.]?|[°º])?\s*:?\s*([A-Za-z0-9][^\s]*)/i.exec(asunto)
   const orden = /orden de compra\s*n\s*[°º.]?\s*(\S+)/i.exec(asunto)
   return {
     tipo: /^\s*(re|rv|fw|fwd|reenv\w*)\s*:/i.test(asunto) || /^\s*\[[^\]]*\]\s*(re|rv)\s*:/i.test(asunto) ? 'respuesta' : 'envio',

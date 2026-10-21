@@ -12,7 +12,7 @@ import {
 const fila = {
   id_orden: 7, compania: null, siniestro: 'ZZ-123', patente: 'AA000AA', fecha_emision: '2026-01-02', vence: '2027-01-02',
   dias_para_vencer: 74, monto_autorizado: '150000.00', perito: null, vehiculo: null, observaciones: null,
-  anulada: false, anulada_por_mail: null, id_comprobante: null,
+  anulada: false, anulada_por_mail: null, facturas: null, facturada: false, por_mail: null,
   a_confirmar: true, descartada: false, cerrada: false, cerrada_motivo: null,
 }
 

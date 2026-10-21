@@ -484,6 +484,77 @@ export type Database = {
         ]
       }
       /* Feature 010: las órdenes de trabajo de las compañías. Vencen al año (en la vista). */
+      /* Feature 012: qué factura cobra qué orden. No se borra: se deshace (deshecho_en). */
+      orden_factura: {
+        Row: {
+          id_vinculo: number
+          id_orden: number
+          id_comprobante: number
+          origen: string
+          gmail_message_id: string | null
+          vinculado_en: string
+          vinculado_por: string | null
+          deshecho_en: string | null
+          deshecho_por: string | null
+        }
+        Insert: {
+          id_vinculo?: never
+          id_orden: number
+          id_comprobante: number
+          origen: string
+          gmail_message_id?: string | null
+          vinculado_en?: string
+          vinculado_por?: string | null
+          deshecho_en?: string | null
+          deshecho_por?: string | null
+        }
+        Update: {
+          id_vinculo?: never
+          id_orden?: number
+          id_comprobante?: number
+          origen?: string
+          gmail_message_id?: string | null
+          vinculado_en?: string
+          vinculado_por?: string | null
+          deshecho_en?: string | null
+          deshecho_por?: string | null
+        }
+        Relationships: []
+      }
+      /* Feature 012: cada mail con que el taller mandó una factura. Lo escribe sólo el robot. */
+      envio_factura: {
+        Row: {
+          gmail_message_id: string
+          enviado_en: string
+          numero: number
+          siniestro: string | null
+          para: string | null
+          id_comprobante: number | null
+          resultado: string
+          actualizado_en: string
+        }
+        Insert: {
+          gmail_message_id: string
+          enviado_en: string
+          numero: number
+          siniestro?: string | null
+          para?: string | null
+          id_comprobante?: number | null
+          resultado: string
+          actualizado_en?: string
+        }
+        Update: {
+          gmail_message_id?: string
+          enviado_en?: string
+          numero?: number
+          siniestro?: string | null
+          para?: string | null
+          id_comprobante?: number | null
+          resultado?: string
+          actualizado_en?: string
+        }
+        Relationships: []
+      }
       orden_trabajo: {
         Row: {
           id_orden: number
@@ -500,7 +571,6 @@ export type Database = {
           gmail_message_id: string | null
           anulada_en: string | null
           anulada_motivo: string | null
-          id_comprobante: number | null
           creado_en: string
           creado_por: string | null
           vehiculo: string | null
@@ -529,7 +599,6 @@ export type Database = {
           gmail_message_id?: string | null
           anulada_en?: string | null
           anulada_motivo?: string | null
-          id_comprobante?: number | null
           creado_en?: string
           creado_por?: string | null
           vehiculo?: string | null
@@ -555,7 +624,6 @@ export type Database = {
           gmail_message_id?: string | null
           anulada_en?: string | null
           anulada_motivo?: string | null
-          id_comprobante?: number | null
           creado_en?: string
           creado_por?: string | null
           vehiculo?: string | null
@@ -575,13 +643,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: 'compania'
             referencedColumns: ['cuit']
-          },
-          {
-            foreignKeyName: 'orden_trabajo_id_comprobante_fkey'
-            columns: ['id_comprobante']
-            isOneToOne: false
-            referencedRelation: 'comprobante'
-            referencedColumns: ['id_comprobante']
           },
         ]
       }
@@ -683,11 +744,6 @@ export type Database = {
           anulada: boolean | null
           anulada_en: string | null
           anulada_motivo: string | null
-          id_comprobante: number | null
-          factura_punto_venta: number | null
-          factura_numero: number | null
-          factura_neto: number | null
-          factura_total: number | null
           vehiculo: string | null
           referencia: string | null
           observaciones: string | null
@@ -701,6 +757,26 @@ export type Database = {
           cerrada: boolean | null
           cerrada_en: string | null
           cerrada_motivo: string | null
+          /* Feature 012: las facturas vigentes que la cobran ("2-3553 del 2026-08-26 · …"), su total
+           * y si todas las vinculó la base sola al leer el mail. */
+          facturas: string | null
+          facturada: boolean | null
+          facturado: number | null
+          por_mail: boolean | null
+        }
+        Relationships: []
+      }
+      /* Feature 012, RF-1203: para cada orden sin factura, las candidatas. orden_propuesta 1 = la primera. */
+      vw_orden_factura_propuesta: {
+        Row: {
+          id_orden: number | null
+          id_comprobante: number | null
+          punto_venta: number | null
+          numero: number | null
+          fecha_emision: string | null
+          total: number | null
+          motivo: string | null
+          orden_propuesta: number | null
         }
         Relationships: []
       }
@@ -742,6 +818,16 @@ export type Database = {
           p_observaciones: string | null; p_a_confirmar?: boolean
         }
         Returns: string
+      }
+      /* Feature 012: sólo el robot. Registra un mail de factura y la vincula a su orden si no hay dudas. */
+      fn_robot_registra_envio: {
+        Args: { p_gmail_message_id: string; p_fecha: string; p_numero: number; p_siniestro: string | null; p_para: string | null }
+        Returns: string
+      }
+      /* Feature 012: vuelve a intentar los envíos que esperaban la factura de ARCA. Devuelve cuántos vinculó. */
+      fn_revincular_envios: {
+        Args: Record<PropertyKey, never>
+        Returns: number
       }
       fn_normalizar_nombre: {
         Args: { p_nombre: string }

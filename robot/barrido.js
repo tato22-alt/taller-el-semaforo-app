@@ -7,7 +7,8 @@
  *   lineas       qué factura (o siniestro) nombra cada aviso, bruto y neto, y si el aviso cierra
  *   retenciones  las retenciones que informa cada aviso
  *   acuses       "recibimos / aprobamos tu factura", "la fecha de pago es…": NO son pagos (R3)
- *   enviados     las facturas que mandó el taller, con el asunto estándar
+ *   enviados     las facturas que mandó el taller, con el asunto estándar. Se suben a la base
+ *                (spec 012): con ellas la base vincula sola cada factura a su orden
  *   ordenes      las órdenes de trabajo (spec 010). Éstas además se suben solas a la base: la
  *                columna "base" dice qué contestó (cargada, a_confirmar, ya_estaba, sin_compania…)
  *   dominios_ordenes  de qué dominios se esperan órdenes mandadas por una persona, con su compañía
@@ -35,7 +36,7 @@ const COLUMNAS = {
   lineas: ['message_id', 'fecha_aviso', 'remitente', 'tipo', 'op', 'fecha_pago', 'factura_como_dice', 'punto_venta', 'numero', 'siniestro', 'bruto', 'neto', 'neto_del_aviso', 'control', 'lector', 'version'],
   retenciones: ['message_id', 'certificado', 'concepto', 'impuesto', 'importe'],
   acuses: ['message_id', 'fecha', 'remitente', 'tipo', 'factura_como_dice', 'punto_venta', 'numero', 'siniestro', 'monto', 'fecha_prometida', 'referencia', 'lector'],
-  enviados: ['message_id', 'fecha', 'para', 'asunto', 'tipo', 'factura', 'siniestro', 'orden_de_compra'],
+  enviados: ['message_id', 'fecha', 'para', 'asunto', 'tipo', 'factura', 'siniestro', 'orden_de_compra', 'base'],
   ordenes: ['message_id', 'fecha', 'plataforma', 'tipo', 'compania', 'siniestro', 'patente', 'vehiculo', 'perito', 'perito_mail', 'monto', 'franquicia', 'repuestos', 'pdfs_drive', 'lector', 'base', 'referencia', 'a_confirmar', 'remitente', 'asunto', 'adjuntos', 'nota'],
   dominios_ordenes: ['dominio', 'compañía'],
 }
@@ -87,7 +88,9 @@ function barrer() {
     inicio,
   )
   const nuevosEnvios = barrerConsulta(
-    `in:sent subject:"factura n" after:${DESDE}`,
+    // Cualquier asunto con "factura": el estándar, y los escritos a mano ("Factura: 3586",
+    // "Siniestro … Factura 3308"). Lo que no es un envío queda como 'otro'.
+    `in:sent subject:factura after:${DESDE}`,
     idsGuardados(hojas.enviados),
     (id) => guardarEnvio(id, hojas),
     inicio,
@@ -111,9 +114,11 @@ function barrer() {
     (id) => guardarOrden(id, hojas, dominios),
     inicio,
   )
+  // Primero las órdenes y después los envíos: la base vincula cada factura a una orden que ya esté.
   const subidas = subirOrdenes(hojas.ordenes, inicio)
+  const envios = subirEnvios(hojas.enviados, inicio)
   console.log(`Avisos nuevos: ${nuevosAvisos.guardados}. Envíos nuevos: ${nuevosEnvios.guardados}. ` +
-    `Mails de órdenes nuevos: ${nuevasOrdenes.guardados + paraConfirmar.guardados}. ${subidas}` +
+    `Mails de órdenes nuevos: ${nuevasOrdenes.guardados + paraConfirmar.guardados}. ${subidas} ${envios}` +
     (nuevosAvisos.cortado || nuevosEnvios.cortado || nuevasOrdenes.cortado || paraConfirmar.cortado ? ' Quedan más: la próxima corrida sigue.' : ' Al día.'))
 }
 
@@ -311,12 +316,7 @@ const LIMITE_SUBIDA_MS = 5.25 * 60 * 1000
  * @returns {string} una línea para el registro
  */
 function subirOrdenes(hoja, inicio = Date.now()) {
-  const props = PropertiesService.getScriptProperties()
-  const url = props.getProperty('SUPABASE_URL')
-  const clave = props.getProperty('SUPABASE_CLAVE_PUBLICA')
-  const mail = props.getProperty('ROBOT_MAIL')
-  const contrasenia = props.getProperty('ROBOT_CLAVE')
-  if (!url || !clave || !mail || !contrasenia) return 'Órdenes sin subir: faltan las propiedades del robot.'
+  if (!hayPropiedadesDelRobot()) return 'Órdenes sin subir: faltan las propiedades del robot.'
 
   const pendientes = hoja.getDataRange().getValues().slice(1)
     .map((f, i) => ({ f, fila: i + 2 }))
@@ -324,12 +324,9 @@ function subirOrdenes(hoja, inicio = Date.now()) {
     .sort((a, b) => String(a.f[1]).localeCompare(String(b.f[1])))
   if (pendientes.length === 0) return 'Órdenes en la base: al día.'
 
-  const sesion = UrlFetchApp.fetch(`${url}/auth/v1/token?grant_type=password`, {
-    method: 'post', contentType: 'application/json', headers: { apikey: clave },
-    payload: JSON.stringify({ email: mail, password: contrasenia }), muteHttpExceptions: true,
-  })
-  if (sesion.getResponseCode() !== 200) return `Órdenes sin subir: el robot no pudo entrar a la base (HTTP ${sesion.getResponseCode()}).`
-  const token = JSON.parse(sesion.getContentText()).access_token
+  const sesion = entrarALaBase()
+  if (typeof sesion === 'string') return `Órdenes sin subir: ${sesion}.`
+  const { url, clave, token } = sesion
 
   let cargadas = 0
   let hechas = 0
@@ -358,6 +355,72 @@ function subirOrdenes(hoja, inicio = Date.now()) {
     hechas++
   }
   return `Órdenes a la base: ${cargadas} de ${pendientes.length} pendientes.`
+}
+
+/** ¿Están las cuatro propiedades con que el robot entra a la base? */
+function hayPropiedadesDelRobot() {
+  const props = PropertiesService.getScriptProperties()
+  return ['SUPABASE_URL', 'SUPABASE_CLAVE_PUBLICA', 'ROBOT_MAIL', 'ROBOT_CLAVE'].every((k) => !!props.getProperty(k))
+}
+
+/**
+ * Entra a la base con el usuario del robot. Devuelve la URL, la clave pública y el token, o por qué
+ * no pudo (para el registro).
+ * @returns {{ url: string, clave: string, token: string } | string}
+ */
+function entrarALaBase() {
+  const props = PropertiesService.getScriptProperties()
+  const url = props.getProperty('SUPABASE_URL')
+  const clave = props.getProperty('SUPABASE_CLAVE_PUBLICA')
+  const r = UrlFetchApp.fetch(`${url}/auth/v1/token?grant_type=password`, {
+    method: 'post', contentType: 'application/json', headers: { apikey: clave },
+    payload: JSON.stringify({ email: props.getProperty('ROBOT_MAIL'), password: props.getProperty('ROBOT_CLAVE') }),
+    muteHttpExceptions: true,
+  })
+  if (r.getResponseCode() !== 200) return `el robot no pudo entrar a la base (HTTP ${r.getResponseCode()})`
+  return { url: String(url), clave: String(clave), token: JSON.parse(r.getContentText()).access_token }
+}
+
+/* Lo que contesta la base por un envío de factura. Cualquiera de éstas quiere decir que la base ya lo
+ * tiene: si todavía no vinculó (falta el CSV de ARCA, hay dos órdenes), lo vuelve a intentar ella
+ * sola cuando se sube el CSV. Un error (de red, de permisos) se reintenta en la próxima corrida. */
+const ENVIO_EN_LA_BASE = ['vinculada', 'ya_estaba', 'sin_factura_en_arca', 'factura_ambigua', 'sin_siniestro', 'sin_orden', 'varias_ordenes']
+
+/**
+ * Sube a la base los envíos de factura de la pestaña que todavía no entraron (spec 012, RF-1201): la
+ * base busca la factura en ARCA y la orden de ese siniestro, y si no hay dudas las vincula.
+ * @returns {string} una línea para el registro
+ */
+function subirEnvios(hoja, inicio = Date.now()) {
+  if (!hayPropiedadesDelRobot()) return 'Envíos sin subir: faltan las propiedades del robot.'
+  const pendientes = hoja.getDataRange().getValues().slice(1)
+    .map((f, i) => ({ f, fila: i + 2 }))
+    .filter(({ f }) => f[4] === 'envio' && Number(f[5]) > 0 && !ENVIO_EN_LA_BASE.includes(String(f[8] ?? '')))
+    .sort((a, b) => String(a.f[1]).localeCompare(String(b.f[1])))
+  if (pendientes.length === 0) return 'Envíos en la base: al día.'
+
+  const sesion = entrarALaBase()
+  if (typeof sesion === 'string') return `Envíos sin subir: ${sesion}.`
+  const { url, clave, token } = sesion
+
+  let vinculadas = 0
+  let hechas = 0
+  for (const { f, fila } of pendientes) {
+    if (Date.now() - inicio > LIMITE_SUBIDA_MS) return `Envíos a la base: ${hechas}, con ${vinculadas} facturas vinculadas; quedan ${pendientes.length - hechas}, siguen en la próxima corrida.`
+    const r = UrlFetchApp.fetch(`${url}/rest/v1/rpc/fn_robot_registra_envio`, {
+      method: 'post', contentType: 'application/json', headers: { apikey: clave, Authorization: `Bearer ${token}` },
+      muteHttpExceptions: true,
+      payload: JSON.stringify({
+        p_gmail_message_id: String(f[0]), p_fecha: String(f[1]).slice(0, 10), p_numero: Number(f[5]),
+        p_siniestro: String(f[6] ?? '') || null, p_para: String(f[2] ?? '') || null,
+      }),
+    })
+    const respuesta = r.getResponseCode() === 200 ? JSON.parse(r.getContentText()) : `error HTTP ${r.getResponseCode()}: ${r.getContentText().slice(0, 200)}`
+    hoja.getRange(fila, 9).setValue(respuesta)
+    if (respuesta === 'vinculada') vinculadas++
+    hechas++
+  }
+  return `Envíos a la base: ${hechas}, con ${vinculadas} facturas vinculadas a su orden.`
 }
 
 /**

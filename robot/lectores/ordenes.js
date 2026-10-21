@@ -59,7 +59,7 @@
  * una orden, no cuenta para los avisos ni para lo autorizado. `nota` es lo que tiene que saber quien la
  * confirma y no entra en otro campo (por ejemplo, que el mail trae más de una orden). */
 
-const VERSION_ORDENES = 7
+const VERSION_ORDENES = 8
 
 /* Las casillas de Orion: la de hoy y las dos que usó hasta fines de 2025. */
 const REMITENTES_ORION = ['sistemas@mg.sistema-orion.com', 'sistema.orion@cesvi.com.ar', 'sistemas@mg.cesvi.com.ar']
@@ -308,7 +308,9 @@ function leerOrdenGrant(mail) {
   return {
     tipo: 'orden',
     plataforma: 'grant',
-    compania: 'Zurich',
+    // El siniestro con "AUT" es del sistema nuevo de Zurich Aseguradora (la ex QBE): la misma orden
+    // llega por Orion como ZAASA. El de sólo números es de Zurich Argentina.
+    compania: /AUT/i.test(a[2] ?? '') ? 'Zurich ex QBE' : 'Zurich',
     siniestro: a[2] ?? null,
     patente: null,
     vehiculo: null,
