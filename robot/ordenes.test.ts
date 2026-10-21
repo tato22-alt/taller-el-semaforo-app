@@ -587,11 +587,11 @@ describe('el barrido busca las órdenes de las casillas nuevas y las de personas
         get: () => mensaje({ from: 'Analista Inventada <analista@lps.com.ar>', asunto: 'Siniestro 900000000023', adjuntos: ['ord rep.pdf'] }),
         Attachments: { get: () => ({ data: 'pdf' }) },
       } } },
-      Utilities: { newBlob: (d: string) => ({ getDataAsString: () => d }), base64DecodeWebSafe: (d: string) => d, formatDate: () => '2026-01-02 10:00' },
+      Utilities: { newBlob: (d: string) => ({ getDataAsString: () => d }), base64DecodeWebSafe: (d: string) => d, formatDate: () => '2026-01-02 10:00', sleep: () => undefined },
       Drive: { Files: { create: () => ({ id: 'drive-1' }), remove: () => undefined } },
       UrlFetchApp: { fetch: () => ({ getResponseCode: () => 200, getContentText: () => '' }) },
       ScriptApp: { getOAuthToken: () => 'x' },
-      PropertiesService: { getScriptProperties: () => ({ getProperty: (k: string) => (k === 'carpeta_pdf' ? 'carpeta' : null), setProperty: () => undefined }) },
+      PropertiesService: { getScriptProperties: () => ({ getProperty: (k: string) => (k === 'carpeta_pdf' ? 'carpeta' : null), setProperty: () => undefined, deleteProperty: () => undefined }) },
       console: { log: () => undefined },
     }
     const { releerOrdenesOtro } = runInNewContext(`${ROBOT}\n;({ releerOrdenesOtro })`, contexto) as { releerOrdenesOtro: () => void }
@@ -619,7 +619,7 @@ describe('el barrido busca las órdenes de las casillas nuevas y las de personas
         get: (_: string, id: string) => { pedidos.push(id); return mensaje({ from: ORION, asunto, adjuntos: ['orden.pdf'] }) },
         Attachments: { get: () => ({ data: 'pdf' }) },
       } } },
-      Utilities: { newBlob: (d: string) => ({ getDataAsString: () => d }), base64DecodeWebSafe: (d: string) => d, formatDate: () => '2026-01-02 10:00' },
+      Utilities: { newBlob: (d: string) => ({ getDataAsString: () => d }), base64DecodeWebSafe: (d: string) => d, formatDate: () => '2026-01-02 10:00', sleep: () => undefined },
       Drive: { Files: {
         create: (meta: { name: string; mimeType?: string }) => {
           if (meta.mimeType !== 'application/vnd.google-apps.document') subidos.push(meta.name)
@@ -629,7 +629,7 @@ describe('el barrido busca las órdenes de las casillas nuevas y las de personas
       } },
       UrlFetchApp: { fetch: () => ({ getResponseCode: () => 200, getContentText: () => 'Total: $ 1.000,00' }) },
       ScriptApp: { getOAuthToken: () => 'x' },
-      PropertiesService: { getScriptProperties: () => ({ getProperty: (k: string) => (k === 'carpeta_pdf' ? 'carpeta' : null), setProperty: () => undefined }) },
+      PropertiesService: { getScriptProperties: () => ({ getProperty: (k: string) => (k === 'carpeta_pdf' ? 'carpeta' : null), setProperty: () => undefined, deleteProperty: () => undefined }) },
       console: { log: () => undefined },
     }
     const { releerOrdenesOtro } = runInNewContext(`${ROBOT}\n;({ releerOrdenesOtro })`, contexto) as { releerOrdenesOtro: () => void }
@@ -642,6 +642,56 @@ describe('el barrido busca las órdenes de las casillas nuevas y las de personas
     expect(filas[0]?.[13]).toBe('drive-viejo')
     expect(filas[0]?.[15]).toBe('')
     expect(filas[1]).toBe(cargada)
+  })
+})
+
+describe('releerOrdenesOtro y el límite de Gmail', () => {
+  it('si Gmail pide una pausa, frena sin perder lo hecho y la vez siguiente sigue desde ahí', () => {
+    const otro = (id: string) => [id, '2026-01-02 10:00', '', 'otro', '', '', '', '', '', '', '', '', '', '', 'ordenes v1']
+    const pestanias: Record<string, unknown[][]> = {
+      ordenes: [['message_id'], otro('msg-1'), otro('msg-2'), otro('msg-3')],
+      dominios_ordenes: [['dominio', 'compañía'], ['lps.com.ar', 'LPS']],
+      remitentes: [['remitente', 'compañía'], ['pagos@ejemplo.example', 'X']],
+    }
+    const props: Record<string, string> = {}
+    const pedidos: string[] = []
+    let cupo = 1
+    const hoja = (nombre: string) => {
+      const filas = pestanias[nombre] ?? []
+      pestanias[nombre] = filas
+      return {
+        appendRow: (f: unknown[]) => { filas.push(f) }, setFrozenRows: () => undefined, getLastRow: () => filas.length,
+        getDataRange: () => ({ getValues: () => filas }),
+        getRange: (fila: number | string, columna = 1) => ({
+          setNumberFormat: () => undefined,
+          getValue: () => (typeof fila === 'number' ? (filas[fila - 1]?.[columna - 1] ?? '') : ''),
+          setValues: (v: unknown[][]) => { v.forEach((f, i) => { filas[(fila as number) - 1 + i] = f }) },
+        }),
+      }
+    }
+    const contexto = {
+      SpreadsheetApp: { getActive: () => ({ getSheetByName: (n: string) => (n in pestanias ? hoja(n) : null), insertSheet: hoja }) },
+      Gmail: { Users: { Messages: { get: (_: string, id: string) => {
+        if (cupo-- <= 0) throw new Error("Quota exceeded for quota metric 'Total Query Cost'")
+        pedidos.push(id)
+        return mensaje({ from: 'Alguien <alguien@ejemplo.example>', asunto: 'Hola' })
+      } } } },
+      Utilities: { sleep: () => undefined, newBlob: (d: string) => ({ getDataAsString: () => d }), base64DecodeWebSafe: (d: string) => d, formatDate: () => '2026-01-02 10:00' },
+      PropertiesService: { getScriptProperties: () => ({
+        getProperty: (k: string) => props[k] ?? null,
+        setProperty: (k: string, v: string) => { props[k] = v },
+        deleteProperty: (k: string) => { delete props[k] },
+      }) },
+      console: { log: () => undefined },
+    }
+    const { releerOrdenesOtro } = runInNewContext(`${ROBOT}\n;({ releerOrdenesOtro })`, contexto) as { releerOrdenesOtro: () => void }
+    releerOrdenesOtro()
+    expect(pedidos).toEqual(['msg-1'])
+    expect(props.releer_desde_fila).toBe('1')
+    cupo = 10
+    releerOrdenesOtro()
+    expect(pedidos).toEqual(['msg-1', 'msg-2', 'msg-3'])
+    expect(props.releer_desde_fila).toBeUndefined()
   })
 })
 
