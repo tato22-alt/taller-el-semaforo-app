@@ -116,9 +116,129 @@ conviene empezar de cero para que todos tengan su id: borrá las filas de *aviso
 *retenciones* y *acuses* (dejando el encabezado), mandá a la papelera los PDF de la carpeta
 "Cobranzas · avisos de pago (robot)" y volvé a ejecutar `barrer` hasta "Al día.".
 
+## Las órdenes de trabajo (desde el 2026-10-18)
+
+El barrido también trae las **órdenes de trabajo** de Orion (`sistemas@mg.sistema-orion.com`) y de
+La Mercantil, a una pestaña nueva, **ordenes**: compañía, siniestro, patente, vehículo, perito, el
+monto si el PDF lo dice claro, la franquicia y quién manda los repuestos, si el mail lo menciona.
+Las anulaciones quedan con tipo `anulacion`; lo que no es una orden (un recordatorio), con `otro`.
+Desde el 2026-10-20 lee también otras casillas y las órdenes que manda una persona: ver abajo.
+
+**Se cargan solas** (spec 010, RF-1005, enmendado el 2026-10-18): después de leer Gmail, `barrer`
+sube a la base cada orden que todavía no entró, de la más vieja a la más nueva, y anota en la
+columna **base** qué contestó: `cargada`, `ya_estaba`, `reenvio` (la compañía mandó la misma orden
+otra vez: se guarda igual, apuntando a la original, y no cuenta dos veces), `anulada`, o algo para
+reintentar (`sin_compania`, `sin_siniestro`, `sin_orden_para_anular`, un error). Lo que no terminó se reintenta en la
+próxima corrida. **Nada se pierde:** a la base van también el vehículo, la tasación de La Mercantil y
+lo que dice el mail de la franquicia y los repuestos; y una anulación se puede deshacer desde la app. Si un campo no se pudo leer con seguridad, queda
+vacío: mejor vacío que equivocado.
+
+El robot entra a la base con **su propio usuario**, con rol `robot`, y sólo puede llamar a una
+función (`fn_robot_guarda_orden`): no lee, no borra, no toca facturas. Para conectarlo, una vez:
+
+1. En Supabase → Authentication → Users → **Add user**: un mail para el robot y una contraseña
+   larga, con "Auto confirm" tildado.
+2. Darle el rol `robot` (lo hace Claude con tu OK, o en el SQL Editor):
+   `update auth.users set raw_app_meta_data = raw_app_meta_data || '{"rol":"robot"}' where email = '<mail del robot>';`
+3. En el editor de Apps Script → Configuración del proyecto → **Propiedades del script**, cuatro:
+   `SUPABASE_URL`, `SUPABASE_CLAVE_PUBLICA` (la publishable, la misma de la app), `ROBOT_MAIL` y
+   `ROBOT_CLAVE`.
+4. Pegá el `robot.gs` nuevo y ejecutá `barrer`.
+
+Sin las propiedades, el robot sigue llenando la planilla y lo avisa en el registro: no se rompe nada.
+
+## La versión del 2026-10-20: todas las casillas, y las órdenes para confirmar
+
+La auditoría del 2026-10-19 (spec 010) midió que el robot veía ~62 % de las órdenes del último año.
+Esta versión suma lo que faltaba.
+
+**Entran solas, como las de antes** (RF-1015):
+
+| De dónde | Qué lee |
+|---|---|
+| Orion, casillas viejas (`sistema.orion@cesvi.com.ar`, `sistemas@mg.cesvi.com.ar`) | Lo mismo que la de hoy. El `[EXTERNO]` delante del asunto se ignora |
+| La Mercantil, casilla vieja (`no-responder@lamercantil.com.ar`) | El asunto viejo, `Orden de reparación – <asegurado> – <siniestro> – <patente>`, y sus anulaciones. **El asegurado no se guarda en ningún lado** |
+| Nación, sistema Valua (`avisos@sistemavalua.info`) | El siniestro del asunto; la patente y el monto del PDF, si están claros |
+| Cooperación (cualquier casilla `@cooperacionseguros.com.ar`) | Asunto con `ORDEN DE TRABAJO` y `STRO n/n`: el siniestro es ese `n/n`. El monto queda vacío hasta ver un PDF real |
+| Zurich por Grant (`zurich@grant.com.ar`, desde el 2026-10-21) | `Zurich Seguros: Orden N - Siniestro S`: entra **para confirmar**, con el número de Grant como referencia (puede ser la misma que llegó por Orion) |
+
+Nunca se leen como órdenes: las órdenes de pago, las de compra (`Orden de compra`, y en Cooperación
+`ORDEN - Siniestro`), la *Actualización de estado* y el *Aviso de Conformidad* de La Mercantil.
+
+**Entran para confirmar** (RF-1014): las que manda una persona (un perito, un analista, un estudio),
+que no tienen formato fijo. El robot reconoce las que *parecen* una orden: **el remitente o alguien en
+copia es de un dominio de la pestaña `dominios_ordenes`, y el mail trae un PDF con nombre de orden**
+(`ord rep…`, `orden de trabajo…`, `informeOrdenTrabajo`, `OT_…`). Suben a la base marcadas para
+confirmar: en la app aparecen arriba de todo, con dos botones, *Es una orden* y *No es una orden*.
+Hasta que alguien las confirma, no cuentan para los avisos. En la pestaña **ordenes**, la columna nueva
+**`a_confirmar`** dice `sí`, y la columna **base** contesta `a_confirmar`.
+
+- El siniestro sale del asunto (`Siniestro`, `Stro.`, `STRO`, con o sin `N°`/`Nro`) y, si no, del
+  número que abre el asunto (como escribe Provincia), el tramo largo del asunto viejo de La Mercantil,
+  el rotulado dentro del PDF y, por último, un número del nombre del PDF (nunca la tasación de La
+  Mercantil ni un pedazo de un código). **Si no hay ninguno, la orden entra igual para confirmar**: la
+  persona escribe el número al tocar "Es una orden". Es el único dato que se tipea, y sólo en ese caso.
+- Si el mail trae varias órdenes (un PDF por siniestro), entra una y la **nota** lo avisa.
+- El monto queda vacío: el PDF de una persona no tiene un formato conocido.
+- **Antes de bajar nada**, el robot decide por el remitente, el asunto y los *nombres* de los
+  adjuntos. Lo que no es una orden (avisos de pago, pólizas) queda como `otro` y sus PDF no se suben
+  a Drive (los de las casillas automáticas, sí). **Nada se pierde:** la fila `otro` guarda de quién es,
+  el asunto, los adjuntos y con qué versión del lector se leyó (columnas `remitente`, `asunto`,
+  `adjuntos`; la `nota` va a las observaciones de la orden).
+
+### La pestaña `dominios_ordenes`
+
+Dos columnas: **dominio** y **compañía**. **Las compañías las pone el robot**: la primera corrida llena
+la pestaña, y cuando una versión nueva trae una compañía más, la agrega sola, una vez. Lo que se agrega
+a mano se busca en la corrida siguiente, y un dominio que se borra no vuelve (el robot anota cuáles ya
+ofreció en la propiedad `dominios_ofrecidos`).
+
+- **Los estudios y peritos se agregan acá, a mano, nunca en el código** (el repo es público). Se
+  escribe el dominio (`estudio-inventado.example`); si se pega un mail entero, el robot usa su dominio.
+- **La compañía tiene que ser el nombre exacto de su ficha en la base** (`LPS`, `Río Uruguay`,
+  `Mercantil Andina`…). Si un estudio trabaja para varias, se deja vacía: la persona la elige al
+  confirmar. Un nombre mal escrito tampoco rompe nada: la orden entra igual, sin compañía.
+- **No sirven los dominios de correo de todos** (`gmail.com`, `hotmail.com`, `outlook.com`…): el robot
+  los ignora, porque traerían los PDF de cualquiera. Un perito con casilla de Gmail no entra por acá.
+- Un mail que ya quedó como `otro` no se vuelve a mirar solo. Después de agregar un dominio, o de
+  pegar un `robot.gs` con un lector mejor, se ejecuta **`releerOrdenesOtro`**: vuelve a traer de Gmail
+  cada mail `otro`, y cada orden que la base no acepta porque le falta la compañía o el siniestro, y
+  reemplaza su fila. Los PDF que ya están en Drive no se suben de nuevo. Si se corta por tiempo, se
+  vuelve a ejecutar y sigue.
+
+Para instalarla: pegá el `robot.gs` nuevo en lugar del anterior, guardá y ejecutá `barrer`. La pestaña
+nueva y la columna `a_confirmar` se agregan solas. Antes, aplicá en Supabase la migración que acepta
+las órdenes para confirmar: sin ella, la base no entiende `p_a_confirmar` y contesta un error, que el
+robot reintenta en cada corrida sin perder nada.
+
+## La versión del 2026-10-21: todas las compañías a las que se les factura
+
+Luciano pidió que el robot espere órdenes de **todas las compañías a las que el taller les facturó
+desde el 1/1/2025**. Las 17 ya tenían ficha en la base (y por eso la app las muestra al confirmar); al
+cruzarlas con lo que llega a Gmail aparecieron tres huecos:
+
+- **Orion mandaba órdenes de compañías que el lector no conocía**: Zurich, Galicia (y SURA, que hoy
+  es Galicia, con el mismo CUIT) y Segurcoop. Quedaban en la planilla sin compañía, y la base no las
+  aceptaba. Ahora entran con su ficha. Tampoco se cortaba bien el siniestro cuando la marca del auto
+  no estaba en la lista (`CHRYSLER-JEEP-…`): ahora, si no reconoce la marca, toma las cifras del
+  principio.
+- **Faltaban seis dominios** para las órdenes que manda una persona: Rivadavia
+  (`segurosrivadavia.com`), La Caja (`lacaja.com.ar`), Zurich (`zurich.com`), Experta
+  (`experta.com.ar`), Galicia (`galiciaseguros.com.ar`) y San Jorge (`sanjorge-sa.com.ar`). El robot
+  los suma solo a la pestaña `dominios_ordenes`.
+- **Zurich avisa también por Grant** (`zurich@grant.com.ar`): "Zurich Seguros: Orden N - Siniestro S",
+  la orden de adjudicación con la que se factura, sin PDF. Entra **para confirmar**, con la compañía,
+  el siniestro y el número de Grant: muchas veces es el mismo trabajo que ya llegó por Orion, y así no
+  se cuenta dos veces.
+
+Para instalarla: pegá el `robot.gs` nuevo en lugar del anterior, guardá, ejecutá `barrer` hasta que
+diga "Al día." y después, una vez, **`releerOrdenesOtro`**: es lo que hace entrar las órdenes de Zurich
+y de Galicia que ya estaban en la planilla sin compañía.
+
 ## Lo que esta planilla NO es
 
 - **No es la base.** En la fase 2 lo mismo pasa a Supabase, con un usuario `robot@` que sólo
   puede insertar evidencia (spec 005 §3, plan D2). Hasta entonces, nada de acá suma a ningún saldo.
+  Las órdenes de trabajo son la primera pieza que ya va a la base (arriba).
 - **No va al repo.** Tiene datos reales (montos, números de factura, CBU enmascarados). El repo
   es público: acá sólo hay código y mails inventados para los tests.

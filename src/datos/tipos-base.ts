@@ -483,6 +483,108 @@ export type Database = {
           },
         ]
       }
+      /* Feature 010: las órdenes de trabajo de las compañías. Vencen al año (en la vista). */
+      orden_trabajo: {
+        Row: {
+          id_orden: number
+          /* Nula sólo mientras está a confirmar y el robot no supo la compañía (RF-1014). */
+          cuit_compania: string | null
+          /* Nulo sólo mientras está a confirmar y el robot no pudo leer el número (RF-1014). */
+          siniestro: string | null
+          patente: string | null
+          fecha_emision: string
+          monto_autorizado: number | null
+          perito: string | null
+          perito_mail: string | null
+          origen: string
+          gmail_message_id: string | null
+          anulada_en: string | null
+          anulada_motivo: string | null
+          id_comprobante: number | null
+          creado_en: string
+          creado_por: string | null
+          vehiculo: string | null
+          referencia: string | null
+          observaciones: string | null
+          reenvio_de: number | null
+          anulada_por_mail: string | null
+          /* RF-1014: el robot la adivinó; hasta que una persona la confirma no cuenta. */
+          a_confirmar: boolean
+          /* RF-1014: "No es una orden". No se borra. */
+          descartada_en: string | null
+          /* RF-1013: "No se hizo". Sale de los avisos y queda anotada. */
+          cerrada_en: string | null
+          cerrada_motivo: string | null
+        }
+        Insert: {
+          id_orden?: never
+          cuit_compania?: string | null
+          siniestro?: string | null
+          patente?: string | null
+          fecha_emision: string
+          monto_autorizado?: number | null
+          perito?: string | null
+          perito_mail?: string | null
+          origen?: string
+          gmail_message_id?: string | null
+          anulada_en?: string | null
+          anulada_motivo?: string | null
+          id_comprobante?: number | null
+          creado_en?: string
+          creado_por?: string | null
+          vehiculo?: string | null
+          referencia?: string | null
+          observaciones?: string | null
+          reenvio_de?: number | null
+          anulada_por_mail?: string | null
+          a_confirmar?: boolean
+          descartada_en?: string | null
+          cerrada_en?: string | null
+          cerrada_motivo?: string | null
+        }
+        Update: {
+          id_orden?: never
+          cuit_compania?: string | null
+          siniestro?: string | null
+          patente?: string | null
+          fecha_emision?: string
+          monto_autorizado?: number | null
+          perito?: string | null
+          perito_mail?: string | null
+          origen?: string
+          gmail_message_id?: string | null
+          anulada_en?: string | null
+          anulada_motivo?: string | null
+          id_comprobante?: number | null
+          creado_en?: string
+          creado_por?: string | null
+          vehiculo?: string | null
+          referencia?: string | null
+          observaciones?: string | null
+          reenvio_de?: number | null
+          anulada_por_mail?: string | null
+          a_confirmar?: boolean
+          descartada_en?: string | null
+          cerrada_en?: string | null
+          cerrada_motivo?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'orden_trabajo_cuit_compania_fkey'
+            columns: ['cuit_compania']
+            isOneToOne: false
+            referencedRelation: 'compania'
+            referencedColumns: ['cuit']
+          },
+          {
+            foreignKeyName: 'orden_trabajo_id_comprobante_fkey'
+            columns: ['id_comprobante']
+            isOneToOne: false
+            referencedRelation: 'comprobante'
+            referencedColumns: ['id_comprobante']
+          },
+        ]
+      }
     }
     Views: {
       /* Las 21 columnas del presupuesto ya derivadas. Es de donde lee esta app.
@@ -563,6 +665,60 @@ export type Database = {
         }
         Relationships: []
       }
+      /* Feature 010: cada orden con su vencimiento y su factura. dias_para_vencer negativo = vencida. */
+      vw_ordenes_trabajo: {
+        Row: {
+          id_orden: number | null
+          cuit_compania: string | null
+          compania: string | null
+          siniestro: string | null
+          patente: string | null
+          fecha_emision: string | null
+          vence: string | null
+          dias_para_vencer: number | null
+          monto_autorizado: number | null
+          perito: string | null
+          perito_mail: string | null
+          origen: string | null
+          anulada: boolean | null
+          anulada_en: string | null
+          anulada_motivo: string | null
+          id_comprobante: number | null
+          factura_punto_venta: number | null
+          factura_numero: number | null
+          factura_neto: number | null
+          factura_total: number | null
+          vehiculo: string | null
+          referencia: string | null
+          observaciones: string | null
+          anulada_por_mail: string | null
+          /* Cuántas veces la compañía mandó de nuevo la misma orden. Los reenvíos no salen en la vista. */
+          reenvios: number | null
+          /* RF-1014: falta que una persona diga si es una orden. Falso en las descartadas. */
+          a_confirmar: boolean | null
+          descartada: boolean | null
+          /* RF-1013: "No se hizo". */
+          cerrada: boolean | null
+          cerrada_en: string | null
+          cerrada_motivo: string | null
+        }
+        Relationships: []
+      }
+      /* Feature 010, RF-1008: cada factura contra lo autorizado en sus órdenes. */
+      vw_factura_contra_autorizado: {
+        Row: {
+          id_comprobante: number | null
+          punto_venta: number | null
+          numero: number | null
+          fecha_emision: string | null
+          factura_neto: number | null
+          factura_total: number | null
+          ordenes: number | null
+          autorizado: number | null
+          ordenes_sin_monto: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       /* El número lo asigna la base, nunca el navegador. Quema el número al pedirlo:
@@ -574,6 +730,17 @@ export type Database = {
       /* El rol de la sesión (persona | robot), leído del token. Nulo sin rol. M1 de cobranzas. */
       fn_rol: {
         Args: Record<PropertyKey, never>
+        Returns: string
+      }
+      /* Feature 010: sólo el robot. Guarda una orden leída de Gmail (segura, o a confirmar si la
+       * adivinó: RF-1014, aunque no sepa la compañía ni el siniestro), o anula las de un siniestro. */
+      fn_robot_guarda_orden: {
+        Args: {
+          p_gmail_message_id: string; p_tipo: string; p_compania: string | null; p_siniestro: string | null
+          p_patente: string | null; p_fecha: string; p_monto: string | null; p_perito: string | null
+          p_perito_mail: string | null; p_vehiculo: string | null; p_referencia: string | null
+          p_observaciones: string | null; p_a_confirmar?: boolean
+        }
         Returns: string
       }
       fn_normalizar_nombre: {

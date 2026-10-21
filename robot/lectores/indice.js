@@ -45,7 +45,7 @@ function leerAviso(mail) {
   return { estado: 'sin_lector', lector: null, version: null, motivo: `Todavía no hay lector para ${direccion} con ese asunto.` }
 }
 
-/* Facturas enviadas · el asunto estándar del taller: "factura n°3567 siniestro n°2004085048", u
+/* Facturas enviadas · el asunto estándar del taller: "factura n°3567 siniestro n°900000000001", u
  * "orden de compra n°…" en vez de siniestro. Una respuesta o un reenvío ("Re:", "RV:", "Fwd:")
  * no es un envío nuevo. */
 

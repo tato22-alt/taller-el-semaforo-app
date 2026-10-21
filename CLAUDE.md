@@ -106,7 +106,7 @@ Cinco reglas que salen de ahí y no se negocian:
   se imprimió y los hechos sobre el trabajo tienen un solo dueño; si esta app también los
   escribiera, habría dos implementaciones de lo mismo comportándose distinto. Lo que esta app
   escribe son tablas del módulo de cobranzas, y sólo las que figuran por nombre en
-  `src/arquitectura.test.ts` (hoy `importacion` y `comprobante`, desde la pantalla Importar, y `comprobante_vinculo`, desde Revisar). Una
+  `src/arquitectura.test.ts` (hoy `importacion` y `comprobante`, desde la pantalla Importar, `comprobante_vinculo`, desde Revisar, y `orden_trabajo`, desde Órdenes, para confirmar, anular y cerrar: las carga el robot). Una
   tabla nueva que la app escriba se agrega a esa lista en el mismo commit que la escribe, no
   antes: un test que se afloja por adelantado no protege nada.
 
@@ -267,6 +267,17 @@ cosas distintas lo garantizan, y conviene no confundirlas:
   clave propia de Luciano, y eso sólo se hace desde su máquina: la clave privada no va acá.
 
 ---
+
+## Conectores (regla de Luciano, 2026-10-18)
+
+**Sugerí los conectores que mejoren el sistema** (Supabase, Gmail, Google Drive, GitHub…) apenas
+uno ahorre trabajo o pasos manuales, sin esperar a que Luciano los pida: para qué serviría y qué
+riesgo trae, en una línea. Vale para todos sus proyectos; está también en su memoria de Notion.
+
+- **Supabase está conectado desde el 2026-10-18.** Leer la base para verificar (consultas, QA,
+  advisors) se puede hacer sin preguntar. **Aplicar una migración o cambiar datos, sólo con su OK
+  en ese momento**, igual que un push.
+- Nada de lo que se lea con un conector (datos reales) va a un repo público.
 
 ## Por dónde seguir
 

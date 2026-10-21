@@ -8,6 +8,10 @@
  *   retenciones  las retenciones que informa cada aviso
  *   acuses       "recibimos / aprobamos tu factura", "la fecha de pago es…": NO son pagos (R3)
  *   enviados     las facturas que mandó el taller, con el asunto estándar
+ *   ordenes      las órdenes de trabajo (spec 010). Éstas además se suben solas a la base: la
+ *                columna "base" dice qué contestó (cargada, a_confirmar, ya_estaba, sin_compania…)
+ *   dominios_ordenes  de qué dominios se esperan órdenes mandadas por una persona, con su compañía
+ *                (las compañías las suma el robot; los estudios y peritos se agregan acá a mano)
  *
  * Permisos (appsscript.json): leer Gmail, crear archivos propios en Drive, escribir en esta
  * planilla, y llamar a la API de Drive para sacar el texto de los PDF. Ninguno deja mandar,
@@ -30,7 +34,17 @@ const COLUMNAS = {
   retenciones: ['message_id', 'certificado', 'concepto', 'impuesto', 'importe'],
   acuses: ['message_id', 'fecha', 'remitente', 'tipo', 'factura_como_dice', 'punto_venta', 'numero', 'siniestro', 'monto', 'fecha_prometida', 'referencia', 'lector'],
   enviados: ['message_id', 'fecha', 'para', 'asunto', 'tipo', 'factura', 'siniestro', 'orden_de_compra'],
+  ordenes: ['message_id', 'fecha', 'plataforma', 'tipo', 'compania', 'siniestro', 'patente', 'vehiculo', 'perito', 'perito_mail', 'monto', 'franquicia', 'repuestos', 'pdfs_drive', 'lector', 'base', 'referencia', 'a_confirmar', 'remitente', 'asunto', 'adjuntos', 'nota'],
+  dominios_ordenes: ['dominio', 'compañía'],
 }
+
+/* Las casillas automáticas que mandan órdenes de trabajo (spec 010, RF-1015): Orion (la de hoy y las
+ * dos viejas), La Mercantil (la de hoy y la vieja), Nación por Valua, Zurich por Grant, y cualquiera de
+ * Cooperación. Se barren aparte de los avisos de pago. Las de personas las trae otra búsqueda, por
+ * dominio (RF-1014). */
+const REMITENTES_ORDENES = ['sistemas@mg.sistema-orion.com', 'sistema.orion@cesvi.com.ar', 'sistemas@mg.cesvi.com.ar',
+  'no-responder@mail.lamercantil.flowable-managed.com', 'no-responder@lamercantil.com.ar', 'avisos@sistemavalua.info',
+  'zurich@grant.com.ar', 'cooperacionseguros.com.ar']
 
 /* Los remitentes conocidos el 2026-10-08. Se cargan en la pestaña sólo si está vacía; de ahí en
  * más manda la pestaña. Son casillas automáticas de las compañías, no de personas. */
@@ -76,8 +90,29 @@ function barrer() {
     (id) => guardarEnvio(id, hojas),
     inicio,
   )
-  console.log(`Avisos nuevos: ${nuevosAvisos.guardados}. Envíos nuevos: ${nuevosEnvios.guardados}.` +
-    (nuevosAvisos.cortado || nuevosEnvios.cortado ? ' Quedan más: la próxima corrida sigue.' : ' Al día.'))
+  // Las dos búsquedas de órdenes comparten la lista de vistos: un mail que traen las dos se lee una vez.
+  const dominios = dominiosDeOrdenes(hojas.dominios_ordenes.getDataRange().getValues().slice(1))
+  const ordenesVistas = idsGuardados(hojas.ordenes)
+  const nuevasOrdenes = barrerConsulta(
+    `from:(${REMITENTES_ORDENES.join(' OR ')}) subject:(orden) after:${DESDE}`,
+    ordenesVistas,
+    (id) => guardarOrden(id, hojas, dominios),
+    inicio,
+  )
+  // Las que manda una persona (RF-1014): de un dominio de la pestaña, como remitente o en copia, con
+  // algún PDF. Trae también avisos y pólizas de esas compañías: guardarOrden los descarta por el
+  // nombre del adjunto, sin bajarlos. Lo que manda el taller mismo no se mira.
+  const deDominios = [...dominios.keys()].join(' OR ')
+  const paraConfirmar = dominios.size === 0 ? { guardados: 0, cortado: false } : barrerConsulta(
+    `(from:(${deDominios}) OR cc:(${deDominios})) has:attachment filename:pdf -from:me after:${DESDE}`,
+    ordenesVistas,
+    (id) => guardarOrden(id, hojas, dominios),
+    inicio,
+  )
+  const subidas = subirOrdenes(hojas.ordenes, inicio)
+  console.log(`Avisos nuevos: ${nuevosAvisos.guardados}. Envíos nuevos: ${nuevosEnvios.guardados}. ` +
+    `Mails de órdenes nuevos: ${nuevasOrdenes.guardados + paraConfirmar.guardados}. ${subidas}` +
+    (nuevosAvisos.cortado || nuevosEnvios.cortado || nuevasOrdenes.cortado || paraConfirmar.cortado ? ' Quedan más: la próxima corrida sigue.' : ' Al día.'))
 }
 
 /**
@@ -95,7 +130,8 @@ function releer() {
   const acuses = []
   filas.forEach((f, i) => {
     const aviso = { id: String(f[0]), fecha: String(f[1]), remitente: String(f[2]) }
-    const leido = leerAviso({ remitente: aviso.remitente, asunto: String(f[3]), cuerpo: String(f[4]), textoPdf: String(f[6]) })
+    const leido = leerAviso({ remitente: aviso.remitente, asunto: String(f[3]), cuerpo: String(f[4]), textoPdf: String(f[6]),
+      adjuntos: String(f[5]).split('\n').filter((n) => n !== ''), copia: '' })
     hojas.avisos.getRange(i + 2, 8, 1, 5).setValues([estadoDe(leido)])
     lineas.push(...filasDeLineas(aviso, leido))
     retenciones.push(...filasDeRetenciones(aviso.id, leido))
@@ -135,27 +171,196 @@ function guardarAviso(id, hojas) {
   const asunto = encabezado(msg, 'Subject')
   const cuerpo = sinClaves(sinEnlacesDeSesion(cuerpoDe(partes)))
 
-  // Los PDF van a Drive, y se les saca el texto. Se reconocen por la extensión, nunca por el tipo
-  // MIME: hay compañías que los mandan como application/octet-stream (spec 005 §5.3). Se guarda el
-  // id de Drive de cada uno, en el mismo orden que los nombres: es lo único que distingue dos PDF
-  // del mismo día con el mismo nombre, y lo que deja llegar al archivo desde la app.
+  const { nombres, idsDrive, textoPdf } = guardarPdfs(id, partes, aviso.fecha)
+
+  const leido = leerAviso({ remitente: aviso.remitente, asunto, cuerpo, textoPdf, adjuntos: adjuntosDe(partes), copia: encabezado(msg, 'Cc') })
+  agregar(hojas.avisos, [[id, aviso.fecha, aviso.remitente, asunto, cortar(cuerpo), nombres.join('\n'), cortar(textoPdf), ...estadoDe(leido), idsDrive.join('\n')]])
+  agregar(hojas.lineas, filasDeLineas(aviso, leido))
+  agregar(hojas.retenciones, filasDeRetenciones(id, leido))
+  agregar(hojas.acuses, filasDeAcuses(aviso, leido))
+}
+
+/**
+ * Una orden de trabajo, a su pestaña. A la base la sube después subirOrdenes (RF-1005).
+ * Lo que no es una orden (un recordatorio, un aviso de pago) se guarda igual, con tipo "otro", para no
+ * volver a leerlo.
+ *
+ * Primero se decide sin bajar nada: alcanzan el remitente, la copia, el asunto y los NOMBRES de los
+ * adjuntos. Sólo si es una orden se suben sus PDF a Drive y se vuelve a leer con su texto (el monto
+ * está ahí). La búsqueda de las órdenes de personas trae muchos mails de las compañías que no son
+ * órdenes: bajar sus PDF sería llenar Drive y gastar el tiempo de la corrida en nada.
+ */
+function guardarOrden(id, hojas, dominios) {
+  agregar(hojas.ordenes, [filaParaMail(id, dominios)])
+}
+
+/**
+ * La fila de "ordenes" de un mail. Una que no es orden ('otro') guarda igual de quién es, el asunto,
+ * los adjuntos y con qué versión del lector se leyó: si el lector se equivocó, se encuentra y se
+ * relee con releerOrdenesOtro (nada se pierde). Los PDF de las casillas automáticas se suben a Drive
+ * aunque el mail no sea una orden; los de la búsqueda por dominio, no (son avisos y pólizas).
+ */
+function filaParaMail(id, dominios, yaEnDrive = []) {
+  const msg = Gmail.Users.Messages.get('me', id, { format: 'full' })
+  const partes = aplanar(msg.payload)
+  const fecha = fechaDe(msg)
+  const mail = {
+    remitente: encabezado(msg, 'From'),
+    asunto: encabezado(msg, 'Subject'),
+    cuerpo: sinClaves(sinEnlacesDeSesion(cuerpoDe(partes))),
+    textoPdf: '',
+    adjuntos: adjuntosDe(partes),
+    copia: encabezado(msg, 'Cc'),
+  }
+  if (leerOrden(mail, dominios) === null) {
+    const idsDrive = esCasillaDeOrdenes(direccionDe(mail.remitente)) ? guardarPdfs(id, partes, fecha, yaEnDrive).idsDrive : []
+    return filaDeOrden(id, fecha, null, idsDrive, mail)
+  }
+  const { idsDrive, textoPdf } = guardarPdfs(id, partes, fecha, yaEnDrive)
+  return filaDeOrden(id, fecha, leerOrden({ ...mail, textoPdf }, dominios), idsDrive, mail)
+}
+
+/**
+ * Vuelve a leer, con el lector de hoy, los mails de "ordenes" que no pueden entrar a la base: los que
+ * quedaron como 'otro', y las órdenes que la base no acepta porque el lector no supo la compañía o el
+ * siniestro (una compañía de Orion que no conocía, una marca que no estaba en la lista). Los trae de
+ * Gmail por su id y reemplaza la fila, sin agregar otra. Los PDF que ya están en Drive no se vuelven a
+ * subir. Se corre a mano después de mejorar el lector o de sumar un dominio a dominios_ordenes.
+ * Comparte el límite de tiempo del barrido: si se corta, se vuelve a correr y sigue.
+ */
+function releerOrdenesOtro() {
+  const inicio = Date.now()
+  const hojas = prepararHojas()
+  const dominios = dominiosDeOrdenes(hojas.dominios_ordenes.getDataRange().getValues().slice(1))
+  const filas = hojas.ordenes.getDataRange().getValues().slice(1)
+  let releidas = 0
+  let ahoraEntran = 0
+  for (let i = 0; i < filas.length; i++) {
+    const f = filas[i] ?? []
+    if (!hayQueReleer(f)) continue
+    if (Date.now() - inicio > LIMITE_MS) break
+    const nueva = filaParaMail(String(f[0]), dominios, String(f[13] ?? '').split('\n').filter((d) => d !== ''))
+    hojas.ordenes.getRange(i + 2, 1, 1, nueva.length).setValues([nueva])
+    releidas++
+    if (!hayQueReleer(nueva)) ahoraEntran++
+  }
+  console.log(`Releídos ${releidas} mails: ${ahoraEntran} ahora pueden entrar a la base.`)
+}
+
+/**
+ * ¿La fila no puede entrar a la base así como está? Una 'otro', o una orden sin compañía o sin siniestro
+ * que no es para confirmar (la base la rechaza). Lo que la base ya cargó no se toca.
+ * @param {readonly unknown[]} f
+ */
+function hayQueReleer(f) {
+  if (String(f[3]) === 'otro') return true
+  if (SUBIDA_TERMINADA.includes(String(f[15] ?? '')) || String(f[17] ?? '') === 'sí') return false
+  return String(f[4] ?? '') === '' || String(f[5] ?? '') === ''
+}
+
+/** Las columnas de "ordenes", en su orden. a_confirmar dice "sí" en las que el robot adivinó (RF-1014). */
+function filaDeOrden(id, fecha, o, idsDrive, mail) {
+  const drive = idsDrive.join('\n')
+  const deDonde = [mail.remitente, mail.asunto, mail.adjuntos.join('\n')]
+  if (o === null) return [id, fecha, '', 'otro', '', '', '', '', '', '', '', '', '', drive, `ordenes v${VERSION_ORDENES}`, '', '', '', ...deDonde, '']
+  return [id, fecha, o.plataforma, o.tipo, o.compania || '', o.siniestro || '', o.patente || '', o.vehiculo || '', o.perito || '',
+    o.peritoMail || '', o.monto || '', o.franquicia || '', o.repuestos || '', drive, o.lector, '', o.referencia || '',
+    o.aConfirmar ? 'sí' : '', ...deDonde, o.nota || '']
+}
+
+/* ------------------------------------------------------------------------------------------- */
+/* La base (spec 010: las órdenes se cargan solas)                                              */
+/* ------------------------------------------------------------------------------------------- */
+
+/* Lo que contesta la base y ya no hace falta volver a mandar. Cualquier otra cosa (sin_compania,
+ * sin_siniestro, un error de red) se reintenta en la próxima corrida: así, sumar una compañía a la
+ * lista del lector y correr releerOrdenesOtro, o completar a mano el siniestro en la planilla, alcanza
+ * para que la orden entre. */
+const SUBIDA_TERMINADA = ['cargada', 'a_confirmar', 'ya_estaba', 'reenvio', 'anulada']
+
+/** Hasta cuándo puede subir órdenes una corrida: un margen antes de los 6 minutos de Apps Script. */
+const LIMITE_SUBIDA_MS = 5.25 * 60 * 1000
+
+/**
+ * Sube a la base las órdenes de la pestaña que todavía no entraron, de la más vieja a la más nueva:
+ * una anulación tiene que llegar después de su orden. El robot entra con su propio usuario (rol
+ * robot) y sólo puede llamar a fn_robot_guarda_orden: no lee ni borra nada.
+ *
+ * Necesita cuatro propiedades del script: SUPABASE_URL, SUPABASE_CLAVE_PUBLICA, ROBOT_MAIL y
+ * ROBOT_CLAVE. Si faltan, no sube nada y lo dice: la planilla se sigue llenando igual.
+ * Comparte el reloj con el barrido: si se acaba el tiempo, corta y la próxima corrida sigue.
+ * @returns {string} una línea para el registro
+ */
+function subirOrdenes(hoja, inicio = Date.now()) {
+  const props = PropertiesService.getScriptProperties()
+  const url = props.getProperty('SUPABASE_URL')
+  const clave = props.getProperty('SUPABASE_CLAVE_PUBLICA')
+  const mail = props.getProperty('ROBOT_MAIL')
+  const contrasenia = props.getProperty('ROBOT_CLAVE')
+  if (!url || !clave || !mail || !contrasenia) return 'Órdenes sin subir: faltan las propiedades del robot.'
+
+  const pendientes = hoja.getDataRange().getValues().slice(1)
+    .map((f, i) => ({ f, fila: i + 2 }))
+    .filter(({ f }) => (f[3] === 'orden' || f[3] === 'anulacion') && !SUBIDA_TERMINADA.includes(String(f[15])))
+    .sort((a, b) => String(a.f[1]).localeCompare(String(b.f[1])))
+  if (pendientes.length === 0) return 'Órdenes en la base: al día.'
+
+  const sesion = UrlFetchApp.fetch(`${url}/auth/v1/token?grant_type=password`, {
+    method: 'post', contentType: 'application/json', headers: { apikey: clave },
+    payload: JSON.stringify({ email: mail, password: contrasenia }), muteHttpExceptions: true,
+  })
+  if (sesion.getResponseCode() !== 200) return `Órdenes sin subir: el robot no pudo entrar a la base (HTTP ${sesion.getResponseCode()}).`
+  const token = JSON.parse(sesion.getContentText()).access_token
+
+  let cargadas = 0
+  let hechas = 0
+  for (const { f, fila } of pendientes) {
+    if (Date.now() - inicio > LIMITE_SUBIDA_MS) return `Órdenes a la base: ${cargadas} de ${hechas}; quedan ${pendientes.length - hechas}, siguen en la próxima corrida.`
+    const r = UrlFetchApp.fetch(`${url}/rest/v1/rpc/fn_robot_guarda_orden`, {
+      method: 'post', contentType: 'application/json', headers: { apikey: clave, Authorization: `Bearer ${token}` },
+      muteHttpExceptions: true,
+      payload: JSON.stringify({
+        p_gmail_message_id: String(f[0]), p_tipo: f[3], p_compania: String(f[4]) || null, p_siniestro: String(f[5]),
+        p_patente: String(f[6]) || null, p_fecha: String(f[1]).slice(0, 10),
+        // El monto viaja como texto, igual que lo guarda la planilla: no pasa por un float.
+        p_monto: String(f[10]) || null, p_perito: String(f[8]) || null, p_perito_mail: String(f[9]) || null,
+        p_vehiculo: String(f[7]) || null, p_referencia: String(f[16] ?? '') || null,
+        // Lo que dice el mail de la franquicia y los repuestos: va a la base tal cual, para no perderlo.
+        // La nota (por ejemplo, que el mail trae varias órdenes) también, para quien la confirma.
+        p_observaciones: [f[11], f[12], f[21]].map((x) => String(x ?? '')).filter((x) => x !== '' && x !== 'undefined').join(' · ') || null,
+        // Las que el robot adivinó (RF-1014): entran aunque no sepa la compañía, y no cuentan hasta que
+        // una persona las confirma. Las filas de antes de esta columna no la tienen: no son a confirmar.
+        p_a_confirmar: String(f[17] ?? '') === 'sí',
+      }),
+    })
+    const respuesta = r.getResponseCode() === 200 ? JSON.parse(r.getContentText()) : `error HTTP ${r.getResponseCode()}: ${r.getContentText().slice(0, 200)}`
+    hoja.getRange(fila, 16).setValue(respuesta)
+    if (respuesta === 'cargada' || respuesta === 'a_confirmar' || respuesta === 'anulada') cargadas++
+    hechas++
+  }
+  return `Órdenes a la base: ${cargadas} de ${pendientes.length} pendientes.`
+}
+
+/**
+ * Los PDF de un mail van a Drive, y se les saca el texto. Se reconocen por la extensión, nunca por
+ * el tipo MIME: hay compañías que los mandan como application/octet-stream (spec 005 §5.3). Se
+ * guarda el id de Drive de cada uno, en el mismo orden que los nombres: es lo único que distingue
+ * dos PDF del mismo día con el mismo nombre, y lo que deja llegar al archivo desde la app.
+ */
+function guardarPdfs(id, partes, fecha, yaEnDrive = []) {
   const nombres = []
   const idsDrive = []
   const textos = []
   for (const p of partes.filter((p) => p.filename && /\.pdf$/i.test(p.filename))) {
     const blob = Utilities.newBlob(bytesDe(id, p), 'application/pdf', p.filename)
-    const archivo = Drive.Files.create({ name: `${aviso.fecha.slice(0, 10)} ${p.filename}`, parents: [carpetaDeLosPdf()] }, blob)
+    // Al releer un mail cuyos PDF ya se subieron, sólo hace falta el texto: subirlos otra vez los duplica.
+    if (yaEnDrive.length === 0) {
+      idsDrive.push(Drive.Files.create({ name: `${fecha.slice(0, 10)} ${p.filename}`, parents: [carpetaDeLosPdf()] }, blob).id)
+    }
     nombres.push(p.filename)
-    idsDrive.push(archivo.id)
     textos.push(textoDePdf(blob))
   }
-  const textoPdf = textos.join('\n\n----- siguiente PDF -----\n\n')
-
-  const leido = leerAviso({ remitente: aviso.remitente, asunto, cuerpo, textoPdf })
-  agregar(hojas.avisos, [[id, aviso.fecha, aviso.remitente, asunto, cortar(cuerpo), nombres.join('\n'), cortar(textoPdf), ...estadoDe(leido), idsDrive.join('\n')]])
-  agregar(hojas.lineas, filasDeLineas(aviso, leido))
-  agregar(hojas.retenciones, filasDeRetenciones(id, leido))
-  agregar(hojas.acuses, filasDeAcuses(aviso, leido))
+  return { nombres, idsDrive: yaEnDrive.length > 0 ? yaEnDrive : idsDrive, textoPdf: textos.join('\n\n----- siguiente PDF -----\n\n') }
 }
 
 function guardarEnvio(id, hojas) {
@@ -177,6 +382,11 @@ function fechaDe(msg) {
 
 function aplanar(parte) {
   return [parte, ...(parte.parts || []).flatMap(aplanar)]
+}
+
+/** Los nombres de los archivos adjuntos, sin bajarlos. */
+function adjuntosDe(partes) {
+  return partes.filter((p) => p.filename).map((p) => p.filename)
 }
 
 /** El servicio de Gmail devuelve los datos en base64 "web-safe"; según la versión, ya decodificados. */
@@ -286,7 +496,22 @@ function prepararHojas() {
     hojas[nombre] = hoja
   }
   if (hojas.remitentes.getLastRow() < 2) agregar(hojas.remitentes, REMITENTES_INICIALES)
+  sumarDominiosNuevos(hojas.dominios_ordenes)
   return hojas
+}
+
+/**
+ * Suma a la pestaña dominios_ordenes las compañías de la lista inicial que el robot todavía no le
+ * ofreció. La primera vez la llena; cuando una versión nueva del robot trae una compañía más, la
+ * agrega sola, sin que nadie la tipee. Lo ofrecido queda anotado en las propiedades del script: un
+ * dominio que alguien borró de la pestaña no vuelve.
+ */
+function sumarDominiosNuevos(hoja) {
+  const props = PropertiesService.getScriptProperties()
+  const ofrecidos = new Set(JSON.parse(props.getProperty('dominios_ofrecidos') || '[]'))
+  const enLaPestania = dominiosDeOrdenes(hoja.getDataRange().getValues().slice(1))
+  agregar(hoja, DOMINIOS_ORDENES_INICIALES.filter(([d]) => !ofrecidos.has(d) && !enLaPestania.has(d)).map(([d, c]) => [d, c]))
+  props.setProperty('dominios_ofrecidos', JSON.stringify(DOMINIOS_ORDENES_INICIALES.map(([d]) => d)))
 }
 
 function leerRemitentes(hoja) {

@@ -34,8 +34,15 @@
  *   lineas: LineaAviso[], retenciones: Retencion[], control: Control
  * }} AvisoLeido
  * @typedef {{ estado: 'sin_lector' | 'no_entendido', lector: string | null, version: number | null, motivo: string }} AvisoNoLeido
- * @typedef {{ remitente: string, asunto: string, cuerpo: string, textoPdf: string }} Mail
+ * @typedef {{
+ *   remitente: string, asunto: string, cuerpo: string, textoPdf: string,
+ *   adjuntos: string[], copia: string
+ * }} Mail
  */
+
+/* Del Mail, `adjuntos` son los nombres de los archivos, sin bajarlos: alcanzan para saber si un mail
+ * trae una orden antes de gastar en Drive (spec 010, RF-1014). `copia` es el encabezado Cc tal cual
+ * llega. Los lectores de avisos de pago no usan ninguno de los dos. */
 
 /**
  * La dirección de un encabezado From: "Fulano <a@b.com>" → "a@b.com", en minúsculas.

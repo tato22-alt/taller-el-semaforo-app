@@ -16,7 +16,7 @@ import { armar } from './armar.mjs'
 const CARPETA = import.meta.dirname
 const DIR_LECTORES = join(CARPETA, 'lectores')
 
-type Mail = { remitente: string; asunto: string; cuerpo: string; textoPdf: string }
+type Mail = { remitente: string; asunto: string; cuerpo: string; textoPdf: string; adjuntos: string[]; copia: string }
 type Lectores = {
   direccionDe: (from: string) => string
   aImporte: (texto: string) => string | null
@@ -42,7 +42,7 @@ type Leido = {
 
 /* El resultado sale de otro contexto de vm: se pasa por JSON para compararlo con objetos de acá. */
 const leer = (mail: Partial<Mail>) =>
-  JSON.parse(JSON.stringify(L.leerAviso({ remitente: '', asunto: '', cuerpo: '', textoPdf: '', ...mail }))) as Leido
+  JSON.parse(JSON.stringify(L.leerAviso({ remitente: '', asunto: '', cuerpo: '', textoPdf: '', adjuntos: [], copia: '', ...mail }))) as Leido
 
 const impuestos = (r: Leido) => r.retenciones.map((x) => [x.impuesto, x.importe, x.certificado])
 
@@ -603,9 +603,15 @@ describe('el robot', () => {
     }
   })
 
+  /* Desde que el robot sube las órdenes a la base, el código nombra "password" y "apikey": son los
+   * campos que pide Supabase para entrar. Lo que no puede aparecer es un VALOR: las claves salen de
+   * las propiedades del script, nunca de una cadena escrita acá. */
   it('no hay credenciales en el código (R2)', () => {
     for (const { nombre, texto } of codigo) {
-      expect(texto, nombre).not.toMatch(/service_role|password|contraseña\s*[:=]|apikey|anon_key/i)
+      expect(texto, nombre).not.toMatch(/service_role|anon_key|eyJ[\w-]{10,}|sb_(secret|publishable)_/i)
+      expect(texto, nombre).not.toMatch(/(password|apikey|contrase(?:ñ|ni)a|clave)['"]?\s*[:=]\s*['"`]/i)
+      expect(texto, nombre).not.toMatch(/setProperty\(\s*['"`]\w+['"`]\s*,\s*['"`]/)
+      expect(texto, nombre).not.toMatch(/Bearer [\w.-]{8,}/)
     }
   })
 })
