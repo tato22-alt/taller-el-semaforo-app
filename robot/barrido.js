@@ -24,6 +24,8 @@
 const DESDE = '2025/01/01'
 const ZONA = 'America/Argentina/Buenos_Aires'
 const LIMITE_MS = 4.5 * 60 * 1000
+/** Entre mail y mail al releer: Gmail corta si se le piden demasiados por minuto. */
+const PAUSA_GMAIL_MS = 300
 /** Una celda de Sheets admite 50.000 caracteres. */
 const MAX_CELDA = 49000
 
@@ -233,18 +235,35 @@ function releerOrdenesOtro() {
   const hojas = prepararHojas()
   const dominios = dominiosDeOrdenes(hojas.dominios_ordenes.getDataRange().getValues().slice(1))
   const filas = hojas.ordenes.getDataRange().getValues().slice(1)
+  // Por dónde iba la vuelta anterior, si se cortó: una 'otro' releída sigue siendo 'otro', y empezar
+  // siempre de arriba haría que nunca se llegue al final.
+  const props = PropertiesService.getScriptProperties()
+  let i = Number(props.getProperty('releer_desde_fila') || 0)
   let releidas = 0
   let ahoraEntran = 0
-  for (let i = 0; i < filas.length; i++) {
+  let corte = ''
+  for (; i < filas.length; i++) {
     const f = filas[i] ?? []
     if (!hayQueReleer(f)) continue
-    if (Date.now() - inicio > LIMITE_MS) break
-    const nueva = filaParaMail(String(f[0]), dominios, String(f[13] ?? '').split('\n').filter((d) => d !== ''))
+    if (Date.now() - inicio > LIMITE_MS) { corte = 'se acabó el tiempo'; break }
+    let nueva
+    try {
+      nueva = filaParaMail(String(f[0]), dominios, String(f[13] ?? '').split('\n').filter((d) => d !== ''))
+    } catch (e) {
+      // Gmail limita cuántos mails se piden por minuto: se frena acá y la próxima vez sigue.
+      if (!/quota|rate ?limit/i.test(String(e.message))) throw e
+      corte = 'Gmail pidió una pausa'
+      break
+    }
     hojas.ordenes.getRange(i + 2, 1, 1, nueva.length).setValues([nueva])
     releidas++
     if (!hayQueReleer(nueva)) ahoraEntran++
+    Utilities.sleep(PAUSA_GMAIL_MS)
   }
-  console.log(`Releídos ${releidas} mails: ${ahoraEntran} ahora pueden entrar a la base.`)
+  if (corte) props.setProperty('releer_desde_fila', String(i))
+  else props.deleteProperty('releer_desde_fila')
+  console.log(`Releídos ${releidas} mails: ${ahoraEntran} ahora pueden entrar a la base. ` +
+    (corte ? `Quedan más (${corte}): esperá un minuto y ejecutá releerOrdenesOtro de nuevo, sigue desde la fila ${i + 2}.` : 'Terminó.'))
 }
 
 /**
