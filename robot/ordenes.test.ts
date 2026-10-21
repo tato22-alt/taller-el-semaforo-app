@@ -45,7 +45,7 @@ describe('órdenes de Orion', () => {
       tipo: 'orden', plataforma: 'orion', compania: 'Sancor', siniestro: '2000000001',
       patente: 'AB123CD', vehiculo: 'FORD KA 15 S 4P', perito: 'JUAN PEREZINVENTADO', peritoMail: null,
       monto: '150000.00', franquicia: null,
-      repuestos: 'Los repuestos los entrega Autopartes Ejemplo en 5 días', referencia: null, nota: null, aConfirmar: false, lector: 'ordenes v6',
+      repuestos: 'Los repuestos los entrega Autopartes Ejemplo en 5 días', referencia: null, nota: null, aConfirmar: false, lector: 'ordenes v7',
     })
   })
 
@@ -111,7 +111,7 @@ describe('órdenes de La Mercantil', () => {
     })).toEqual({
       tipo: 'orden', plataforma: 'mercantil', compania: 'Mercantil Andina', siniestro: '900000000001',
       patente: 'AB123CD', vehiculo: null, perito: 'PEREZ JUAN', peritoMail: 'perito.inventado@ejemplo.com',
-      monto: null, franquicia: null, repuestos: null, referencia: 'Tasación 123456', nota: null, aConfirmar: false, lector: 'ordenes v6',
+      monto: null, franquicia: null, repuestos: null, referencia: 'Tasación 123456', nota: null, aConfirmar: false, lector: 'ordenes v7',
     })
   })
 
@@ -125,7 +125,7 @@ describe('órdenes de La Mercantil', () => {
     expect(r).toEqual({
       tipo: 'orden', plataforma: 'mercantil', compania: 'Mercantil Andina', siniestro: '900000000002',
       patente: 'AC456BD', vehiculo: null, perito: null, peritoMail: null,
-      monto: null, franquicia: null, repuestos: null, referencia: null, nota: null, aConfirmar: false, lector: 'ordenes v6',
+      monto: null, franquicia: null, repuestos: null, referencia: null, nota: null, aConfirmar: false, lector: 'ordenes v7',
     })
     expect(JSON.stringify(r)).not.toContain('ASEGURADO')
   })
@@ -166,7 +166,7 @@ describe('órdenes de Nación (sistema Valua)', () => {
     })).toEqual({
       tipo: 'orden', plataforma: 'nacion', compania: 'Nación', siniestro: '4500123', patente: 'AB123CD',
       vehiculo: null, perito: null, peritoMail: null, monto: '100000.00',
-      franquicia: 'El asegurado abona franquicia', repuestos: null, referencia: null, nota: null, aConfirmar: false, lector: 'ordenes v6',
+      franquicia: 'El asegurado abona franquicia', repuestos: null, referencia: null, nota: null, aConfirmar: false, lector: 'ordenes v7',
     })
   })
 
@@ -194,7 +194,7 @@ describe('órdenes de Cooperación', () => {
     })).toEqual({
       tipo: 'orden', plataforma: 'cooperacion', compania: 'Cooperación', siniestro: '123456/1', patente: 'AB123CD',
       vehiculo: null, perito: null, peritoMail: null, monto: null,
-      franquicia: null, repuestos: 'Los repuestos los provee la compañía', referencia: null, nota: null, aConfirmar: false, lector: 'ordenes v6',
+      franquicia: null, repuestos: 'Los repuestos los provee la compañía', referencia: null, nota: null, aConfirmar: false, lector: 'ordenes v7',
     })
   })
 
@@ -227,7 +227,7 @@ describe('órdenes de personas: para confirmar (RF-1014)', () => {
     })).toEqual({
       tipo: 'orden', plataforma: 'otra', compania: 'LPS', siniestro: '555001', patente: 'AB123CD',
       vehiculo: null, perito: null, peritoMail: null, monto: null,
-      franquicia: 'El asegurado abona franquicia en el taller', repuestos: null, referencia: null, nota: null, aConfirmar: true, lector: 'ordenes v6',
+      franquicia: 'El asegurado abona franquicia en el taller', repuestos: null, referencia: null, nota: null, aConfirmar: true, lector: 'ordenes v7',
     })
   })
 
@@ -295,11 +295,23 @@ describe('la pestaña dominios_ordenes', () => {
       fuentes.map((n) => readFileSync(join(DIR, n), 'utf8')).join('\n') + '\n;({ DOMINIOS_ORDENES_INICIALES })', {},
     ) as { DOMINIOS_ORDENES_INICIALES: [string, string][] }
     const fichas = ['LPS', 'Mapfre', 'Provincia', 'Victoria', 'Cooperación', 'Nación', 'Sancor', 'San Cristóbal', 'Río Uruguay',
-      'La Segunda', 'Allianz', 'Federación Patronal', 'Mercantil Andina', 'Triunfo', 'Rivadavia', 'Zurich', 'Zurich ex QBE']
+      'La Segunda', 'Allianz', 'Federación Patronal', 'Mercantil Andina', 'Triunfo', 'Rivadavia', 'Zurich', 'Zurich ex QBE',
+      'La Caja', 'Experta', 'Galicia', 'San Jorge (concesionaria)']
     for (const [dominio, compania] of DOMINIOS_ORDENES_INICIALES) {
       expect(fichas, dominio).toContain(compania)
     }
-    expect(DOMINIOS_ORDENES_INICIALES).toHaveLength(14)
+    expect(DOMINIOS_ORDENES_INICIALES).toHaveLength(20)
+  })
+
+  it('están todas las compañías a las que se les facturó desde el 1/1/2025 (cruce del 2026-10-21)', () => {
+    const { DOMINIOS_ORDENES_INICIALES } = runInNewContext(
+      fuentes.map((n) => readFileSync(join(DIR, n), 'utf8')).join('\n') + '\n;({ DOMINIOS_ORDENES_INICIALES })', {},
+    ) as { DOMINIOS_ORDENES_INICIALES: [string, string][] }
+    const companias = new Set(DOMINIOS_ORDENES_INICIALES.map(([, c]) => c))
+    for (const c of ['Sancor', 'Rivadavia', 'Federación Patronal', 'Mercantil Andina', 'San Cristóbal', 'La Segunda', 'Provincia',
+      'La Caja', 'Cooperación', 'Allianz', 'LPS', 'Zurich', 'Río Uruguay', 'Experta', 'Galicia', 'Nación', 'San Jorge (concesionaria)']) {
+      expect(companias, c).toContain(c)
+    }
   })
 })
 
@@ -444,7 +456,7 @@ describe('el barrido guarda las órdenes en su pestaña', () => {
       adjuntos: ['informeOrdenTrabajo.pdf'],
     }, 'Total: $ 200.000,00')
     expect(r.filas).toEqual([['msg-1', '2026-01-02 10:00', 'orion', 'orden', 'Zurich ex QBE', '77', 'AB123CD', 'TOYOTA ETIOS',
-      'PERITO INVENTADO', '', '200000.00', '', 'repuesto envía Autopartes Ejemplo en 3 días', 'drive-1', 'ordenes v6', '', '', '',
+      'PERITO INVENTADO', '', '200000.00', '', 'repuesto envía Autopartes Ejemplo en 3 días', 'drive-1', 'ordenes v7', '', '', '',
       ORION, 'Orden De Trabajo ZAASA-77TOYOTA-ETIOS-AB123CD-PERITO-INVENTADO', 'informeOrdenTrabajo.pdf', '']])
   })
 
@@ -454,7 +466,7 @@ describe('el barrido guarda las órdenes en su pestaña', () => {
     expect(r.subidos).toEqual([])
     // Nada se pierde: aunque no sea una orden, queda de quién es, el asunto, los adjuntos y la versión
     // del lector, para encontrarla y releerla si el lector se equivocó.
-    expect(r.filas).toEqual([['msg-1', '2026-01-02 10:00', '', 'otro', '', '', '', '', '', '', '', '', '', '', 'ordenes v6', '', '', '',
+    expect(r.filas).toEqual([['msg-1', '2026-01-02 10:00', '', 'otro', '', '', '', '', '', '', '', '', '', '', 'ordenes v7', '', '', '',
       'Pagos <pagos@lps.com.ar>', 'Orden de Pago Número: 00001', 'OrdenDePago.pdf\nretenciones.pdf', '']])
   })
 
@@ -475,7 +487,7 @@ describe('el barrido guarda las órdenes en su pestaña', () => {
     expect(r.bajados).toEqual(['adjunto-ord rep 555002.pdf'])
     expect(r.subidos).toEqual(['2026-01-02 ord rep 555002.pdf'])
     expect(r.filas).toEqual([['msg-1', '2026-01-02 10:00', 'otra', 'orden', 'LPS', '555002', 'AB123CD', '', '', '', '', '', '', 'drive-1',
-      'ordenes v6', '', '', 'sí', 'Analista Inventada <analista@lps.com.ar>', 'Orden de reparación - Siniestro 555002 - AB123CD',
+      'ordenes v7', '', '', 'sí', 'Analista Inventada <analista@lps.com.ar>', 'Orden de reparación - Siniestro 555002 - AB123CD',
       'ord rep 555002.pdf', '']])
   })
 })
@@ -504,12 +516,16 @@ describe('el barrido busca las órdenes de las casillas nuevas y las de personas
     }
   }
 
-  function barrer(pestanias: Record<string, unknown[][]>) {
+  /** Corre barrer sobre una planilla de mentira. `props` son las propiedades del script, y quedan escritas. */
+  function barrer(pestanias: Record<string, unknown[][]>, props: Record<string, string> = {}) {
     const consultas: string[] = []
     const contexto = {
       SpreadsheetApp: { getActive: () => libro(pestanias) },
       Gmail: { Users: { Messages: { list: (_: string, o: { q: string }) => { consultas.push(o.q); return { messages: [] } } } } },
-      PropertiesService: { getScriptProperties: () => ({ getProperty: () => null }) },
+      PropertiesService: { getScriptProperties: () => ({
+        getProperty: (k: string) => props[k] ?? null,
+        setProperty: (k: string, v: string) => { props[k] = v },
+      }) },
       console: { log: () => undefined },
     }
     const { barrer: correr } = runInNewContext(`${ROBOT}\n;({ barrer })`, contexto) as { barrer: () => void }
@@ -525,18 +541,39 @@ describe('el barrido busca las órdenes de las casillas nuevas y las de personas
     expect(pestanias.ordenes?.[0]?.slice(-5)).toEqual(['a_confirmar', 'remitente', 'asunto', 'adjuntos', 'nota'])
 
     const deOrdenes = consultas.find((q) => q.includes('subject:(orden)')) ?? ''
-    for (const r of ['sistema.orion@cesvi.com.ar', 'sistemas@mg.cesvi.com.ar', 'no-responder@lamercantil.com.ar', 'avisos@sistemavalua.info', 'cooperacionseguros.com.ar']) {
+    for (const r of ['sistema.orion@cesvi.com.ar', 'sistemas@mg.cesvi.com.ar', 'no-responder@lamercantil.com.ar', 'avisos@sistemavalua.info',
+      'zurich@grant.com.ar', 'cooperacionseguros.com.ar']) {
       expect(deOrdenes).toContain(r)
     }
     const dePersonas = consultas.find((q) => q.includes('has:attachment')) ?? ''
     expect(dePersonas).toMatch(/^\(from:\(lps\.com\.ar OR .*\) OR cc:\(lps\.com\.ar OR .*\)\) has:attachment filename:pdf -from:me after:/)
   })
 
-  it('de ahí en más manda la pestaña: lo que agregó Luciano se busca, y no se vuelve a llenar', () => {
-    const pestanias: Record<string, unknown[][]> = { dominios_ordenes: [['dominio', 'compañía'], ['estudio-inventado.example', '']] }
-    const consultas = barrer(pestanias)
+  it('de ahí en más manda la pestaña: lo que agregó Luciano se busca, y lo que borró no vuelve', () => {
+    const props: Record<string, string> = {}
+    const pestanias: Record<string, unknown[][]> = {}
+    barrer(pestanias, props)
+    // Luciano borra todas las compañías y deja sólo un estudio.
+    pestanias.dominios_ordenes = [['dominio', 'compañía'], ['estudio-inventado.example', '']]
+    const consultas = barrer(pestanias, props)
     expect(pestanias.dominios_ordenes).toEqual([['dominio', 'compañía'], ['estudio-inventado.example', '']])
     expect(consultas.find((q) => q.includes('has:attachment'))).toContain('from:(estudio-inventado.example) OR cc:(estudio-inventado.example)')
+  })
+
+  it('una pestaña que llenó una versión anterior recibe sola las compañías nuevas, una vez, sin repetir las que ya tiene', () => {
+    const viejas = [['lps.com.ar', 'LPS'], ['@sancorseguros.com', 'Sancor'], ['estudio-inventado.example', '']]
+    const pestanias: Record<string, unknown[][]> = { dominios_ordenes: [['dominio', 'compañía'], ...viejas] }
+    const props: Record<string, string> = {}
+    barrer(pestanias, props)
+    const filas = pestanias.dominios_ordenes ?? []
+    expect(filas.slice(1, 4)).toEqual(viejas)
+    expect(filas).toContainEqual(['lacaja.com.ar', 'La Caja'])
+    expect(filas).toContainEqual(['zurich.com', 'Zurich'])
+    expect(filas.filter((f) => f[0] === 'lps.com.ar')).toHaveLength(1)
+    expect(filas.some((f) => f[0] === 'sancorseguros.com')).toBe(false)
+    expect(filas).toHaveLength(1 + 3 + 18)
+    barrer(pestanias, props)
+    expect(pestanias.dominios_ordenes).toHaveLength(1 + 3 + 18)
   })
   it('releerOrdenesOtro vuelve a leer un "otro" con el lector de hoy y reemplaza la fila, sin agregar otra', () => {
     const pestanias: Record<string, unknown[][]> = {
@@ -554,7 +591,7 @@ describe('el barrido busca las órdenes de las casillas nuevas y las de personas
       Drive: { Files: { create: () => ({ id: 'drive-1' }), remove: () => undefined } },
       UrlFetchApp: { fetch: () => ({ getResponseCode: () => 200, getContentText: () => '' }) },
       ScriptApp: { getOAuthToken: () => 'x' },
-      PropertiesService: { getScriptProperties: () => ({ getProperty: () => 'carpeta', setProperty: () => undefined }) },
+      PropertiesService: { getScriptProperties: () => ({ getProperty: (k: string) => (k === 'carpeta_pdf' ? 'carpeta' : null), setProperty: () => undefined }) },
       console: { log: () => undefined },
     }
     const { releerOrdenesOtro } = runInNewContext(`${ROBOT}\n;({ releerOrdenesOtro })`, contexto) as { releerOrdenesOtro: () => void }
@@ -562,6 +599,49 @@ describe('el barrido busca las órdenes de las casillas nuevas y las de personas
     const filas = (pestanias.ordenes ?? []).slice(1)
     expect(filas).toHaveLength(1)
     expect(filas[0]?.slice(0, 6)).toEqual(['msg-viejo', '2026-01-02 10:00', 'otra', 'orden', 'LPS', '900000000023'])
+  })
+
+  it('releerOrdenesOtro relee también la orden que la base no acepta (sin compañía), sin volver a subir su PDF', () => {
+    const asunto = 'Orden De Trabajo ZURICH-COMPAÑÍA-DE-SEGUROS-900000011FORD-RANGER-AB123CD-PERITO-INVENTADO'
+    const vieja = ['msg-zurich', '2026-01-02 10:00', 'orion', 'orden', '', '', 'AB123CD', '', 'PERITO INVENTADO', '', '', '', '', 'drive-viejo',
+      'ordenes v6', 'sin_compania', '', '', ORION, asunto, 'orden.pdf', '']
+    const cargada = ['msg-cargada', '2026-01-03 10:00', 'orion', 'orden', 'Sancor', '111', '', '', '', '', '', '', '', '', 'ordenes v6', 'cargada']
+    const pestanias: Record<string, unknown[][]> = {
+      ordenes: [['message_id'], vieja, cargada],
+      dominios_ordenes: [['dominio', 'compañía'], ['lps.com.ar', 'LPS']],
+      remitentes: [['remitente', 'compañía'], ['pagos@ejemplo.example', 'X']],
+    }
+    const pedidos: string[] = []
+    const subidos: string[] = []
+    const contexto = {
+      SpreadsheetApp: { getActive: () => libro(pestanias) },
+      Gmail: { Users: { Messages: {
+        get: (_: string, id: string) => { pedidos.push(id); return mensaje({ from: ORION, asunto, adjuntos: ['orden.pdf'] }) },
+        Attachments: { get: () => ({ data: 'pdf' }) },
+      } } },
+      Utilities: { newBlob: (d: string) => ({ getDataAsString: () => d }), base64DecodeWebSafe: (d: string) => d, formatDate: () => '2026-01-02 10:00' },
+      Drive: { Files: {
+        create: (meta: { name: string; mimeType?: string }) => {
+          if (meta.mimeType !== 'application/vnd.google-apps.document') subidos.push(meta.name)
+          return { id: 'ocr' }
+        },
+        remove: () => undefined,
+      } },
+      UrlFetchApp: { fetch: () => ({ getResponseCode: () => 200, getContentText: () => 'Total: $ 1.000,00' }) },
+      ScriptApp: { getOAuthToken: () => 'x' },
+      PropertiesService: { getScriptProperties: () => ({ getProperty: (k: string) => (k === 'carpeta_pdf' ? 'carpeta' : null), setProperty: () => undefined }) },
+      console: { log: () => undefined },
+    }
+    const { releerOrdenesOtro } = runInNewContext(`${ROBOT}\n;({ releerOrdenesOtro })`, contexto) as { releerOrdenesOtro: () => void }
+    releerOrdenesOtro()
+    expect(pedidos).toEqual(['msg-zurich'])
+    expect(subidos).toEqual([])
+    const filas = (pestanias.ordenes ?? []).slice(1)
+    expect(filas).toHaveLength(2)
+    expect(filas[0]?.slice(0, 6)).toEqual(['msg-zurich', '2026-01-02 10:00', 'orion', 'orden', 'Zurich', '900000011'])
+    expect(filas[0]?.[13]).toBe('drive-viejo')
+    expect(filas[0]?.[15]).toBe('')
+    expect(filas[1]).toBe(cargada)
   })
 })
 
@@ -571,15 +651,57 @@ describe('las compañías de Orion van con el nombre exacto de su ficha', () => 
     ['SEGUROS-BERNARDINO-RIVADAVIA-COOP-LTDA-5678FIAT-ARGO-AB123CD-PERITO-INVENTADO', 'Rivadavia', '5678'],
     ['PROVINCIA-SEGUROS-9012CHEVROLET-PRISMA-AB123CD-PERITO-INVENTADO', 'Provincia', '9012'],
     ['ALLIANZ-ARGENTINA---CÍA-DE-SEGUROS-GRALES-SA-C0042TOYOTA-HILUX-ABC123-PERITO-INVENTADO', 'Allianz', 'C0042'],
+    // Las que faltaban (cruce con las facturas del 2026-10-21): antes quedaban sin compañía y sin cargar.
+    ['ZURICH-COMPAÑÍA-DE-SEGUROS-900000011FORD-RANGER-AB123CD-PERITO-INVENTADO', 'Zurich', '900000011'],
+    ['ZURICH-COMPANIA-DE-SEGUROS-900000021FIAT-CRONOS-AB123CD-PERITO-INVENTADO', 'Zurich', '900000021'],
+    ['SEGUROS-GALICIA-SA-0420260000001001001FORD-FIESTA-ABC123-PERITO-INVENTADO', 'Galicia', '0420260000001001001'],
+    ['SEGUROS-SURA-SA-0420240000002001001PEUGEOT-207-ABC123-PERITO-INVENTADO', 'Galicia', '0420240000002001001'],
+    ['SEGURCOOP-COOP-DE-SEGUROS-LTDA-123456CITROEN-C-3-ABC123-PERITO-INVENTADO', 'Segurcoop', '123456'],
   ])('%s', (asunto, compania, siniestro) => {
     expect(leer({ remitente: ORION, asunto: `Orden De Trabajo ${asunto}` })).toMatchObject({ compania, siniestro })
+  })
+
+  it('una marca que va delante de otra (CHRYSLER-JEEP) corta en la primera', () => {
+    expect(leer({ remitente: ORION, asunto: 'Orden De Trabajo ZURICH-COMPAÑÍA-DE-SEGUROS-900000031CHRYSLER-JEEP-RENEGADE-AB123CD-PERITO-INVENTADO' }))
+      .toMatchObject({ compania: 'Zurich', siniestro: '900000031', vehiculo: 'CHRYSLER JEEP RENEGADE' })
+  })
+
+  it('una marca que no está en la lista: el siniestro son las cifras del principio', () => {
+    expect(leer({ remitente: ORION, asunto: 'Orden De Trabajo PROVINCIA-SEGUROS-9012MARCAINVENTADA-X1-AB123CD-PERITO-INVENTADO' }))
+      .toMatchObject({ compania: 'Provincia', siniestro: '9012', vehiculo: 'MARCAINVENTADA X1' })
+    expect(leer({ remitente: ORION, asunto: 'Orden De Trabajo ALLIANZ-ARGENTINA---CIA-DE-SEGUROS-GRALES-SA-C0042MARCAINVENTADA-AB123CD-PERITO-INVENTADO' }))
+      .toMatchObject({ compania: 'Allianz', siniestro: 'C0042' })
+    // Un siniestro con guion y una marca desconocida: no se corta a ciegas, queda sin siniestro.
+    expect(leer({ remitente: ORION, asunto: 'Orden De Trabajo PROVINCIA-SEGUROS-4-123MARCAINVENTADA-AB123CD-PERITO-INVENTADO' }))
+      .toMatchObject({ compania: 'Provincia', siniestro: null })
+  })
+})
+
+describe('órdenes de Zurich por Grant', () => {
+  const GRANT = 'Zurich Seguros <zurich@grant.com.ar>'
+
+  it('la orden de adjudicación entra para confirmar, con la compañía, el siniestro y el número de Grant', () => {
+    expect(leer({
+      remitente: GRANT,
+      asunto: 'Zurich Seguros: Orden 900001 - Siniestro 0001-AUT1-60-00001',
+      cuerpo: 'Orden de adjudicación. A continuación remitimos los datos de asignación de orden para iniciar el proceso de facturación.',
+    })).toEqual({
+      tipo: 'orden', plataforma: 'grant', compania: 'Zurich', siniestro: '0001-AUT1-60-00001', patente: null, vehiculo: null,
+      perito: null, peritoMail: null, monto: null, franquicia: null, repuestos: null, referencia: 'Grant 900001',
+      nota: 'Adjudicación de Grant: si ya está la orden de Orion de este siniestro, es la misma.', aConfirmar: true, lector: 'ordenes v7',
+    })
+    expect(leer({ remitente: GRANT, asunto: 'Zurich Seguros: Orden 900002 - Siniestro 90000001' })).toMatchObject({ siniestro: '90000001' })
+  })
+
+  it('lo demás que manda Grant no es una orden, ni pasa a la regla de las personas', () => {
+    expect(leer({ remitente: GRANT, asunto: 'Grant Siniestros: Cambio de contraseña', adjuntos: ['orden de trabajo.pdf'] })).toBeNull()
   })
 })
 
 describe('el robot sube las órdenes a la base', () => {
   type Fila = string[]
   const fila = (id: string, fecha: string, tipo: string, base = '', aConfirmar = ''): Fila =>
-    [id, fecha, 'orion', tipo, 'Sancor', '111', 'AB123CD', 'FORD KA', 'PERITO INVENTADO', '', '1000.50', 'franquicia en taller', '', '', 'ordenes v6', base, '', aConfirmar]
+    [id, fecha, 'orion', tipo, 'Sancor', '111', 'AB123CD', 'FORD KA', 'PERITO INVENTADO', '', '1000.50', 'franquicia en taller', '', '', 'ordenes v7', base, '', aConfirmar]
 
   function correr(filas: Fila[], props: Record<string, string>, contesta: (cuerpo: Record<string, unknown>) => string, inicio = Date.now()) {
     const llamadas: { url: string; cuerpo: Record<string, unknown> }[] = []

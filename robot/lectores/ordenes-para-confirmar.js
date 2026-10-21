@@ -8,12 +8,13 @@
  * marcadas para confirmar: una persona dice con un toque si es una orden o no, y hasta entonces no
  * cuentan para los avisos. Así llegó la orden que nadie vio vencer (auditoría del 2026-10-19).
  *
- * Los dominios no se escriben acá: viven en la pestaña dominios_ordenes de la planilla, que se edita a
- * mano. En el código están sólo los de las aseguradoras, para llenarla la primera vez. Los estudios y
- * los peritos se agregan allá: son datos del negocio, y este repo es público. */
+ * Los dominios no se escriben acá: viven en la pestaña dominios_ordenes de la planilla. En el código
+ * están sólo los de las compañías a las que el taller factura, que el robot suma solo a la pestaña. Los
+ * estudios y los peritos se agregan allá: son datos del negocio, y este repo es público. */
 
-/* Los dominios de las aseguradoras, con el nombre EXACTO de su ficha en la base: la base busca la
- * compañía por ese nombre. Se cargan en la pestaña sólo si está vacía; de ahí en más manda la pestaña. */
+/* Los dominios de las compañías a las que el taller les facturó desde el 1/1/2025, con el nombre EXACTO
+ * de su ficha en la base: la base busca la compañía por ese nombre. El robot suma a la pestaña los que
+ * todavía no ofreció, una sola vez: uno que se borra de la pestaña no vuelve (barrido.js). */
 /** @type {readonly (readonly [string, string])[]} */
 const DOMINIOS_ORDENES_INICIALES = [
   ['lps.com.ar', 'LPS'],
@@ -30,6 +31,13 @@ const DOMINIOS_ORDENES_INICIALES = [
   ['fedpat.com.ar', 'Federación Patronal'],
   ['lamercantil.com.ar', 'Mercantil Andina'],
   ['triunfoseguros.com', 'Triunfo'],
+  // Los que faltaban, al cruzar con las facturas emitidas desde el 1/1/2025 (2026-10-21).
+  ['segurosrivadavia.com', 'Rivadavia'],
+  ['lacaja.com.ar', 'La Caja'],
+  ['zurich.com', 'Zurich'],
+  ['experta.com.ar', 'Experta'],
+  ['galiciaseguros.com.ar', 'Galicia'],
+  ['sanjorge-sa.com.ar', 'San Jorge (concesionaria)'],
 ]
 
 /* Los correos que usa cualquiera. Si alguien los agregara a la pestaña, el robot traería los PDF de

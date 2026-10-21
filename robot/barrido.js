@@ -11,7 +11,7 @@
  *   ordenes      las órdenes de trabajo (spec 010). Éstas además se suben solas a la base: la
  *                columna "base" dice qué contestó (cargada, a_confirmar, ya_estaba, sin_compania…)
  *   dominios_ordenes  de qué dominios se esperan órdenes mandadas por una persona, con su compañía
- *                (se edita a mano: los estudios y peritos se agregan acá, no en el código)
+ *                (las compañías las suma el robot; los estudios y peritos se agregan acá a mano)
  *
  * Permisos (appsscript.json): leer Gmail, crear archivos propios en Drive, escribir en esta
  * planilla, y llamar a la API de Drive para sacar el texto de los PDF. Ninguno deja mandar,
@@ -39,11 +39,12 @@ const COLUMNAS = {
 }
 
 /* Las casillas automáticas que mandan órdenes de trabajo (spec 010, RF-1015): Orion (la de hoy y las
- * dos viejas), La Mercantil (la de hoy y la vieja), Nación por Valua, y cualquiera de Cooperación. Se
- * barren aparte de los avisos de pago. Las de personas las trae otra búsqueda, por dominio (RF-1014). */
+ * dos viejas), La Mercantil (la de hoy y la vieja), Nación por Valua, Zurich por Grant, y cualquiera de
+ * Cooperación. Se barren aparte de los avisos de pago. Las de personas las trae otra búsqueda, por
+ * dominio (RF-1014). */
 const REMITENTES_ORDENES = ['sistemas@mg.sistema-orion.com', 'sistema.orion@cesvi.com.ar', 'sistemas@mg.cesvi.com.ar',
   'no-responder@mail.lamercantil.flowable-managed.com', 'no-responder@lamercantil.com.ar', 'avisos@sistemavalua.info',
-  'cooperacionseguros.com.ar']
+  'zurich@grant.com.ar', 'cooperacionseguros.com.ar']
 
 /* Los remitentes conocidos el 2026-10-08. Se cargan en la pestaña sólo si está vacía; de ahí en
  * más manda la pestaña. Son casillas automáticas de las compañías, no de personas. */
@@ -199,7 +200,7 @@ function guardarOrden(id, hojas, dominios) {
  * relee con releerOrdenesOtro (nada se pierde). Los PDF de las casillas automáticas se suben a Drive
  * aunque el mail no sea una orden; los de la búsqueda por dominio, no (son avisos y pólizas).
  */
-function filaParaMail(id, dominios) {
+function filaParaMail(id, dominios, yaEnDrive = []) {
   const msg = Gmail.Users.Messages.get('me', id, { format: 'full' })
   const partes = aplanar(msg.payload)
   const fecha = fechaDe(msg)
@@ -212,18 +213,20 @@ function filaParaMail(id, dominios) {
     copia: encabezado(msg, 'Cc'),
   }
   if (leerOrden(mail, dominios) === null) {
-    const idsDrive = esCasillaDeOrdenes(direccionDe(mail.remitente)) ? guardarPdfs(id, partes, fecha).idsDrive : []
+    const idsDrive = esCasillaDeOrdenes(direccionDe(mail.remitente)) ? guardarPdfs(id, partes, fecha, yaEnDrive).idsDrive : []
     return filaDeOrden(id, fecha, null, idsDrive, mail)
   }
-  const { idsDrive, textoPdf } = guardarPdfs(id, partes, fecha)
+  const { idsDrive, textoPdf } = guardarPdfs(id, partes, fecha, yaEnDrive)
   return filaDeOrden(id, fecha, leerOrden({ ...mail, textoPdf }, dominios), idsDrive, mail)
 }
 
 /**
- * Vuelve a leer, con el lector de hoy, los mails que quedaron como 'otro' en "ordenes": los trae de
- * Gmail por su id y, si ahora son una orden, reemplaza la fila (sin agregar otra). Se corre a mano
- * después de mejorar el lector o de sumar un dominio a dominios_ordenes. Comparte el límite de tiempo
- * del barrido: si se corta, se vuelve a correr y sigue (las que ya son orden no se tocan).
+ * Vuelve a leer, con el lector de hoy, los mails de "ordenes" que no pueden entrar a la base: los que
+ * quedaron como 'otro', y las órdenes que la base no acepta porque el lector no supo la compañía o el
+ * siniestro (una compañía de Orion que no conocía, una marca que no estaba en la lista). Los trae de
+ * Gmail por su id y reemplaza la fila, sin agregar otra. Los PDF que ya están en Drive no se vuelven a
+ * subir. Se corre a mano después de mejorar el lector o de sumar un dominio a dominios_ordenes.
+ * Comparte el límite de tiempo del barrido: si se corta, se vuelve a correr y sigue.
  */
 function releerOrdenesOtro() {
   const inicio = Date.now()
@@ -231,17 +234,28 @@ function releerOrdenesOtro() {
   const dominios = dominiosDeOrdenes(hojas.dominios_ordenes.getDataRange().getValues().slice(1))
   const filas = hojas.ordenes.getDataRange().getValues().slice(1)
   let releidas = 0
-  let ahoraOrden = 0
+  let ahoraEntran = 0
   for (let i = 0; i < filas.length; i++) {
     const f = filas[i] ?? []
-    if (String(f[3]) !== 'otro') continue
+    if (!hayQueReleer(f)) continue
     if (Date.now() - inicio > LIMITE_MS) break
-    const nueva = filaParaMail(String(f[0]), dominios)
+    const nueva = filaParaMail(String(f[0]), dominios, String(f[13] ?? '').split('\n').filter((d) => d !== ''))
     hojas.ordenes.getRange(i + 2, 1, 1, nueva.length).setValues([nueva])
     releidas++
-    if (nueva[3] !== 'otro') ahoraOrden++
+    if (!hayQueReleer(nueva)) ahoraEntran++
   }
-  console.log(`Releídos ${releidas} mails que no eran orden: ${ahoraOrden} ahora son órdenes.`)
+  console.log(`Releídos ${releidas} mails: ${ahoraEntran} ahora pueden entrar a la base.`)
+}
+
+/**
+ * ¿La fila no puede entrar a la base así como está? Una 'otro', o una orden sin compañía o sin siniestro
+ * que no es para confirmar (la base la rechaza). Lo que la base ya cargó no se toca.
+ * @param {readonly unknown[]} f
+ */
+function hayQueReleer(f) {
+  if (String(f[3]) === 'otro') return true
+  if (SUBIDA_TERMINADA.includes(String(f[15] ?? '')) || String(f[17] ?? '') === 'sí') return false
+  return String(f[4] ?? '') === '' || String(f[5] ?? '') === ''
 }
 
 /** Las columnas de "ordenes", en su orden. a_confirmar dice "sí" en las que el robot adivinó (RF-1014). */
@@ -260,7 +274,8 @@ function filaDeOrden(id, fecha, o, idsDrive, mail) {
 
 /* Lo que contesta la base y ya no hace falta volver a mandar. Cualquier otra cosa (sin_compania,
  * sin_siniestro, un error de red) se reintenta en la próxima corrida: así, sumar una compañía a la
- * lista del lector, o completar a mano el siniestro en la planilla, alcanza para que la orden entre. */
+ * lista del lector y correr releerOrdenesOtro, o completar a mano el siniestro en la planilla, alcanza
+ * para que la orden entre. */
 const SUBIDA_TERMINADA = ['cargada', 'a_confirmar', 'ya_estaba', 'reenvio', 'anulada']
 
 /** Hasta cuándo puede subir órdenes una corrida: un margen antes de los 6 minutos de Apps Script. */
@@ -332,18 +347,20 @@ function subirOrdenes(hoja, inicio = Date.now()) {
  * guarda el id de Drive de cada uno, en el mismo orden que los nombres: es lo único que distingue
  * dos PDF del mismo día con el mismo nombre, y lo que deja llegar al archivo desde la app.
  */
-function guardarPdfs(id, partes, fecha) {
+function guardarPdfs(id, partes, fecha, yaEnDrive = []) {
   const nombres = []
   const idsDrive = []
   const textos = []
   for (const p of partes.filter((p) => p.filename && /\.pdf$/i.test(p.filename))) {
     const blob = Utilities.newBlob(bytesDe(id, p), 'application/pdf', p.filename)
-    const archivo = Drive.Files.create({ name: `${fecha.slice(0, 10)} ${p.filename}`, parents: [carpetaDeLosPdf()] }, blob)
+    // Al releer un mail cuyos PDF ya se subieron, sólo hace falta el texto: subirlos otra vez los duplica.
+    if (yaEnDrive.length === 0) {
+      idsDrive.push(Drive.Files.create({ name: `${fecha.slice(0, 10)} ${p.filename}`, parents: [carpetaDeLosPdf()] }, blob).id)
+    }
     nombres.push(p.filename)
-    idsDrive.push(archivo.id)
     textos.push(textoDePdf(blob))
   }
-  return { nombres, idsDrive, textoPdf: textos.join('\n\n----- siguiente PDF -----\n\n') }
+  return { nombres, idsDrive: yaEnDrive.length > 0 ? yaEnDrive : idsDrive, textoPdf: textos.join('\n\n----- siguiente PDF -----\n\n') }
 }
 
 function guardarEnvio(id, hojas) {
@@ -479,8 +496,22 @@ function prepararHojas() {
     hojas[nombre] = hoja
   }
   if (hojas.remitentes.getLastRow() < 2) agregar(hojas.remitentes, REMITENTES_INICIALES)
-  if (hojas.dominios_ordenes.getLastRow() < 2) agregar(hojas.dominios_ordenes, DOMINIOS_ORDENES_INICIALES)
+  sumarDominiosNuevos(hojas.dominios_ordenes)
   return hojas
+}
+
+/**
+ * Suma a la pestaña dominios_ordenes las compañías de la lista inicial que el robot todavía no le
+ * ofreció. La primera vez la llena; cuando una versión nueva del robot trae una compañía más, la
+ * agrega sola, sin que nadie la tipee. Lo ofrecido queda anotado en las propiedades del script: un
+ * dominio que alguien borró de la pestaña no vuelve.
+ */
+function sumarDominiosNuevos(hoja) {
+  const props = PropertiesService.getScriptProperties()
+  const ofrecidos = new Set(JSON.parse(props.getProperty('dominios_ofrecidos') || '[]'))
+  const enLaPestania = dominiosDeOrdenes(hoja.getDataRange().getValues().slice(1))
+  agregar(hoja, DOMINIOS_ORDENES_INICIALES.filter(([d]) => !ofrecidos.has(d) && !enLaPestania.has(d)).map(([d, c]) => [d, c]))
+  props.setProperty('dominios_ofrecidos', JSON.stringify(DOMINIOS_ORDENES_INICIALES.map(([d]) => d)))
 }
 
 function leerRemitentes(hoja) {

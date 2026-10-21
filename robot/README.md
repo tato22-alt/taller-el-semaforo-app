@@ -160,6 +160,7 @@ Esta versión suma lo que faltaba.
 | La Mercantil, casilla vieja (`no-responder@lamercantil.com.ar`) | El asunto viejo, `Orden de reparación – <asegurado> – <siniestro> – <patente>`, y sus anulaciones. **El asegurado no se guarda en ningún lado** |
 | Nación, sistema Valua (`avisos@sistemavalua.info`) | El siniestro del asunto; la patente y el monto del PDF, si están claros |
 | Cooperación (cualquier casilla `@cooperacionseguros.com.ar`) | Asunto con `ORDEN DE TRABAJO` y `STRO n/n`: el siniestro es ese `n/n`. El monto queda vacío hasta ver un PDF real |
+| Zurich por Grant (`zurich@grant.com.ar`, desde el 2026-10-21) | `Zurich Seguros: Orden N - Siniestro S`: entra **para confirmar**, con el número de Grant como referencia (puede ser la misma que llegó por Orion) |
 
 Nunca se leen como órdenes: las órdenes de pago, las de compra (`Orden de compra`, y en Cooperación
 `ORDEN - Siniestro`), la *Actualización de estado* y el *Aviso de Conformidad* de La Mercantil.
@@ -187,8 +188,10 @@ Hasta que alguien las confirma, no cuentan para los avisos. En la pestaña **ord
 
 ### La pestaña `dominios_ordenes`
 
-Dos columnas: **dominio** y **compañía**. La primera corrida la llena con las aseguradoras; de ahí en
-más **manda la pestaña**, como con *remitentes*: lo que se agrega ahí se busca en la corrida siguiente.
+Dos columnas: **dominio** y **compañía**. **Las compañías las pone el robot**: la primera corrida llena
+la pestaña, y cuando una versión nueva trae una compañía más, la agrega sola, una vez. Lo que se agrega
+a mano se busca en la corrida siguiente, y un dominio que se borra no vuelve (el robot anota cuáles ya
+ofreció en la propiedad `dominios_ofrecidos`).
 
 - **Los estudios y peritos se agregan acá, a mano, nunca en el código** (el repo es público). Se
   escribe el dominio (`estudio-inventado.example`); si se pega un mail entero, el robot usa su dominio.
@@ -199,13 +202,38 @@ más **manda la pestaña**, como con *remitentes*: lo que se agrega ahí se busc
   los ignora, porque traerían los PDF de cualquiera. Un perito con casilla de Gmail no entra por acá.
 - Un mail que ya quedó como `otro` no se vuelve a mirar solo. Después de agregar un dominio, o de
   pegar un `robot.gs` con un lector mejor, se ejecuta **`releerOrdenesOtro`**: vuelve a traer de Gmail
-  cada mail `otro` y, si ahora es una orden, reemplaza su fila. Si se corta por tiempo, se vuelve a
-  ejecutar y sigue.
+  cada mail `otro`, y cada orden que la base no acepta porque le falta la compañía o el siniestro, y
+  reemplaza su fila. Los PDF que ya están en Drive no se suben de nuevo. Si se corta por tiempo, se
+  vuelve a ejecutar y sigue.
 
 Para instalarla: pegá el `robot.gs` nuevo en lugar del anterior, guardá y ejecutá `barrer`. La pestaña
 nueva y la columna `a_confirmar` se agregan solas. Antes, aplicá en Supabase la migración que acepta
 las órdenes para confirmar: sin ella, la base no entiende `p_a_confirmar` y contesta un error, que el
 robot reintenta en cada corrida sin perder nada.
+
+## La versión del 2026-10-21: todas las compañías a las que se les factura
+
+Luciano pidió que el robot espere órdenes de **todas las compañías a las que el taller les facturó
+desde el 1/1/2025**. Las 17 ya tenían ficha en la base (y por eso la app las muestra al confirmar); al
+cruzarlas con lo que llega a Gmail aparecieron tres huecos:
+
+- **Orion mandaba órdenes de compañías que el lector no conocía**: Zurich, Galicia (y SURA, que hoy
+  es Galicia, con el mismo CUIT) y Segurcoop. Quedaban en la planilla sin compañía, y la base no las
+  aceptaba. Ahora entran con su ficha. Tampoco se cortaba bien el siniestro cuando la marca del auto
+  no estaba en la lista (`CHRYSLER-JEEP-…`): ahora, si no reconoce la marca, toma las cifras del
+  principio.
+- **Faltaban seis dominios** para las órdenes que manda una persona: Rivadavia
+  (`segurosrivadavia.com`), La Caja (`lacaja.com.ar`), Zurich (`zurich.com`), Experta
+  (`experta.com.ar`), Galicia (`galiciaseguros.com.ar`) y San Jorge (`sanjorge-sa.com.ar`). El robot
+  los suma solo a la pestaña `dominios_ordenes`.
+- **Zurich avisa también por Grant** (`zurich@grant.com.ar`): "Zurich Seguros: Orden N - Siniestro S",
+  la orden de adjudicación con la que se factura, sin PDF. Entra **para confirmar**, con la compañía,
+  el siniestro y el número de Grant: muchas veces es el mismo trabajo que ya llegó por Orion, y así no
+  se cuenta dos veces.
+
+Para instalarla: pegá el `robot.gs` nuevo en lugar del anterior, guardá, ejecutá `barrer` hasta que
+diga "Al día." y después, una vez, **`releerOrdenesOtro`**: es lo que hace entrar las órdenes de Zurich
+y de Galicia que ya estaban en la planilla sin compañía.
 
 ## Lo que esta planilla NO es
 

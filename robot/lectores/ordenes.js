@@ -38,7 +38,7 @@
 /**
  * @typedef {{
  *   readonly tipo: 'orden' | 'anulacion',
- *   readonly plataforma: 'orion' | 'mercantil' | 'nacion' | 'cooperacion' | 'otra',
+ *   readonly plataforma: 'orion' | 'mercantil' | 'nacion' | 'cooperacion' | 'grant' | 'otra',
  *   readonly compania: string | null,
  *   readonly siniestro: string | null,
  *   readonly patente: string | null,
@@ -59,10 +59,13 @@
  * una orden, no cuenta para los avisos ni para lo autorizado. `nota` es lo que tiene que saber quien la
  * confirma y no entra en otro campo (por ejemplo, que el mail trae más de una orden). */
 
-const VERSION_ORDENES = 6
+const VERSION_ORDENES = 7
 
 /* Las casillas de Orion: la de hoy y las dos que usó hasta fines de 2025. */
 const REMITENTES_ORION = ['sistemas@mg.sistema-orion.com', 'sistema.orion@cesvi.com.ar', 'sistemas@mg.cesvi.com.ar']
+
+/* La casilla de Grant, el gestor de siniestros de Zurich: manda la "orden de adjudicación". */
+const REMITENTE_GRANT_ZURICH = 'zurich@grant.com.ar'
 
 /* Lo que se parece a una orden y no es, por el asunto. Vale para las casillas automáticas, que
  * deciden por el asunto. En el mail de una persona manda el adjunto: si trae un PDF con nombre de
@@ -90,10 +93,17 @@ const COMPANIAS_ORION = [
   ['ALLIANZ-ARGENTINA---CIA-DE-SEGUROS-GRALES-SA', 'Allianz'],
   // Zurich Aseguradora Argentina S.A.: la que antes era QBE, no Zurich Argentina.
   ['ZAASA', 'Zurich ex QBE'],
+  // Las que faltaban y se encontraron al cruzar con las facturas desde el 1/1/2025 (2026-10-21).
+  ['ZURICH-COMPAÑÍA-DE-SEGUROS', 'Zurich'],
+  ['ZURICH-COMPANIA-DE-SEGUROS', 'Zurich'],
+  ['SEGUROS-GALICIA-SA', 'Galicia'],
+  // SURA pasó a ser Seguros Galicia, con el mismo CUIT: sus órdenes viejas se facturan a Galicia.
+  ['SEGUROS-SURA-SA', 'Galicia'],
+  ['SEGURCOOP-COOP-DE-SEGUROS-LTDA', 'Segurcoop'],
 ]
 
 /* Las marcas con las que empieza el vehículo: es donde termina el número de siniestro. */
-const MARCAS = ['ALFA-ROMEO', 'AUDI', 'BAIC', 'BMW', 'CHERY', 'CHEVROLET', 'CITROEN', 'DODGE', 'DS', 'FIAT', 'FORD',
+const MARCAS = ['ALFA-ROMEO', 'AUDI', 'BAIC', 'BMW', 'CHERY', 'CHEVROLET', 'CHRYSLER', 'CITROEN', 'DODGE', 'DS', 'FIAT', 'FORD',
   'HONDA', 'HYUNDAI', 'IVECO', 'JEEP', 'KIA', 'MERCEDES-BENZ', 'MERCEDES', 'MITSUBISHI', 'NISSAN', 'PEUGEOT', 'RAM',
   'RENAULT', 'SUZUKI', 'TOYOTA', 'VOLKSWAGEN', 'VW']
 
@@ -116,6 +126,7 @@ function leerOrden(mail, dominios = dominiosDeOrdenes(DOMINIOS_ORDENES_INICIALES
     if (NO_ES_ORDEN.test(m.asunto)) return null
     if (REMITENTES_ORION.includes(direccion)) return leerOrdenOrion(m)
     if (direccion === 'avisos@sistemavalua.info') return leerOrdenNacion(m)
+    if (direccion === REMITENTE_GRANT_ZURICH) return leerOrdenGrant(m)
     return leerOrdenMercantil(m)
   }
   // Cooperación manda desde la casilla de su inspector, que también escribe otras cosas: si el asunto
@@ -130,12 +141,13 @@ function leerOrden(mail, dominios = dominiosDeOrdenes(DOMINIOS_ORDENES_INICIALES
 
 /**
  * ¿Es una de las casillas automáticas que sólo mandan órdenes con plantilla fija (Orion, La Mercantil,
- * Valua)? Ésas deciden solas; lo que no entienden no pasa a la regla de las personas.
+ * Valua, Grant)? Ésas deciden solas; lo que no entienden no pasa a la regla de las personas.
  * @param {string} direccion
  */
 function esCasillaDeOrdenes(direccion) {
   return REMITENTES_ORION.includes(direccion) || direccion.endsWith('flowable-managed.com') ||
-    direccion === 'no-responder@lamercantil.com.ar' || direccion === 'avisos@sistemavalua.info'
+    direccion === 'no-responder@lamercantil.com.ar' || direccion === 'avisos@sistemavalua.info' ||
+    direccion === REMITENTE_GRANT_ZURICH
 }
 
 /** @param {Mail} mail @returns {OrdenLeida | null} */
@@ -158,8 +170,13 @@ function leerOrdenOrion(mail) {
   const marca = MARCAS.map((m) => ({ m, i: sinCompania.indexOf(`${m}-`) }))
     .filter((x) => x.i > 0)
     .sort((a, b) => a.i - b.i)[0]
-  const siniestro = marca && conocida ? sinCompania.slice(0, marca.i) : null
-  const vehiculo = marca ? enPalabras(sinCompania.slice(marca.i)) : null
+  // Una marca que no está en la lista: el siniestro son las cifras del principio (con la letra que
+  // a veces las encabeza, como en Allianz), sólo si el vehículo empieza pegado a ellas. Si no, queda
+  // sin siniestro: un número cortado por la mitad cargaría la orden con un siniestro equivocado.
+  const cifras = /^[A-Z]?\d+(?=[A-Z])/.exec(sinCompania)
+  const corte = marca ? marca.i : cifras ? cifras[0].length : 0
+  const siniestro = conocida && corte > 0 ? sinCompania.slice(0, corte) : null
+  const vehiculo = corte > 0 ? enPalabras(sinCompania.slice(corte)) : null
 
   return {
     tipo: esAnulacionOrion(mail.cuerpo) ? 'anulacion' : 'orden',
@@ -272,6 +289,36 @@ function leerOrdenNacion(mail) {
     referencia: null,
     nota: null,
     aConfirmar: compania === null,
+    lector: `ordenes v${VERSION_ORDENES}`,
+  }
+}
+
+/**
+ * Zurich, por Grant: "Zurich Seguros: Orden 123 - Siniestro 0001-AUT1-60-1". Es la "orden de
+ * adjudicación" con la que se factura: sin PDF, sin patente y sin monto. Muchas veces el mismo trabajo
+ * ya llegó por Orion, con el siniestro escrito de otra forma ("12345678" acá, "123456781" allá): por
+ * eso entra para confirmar, para no contarlo dos veces. Lo demás que manda Grant (el cambio de
+ * contraseña, las respuestas automáticas) no es una orden.
+ * @param {Mail} mail
+ * @returns {OrdenLeida | null}
+ */
+function leerOrdenGrant(mail) {
+  const a = /^zurich seguros:\s*orden\s+(\d+)\s*[-–—]\s*siniestro\s+(\S+)/i.exec(mail.asunto)
+  if (!a) return null
+  return {
+    tipo: 'orden',
+    plataforma: 'grant',
+    compania: 'Zurich',
+    siniestro: a[2] ?? null,
+    patente: null,
+    vehiculo: null,
+    perito: null,
+    peritoMail: null,
+    monto: null,
+    ...franquiciaYRepuestos(mail.cuerpo),
+    referencia: `Grant ${a[1] ?? ''}`,
+    nota: 'Adjudicación de Grant: si ya está la orden de Orion de este siniestro, es la misma.',
+    aConfirmar: true,
     lector: `ordenes v${VERSION_ORDENES}`,
   }
 }
