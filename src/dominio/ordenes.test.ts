@@ -5,7 +5,7 @@ import {
 
 const orden = (o: Partial<Orden>): Orden => ({
   id: 1, compania: 'Compañía inventada', siniestro: 'ZZ-1', patente: null, fechaEmision: '2026-01-01',
-  vence: '2027-01-01', diasParaVencer: 100, montoAutorizado: null, perito: null, vehiculo: null, observaciones: null, anulada: false, anuladaPorMail: false, facturada: false,
+  vence: '2027-01-01', diasParaVencer: 100, montoAutorizado: null, perito: null, vehiculo: null, observaciones: null, anulada: false, anuladaPorMail: false, facturada: false, facturas: null, facturaPorMail: false,
   aConfirmar: false, descartada: false, cerrada: false, cerradaMotivo: null,
   ...o,
 })

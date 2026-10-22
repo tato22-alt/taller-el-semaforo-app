@@ -28,6 +28,11 @@ export type Orden = {
   /** La anuló el robot por un mail (y no una persona): se puede deshacer si se equivocó. */
   readonly anuladaPorMail: boolean
   readonly facturada: boolean
+  /** Feature 012: las facturas que la cobran, como las escribe la base ("2-3553 del 2026-08-26").
+   *  Nula si no tiene. */
+  readonly facturas: string | null
+  /** La vinculó la base sola, al leer el mail con que se mandó la factura (RF-1201). */
+  readonly facturaPorMail: boolean
   /** RF-1014: el robot la adivinó del mail de una persona. Hasta que alguien dice "Es una orden",
    *  no cuenta para los avisos ni para lo autorizado. */
   readonly aConfirmar: boolean

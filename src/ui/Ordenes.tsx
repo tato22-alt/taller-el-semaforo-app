@@ -19,6 +19,7 @@ import {
   vencimientoEnPalabras, type Orden,
 } from '../dominio/ordenes'
 import { textoDeFallo, type Fallo, type Resultado } from '../dominio/resultado'
+import { FacturaDeLaOrden } from './FacturaDeLaOrden'
 
 /** Lo que queda anotado al tocar "No se hizo". */
 const MOTIVO_NO_SE_HIZO = 'No se hizo'
@@ -126,6 +127,7 @@ function TarjetaOrden({ orden: o, companias, ocupado, hacer }: PropsTarjeta) {
       </p>
       {o.observaciones !== null && <p className="apagado">{o.observaciones}</p>}
       {estado === 'a_confirmar' && <AccionesParaConfirmar orden={o} companias={companias} ocupado={ocupado} hacer={hacer} />}
+      {estado !== 'a_confirmar' && estado !== 'descartada' && estado !== 'cerrada' && <FacturaDeLaOrden orden={o} ocupado={ocupado} hacer={hacer} />}
       {(estado === 'por_vencer' || estado === 'vigente' || estado === 'vencida') && (
         <p className="acciones">
           <button

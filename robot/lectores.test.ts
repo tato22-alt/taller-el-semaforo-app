@@ -501,6 +501,17 @@ describe('asunto de las facturas enviadas', () => {
     expect(asunto('factura n°1234 siniestro n° 99887766')).toMatchObject({ siniestro: '99887766' })
   })
 
+  it('los asuntos escritos a mano que se vieron en 2025 y 2026', () => {
+    expect(asunto('Factura : 1235 Siniestro:9999-1234567')).toMatchObject({ tipo: 'envio', factura: 1235, siniestro: '9999-1234567' })
+    expect(asunto('Factura:1236 Siniestro: 9999-7654321')).toMatchObject({ factura: 1236, siniestro: '9999-7654321' })
+    expect(asunto('FACTURA N°1237 SINIESTRO N° 9000000001')).toMatchObject({ factura: 1237, siniestro: '9000000001' })
+    expect(asunto('factura °1238 siniestro n°9000000002')).toMatchObject({ factura: 1238, siniestro: '9000000002' })
+    expect(asunto('Siniestro 99/02/000001/00 Factura 1239')).toMatchObject({ factura: 1239, siniestro: '99/02/000001/00' })
+    expect(asunto('factura de crédito electrónica n°045 siniestro n°90000003-1')).toMatchObject({ factura: 45, siniestro: '90000003-1' })
+    expect(asunto('factura n°1240 siniestro  n°c0000000001')).toMatchObject({ siniestro: 'c0000000001' })
+    expect(L.leerAsuntoEnvio('Factura: Siniestro')).toBeNull()
+  })
+
   it('con orden de compra en vez de siniestro', () => {
     expect(asunto('factura n°123 orden de compra n°45678')).toEqual({ tipo: 'envio', factura: 123, siniestro: null, ordenCompra: '45678' })
   })

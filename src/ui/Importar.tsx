@@ -7,6 +7,7 @@
 
 import { useEffect, useState } from 'react'
 import { importarComprobantes, prepararImportacion, type ParaImportar, type ResumenImportacion } from '../datos/comprobantes'
+import { revincularEnvios } from '../datos/orden-factura'
 import { leerMisComprobantes, type LecturaArca } from '../dominio/arca'
 import { cuitValido, normalizarCuit } from '../dominio/cuit'
 import { huellaSha256 } from '../dominio/huella'
@@ -24,6 +25,7 @@ export function Importar() {
   const [cuit, setCuit] = useState('')
   const [archivo, setArchivo] = useState<Archivo | null>(null)
   const [paso, setPaso] = useState<Paso>({ fase: 'eligiendo' })
+  const [vinculadas, setVinculadas] = useState<number | null>(null)
   const [fallo, setFallo] = useState<Fallo | null>(null)
 
   useEffect(() => {
@@ -58,7 +60,12 @@ export function Importar() {
       cuitEmisor,
       filas: archivo.lectura.filas,
     })
-    if (r.ok) setPaso({ fase: 'importado', resumen: r.dato })
+    if (r.ok) {
+      setPaso({ fase: 'importado', resumen: r.dato })
+      // Spec 012: los mails de factura que esperaban este CSV se vuelven a mirar. Si falla, la
+      // importación igual quedó hecha: se reintenta con el próximo CSV o el robot.
+      void revincularEnvios().then((v) => setVinculadas(v.ok ? v.dato : null))
+    }
     else {
       setFallo(r.fallo)
       setPaso({ fase: 'eligiendo' })
@@ -112,6 +119,12 @@ export function Importar() {
               <> · <strong>{lectura.errores.length}</strong> con problemas, sin importar</>
             )}
           </p>
+          {vinculadas !== null && vinculadas > 0 && (
+            <p>
+              <strong>{vinculadas}</strong> factura{vinculadas === 1 ? '' : 's'} mandada{vinculadas === 1 ? '' : 's'} por mail ya
+              quedaron con su orden de trabajo.
+            </p>
+          )}
         </div>
       )}
 

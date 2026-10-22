@@ -235,6 +235,27 @@ Para instalarla: pegá el `robot.gs` nuevo en lugar del anterior, guardá, ejecu
 diga "Al día." y después, una vez, **`releerOrdenesOtro`**: es lo que hace entrar las órdenes de Zurich
 y de Galicia que ya estaban en la planilla sin compañía.
 
+## La versión del 2026-10-22: la factura de cada orden (spec 012)
+
+El robot sube a la base, además de las órdenes, **cada mail con que el taller mandó una factura**
+(pestaña *enviados*, columna nueva **`base`**). La base busca esa factura en ARCA y la orden de ese
+siniestro, y si no hay dudas las vincula sola. Lo que contesta queda en la columna `base`:
+
+| Respuesta | Qué quiere decir |
+|---|---|
+| `vinculada` | Listo: la orden ya tiene su factura |
+| `ya_estaba` | Ese vínculo ya existía |
+| `sin_factura_en_arca` | Falta subir el CSV de ARCA del mes. Al subirlo, la base lo vuelve a mirar sola |
+| `varias_ordenes` | Hay orden y ampliación del mismo siniestro: la app te la propone y confirmás con un toque |
+| `sin_orden` | No hay una orden de esa compañía con ese siniestro (no llegó por mail, o el siniestro está escrito distinto) |
+| `factura_ambigua` / `sin_siniestro` | No se puede decidir: queda para mirar en la app |
+
+Además, el barrido de *enviados* ahora encuentra los asuntos escritos a mano ("Factura : 3587
+Siniestro:…", "Siniestro … Factura 3308"), y las adjudicaciones de Grant con siniestro "AUT" van a
+**Zurich ex QBE** (es la misma orden que llega por Orion como ZAASA).
+
+Para instalarla: aplicá la migración 28 en Supabase, pegá el `robot.gs` nuevo y ejecutá `barrer`.
+
 ## Lo que esta planilla NO es
 
 - **No es la base.** En la fase 2 lo mismo pasa a Supabase, con un usuario `robot@` que sólo
