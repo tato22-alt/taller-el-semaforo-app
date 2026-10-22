@@ -5,8 +5,8 @@
 >
 > - Pantallas hechas desde entonces: **Revisar** (notas de crédito), **Órdenes** (spec 010, con la
 >   factura de cada orden de la spec 012) y **Hoy** (spec 011, los hitos del auto), ésta en la rama
->   `claude/business-improvement-priorities-5u3jc4`, **esperando que se aplique su migración** en la
->   base: hasta entonces, Hoy da error al abrir.
+>   `claude/business-improvement-priorities-5u3jc4`. Su migración está aplicada en la base desde el
+>   2026-10-22: falta pasar la rama a `main` para que Pages la publique.
 > - La app escribe seis tablas, todas en `src/arquitectura.test.ts`: `importacion`, `comprobante`,
 >   `comprobante_vinculo`, `orden_trabajo`, `orden_factura` y `hito_trabajo`.
 > - Hoy se probó contra una base simulada (311 tests, build, y capturas en un celular de 390 px). Falta

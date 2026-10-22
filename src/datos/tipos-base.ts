@@ -17,8 +17,8 @@
  * miente, y miente igual en el archivo generado. Por eso la plata no se suma nunca en el
  * navegador y se formatea con `dominio/dinero.ts`, que acepta `string | number`.
  *
- * Fuente: las migraciones hasta 20261023120000_hitos_del_auto.sql (feature 011, que el 2026-10-22
- * todavía no estaba aplicada en la base real: hasta que se aplique, la pantalla Hoy da error).
+ * Fuente: las migraciones hasta 20261023120000_hitos_del_auto.sql (feature 011, aplicada en la base
+ * real el 2026-10-22).
  */
 
 export type Json =
