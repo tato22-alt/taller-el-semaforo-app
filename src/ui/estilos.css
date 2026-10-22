@@ -275,3 +275,10 @@ details summary { cursor: pointer; color: var(--acento); margin-bottom: 0.5rem; 
 .plegado summary { color: var(--acento); cursor: pointer; font-size: 0.9rem; }
 .plegado[open] { display: grid; gap: 0.4rem; }
 .auto-linea { margin: 0; display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: baseline; padding: 0 0.25rem; }
+
+/* --- El pago de la factura de una orden (fase 2) ------------------------ */
+
+.orden .pago { font-size: 0.95rem; }
+.pago-pagada, .pago-pagada_por_siniestro { color: #15803d; font-weight: 600; }
+.pago-pago_parcial, .pago-sin_importe { color: #b45309; }
+.pago-aprobada, .pago-recibida { color: var(--acento); }

@@ -11,6 +11,10 @@
 >   `comprobante_vinculo`, `orden_trabajo`, `orden_factura` y `hito_trabajo`.
 > - Hoy se probó contra una base simulada (311 tests, build, y capturas en un celular de 390 px). Falta
 >   verla con la base real.
+> - **Fase 2 de cobranzas (2026-10-22):** la tarjeta de cada orden dice si su factura está **pagada**,
+>   pagada en parte, con un aviso que no dice el importe, o **aprobada con fecha de pago** (un acuse no
+>   es un pago), y las pagadas van a su grupo. Lo deriva la base de los avisos que sube el robot, que
+>   ahora también sube los avisos y acuses (`robot/README.md`). Falta pegar el robot nuevo.
 
 Punto de entrada cuando volvés. Si esto y el código se contradicen, gana el código.
 

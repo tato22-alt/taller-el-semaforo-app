@@ -27,9 +27,11 @@ type FilaOrden = {
   anulada: boolean; anulada_por_mail: string | null
   facturas: string | null; facturada: boolean; por_mail: boolean | null
   a_confirmar: boolean; descartada: boolean; cerrada: boolean; cerrada_motivo: string | null
+  por_evidencia: string | null; pago_facturas_sin_aviso: number | null; pago_falta: string | null; pago_sin_importe: boolean | null
+  pago_ultimo: string | null; pago_por_siniestro: boolean | null; pago_acuse: string | null; pago_fecha_prometida: string | null
 }
 
-const COLUMNAS = 'id_orden, compania, siniestro, patente, fecha_emision, vence, dias_para_vencer, monto_autorizado, perito, vehiculo, observaciones, anulada, anulada_por_mail, facturas, facturada, por_mail, a_confirmar, descartada, cerrada, cerrada_motivo'
+const COLUMNAS = 'id_orden, compania, siniestro, patente, fecha_emision, vence, dias_para_vencer, monto_autorizado, perito, vehiculo, observaciones, anulada, anulada_por_mail, facturas, facturada, por_mail, a_confirmar, descartada, cerrada, cerrada_motivo, por_evidencia, pago_facturas_sin_aviso, pago_falta, pago_sin_importe, pago_ultimo, pago_por_siniestro, pago_acuse, pago_fecha_prometida'
 
 /** Cuántas filas se piden por vez. Es el tope que PostgREST devuelve por pedido en Supabase ("Max
  *  rows", 1000 de fábrica): pasado eso corta sin avisar, con un 200 y la lista incompleta. No puede
@@ -177,6 +179,19 @@ function orden(f: FilaOrden): Orden {
     facturada: f.facturada,
     facturas: f.facturas,
     facturaPorMail: f.por_mail === true,
+    facturaPorEvidencia: f.por_evidencia === 'aviso' || f.por_evidencia === 'acuse' ? f.por_evidencia : null,
+    // Fase 2: lo que dicen los avisos de sus facturas. Sólo tiene sentido si está facturada.
+    pago: f.facturada
+      ? {
+          facturasSinAviso: f.pago_facturas_sin_aviso ?? 0,
+          falta: f.pago_falta === null ? null : String(f.pago_falta),
+          sinImporte: f.pago_sin_importe === true,
+          ultimoPago: f.pago_ultimo,
+          porSiniestro: f.pago_por_siniestro === true,
+          acuse: f.pago_acuse,
+          fechaPrometida: f.pago_fecha_prometida,
+        }
+      : null,
     aConfirmar: f.a_confirmar,
     descartada: f.descartada,
     cerrada: f.cerrada,

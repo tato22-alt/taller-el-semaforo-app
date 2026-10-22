@@ -17,8 +17,9 @@
  * miente, y miente igual en el archivo generado. Por eso la plata no se suma nunca en el
  * navegador y se formatea con `dominio/dinero.ts`, que acepta `string | number`.
  *
- * Fuente: las migraciones hasta 20261023120000_hitos_del_auto.sql (feature 011, aplicada en la base
- * real el 2026-10-22).
+ * Fuente: las migraciones hasta 20261024130000_vistas_evidencia.sql (fase 2 de cobranzas, aplicada en
+ * la base real el 2026-10-22). Las tablas de la evidencia (aviso, aviso_linea, acuse…) no están: la app
+ * no las lee todavía.
  */
 
 export type Json =
@@ -804,6 +805,34 @@ export type Database = {
           facturada: boolean | null
           facturado: number | null
           por_mail: boolean | null
+          /* Fase 2: 'aviso' o 'acuse' si la vinculó la evidencia, y lo que dicen los avisos de sus
+           * facturas (vw_pago_factura). pago_falta: total menos lo pagado; nulo si algún aviso no dice el
+           * importe. */
+          por_evidencia: string | null
+          pago_facturas_sin_aviso: number | null
+          pago_falta: number | null
+          pago_sin_importe: boolean | null
+          pago_ultimo: string | null
+          pago_por_siniestro: boolean | null
+          pago_acuse: string | null
+          pago_fecha_prometida: string | null
+        }
+        Relationships: []
+      }
+      /* Fase 2: por factura con avisos o acuses, lo que dicen. Los numeric llegan como texto. */
+      vw_pago_factura: {
+        Row: {
+          id_comprobante: number | null
+          total: number | null
+          avisos: number | null
+          pagado: number | null
+          sin_importe: number | null
+          falta: number | null
+          ultimo_pago: string | null
+          por_siniestro: boolean | null
+          acuse: string | null
+          fecha_prometida: string | null
+          acuse_recibido: string | null
         }
         Relationships: []
       }

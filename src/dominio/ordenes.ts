@@ -33,6 +33,10 @@ export type Orden = {
   readonly facturas: string | null
   /** La vinculó la base sola, al leer el mail con que se mandó la factura (RF-1201). */
   readonly facturaPorMail: boolean
+  /** Fase 2: la vinculó la base al leer un aviso de pago o un acuse que dicen factura y siniestro. */
+  readonly facturaPorEvidencia: 'aviso' | 'acuse' | null
+  /** Fase 2: lo que dicen los avisos y acuses de sus facturas. Nulo si no está facturada. */
+  readonly pago: PagoDeLaFactura | null
   /** RF-1014: el robot la adivinó del mail de una persona. Hasta que alguien dice "Es una orden",
    *  no cuenta para los avisos ni para lo autorizado. */
   readonly aConfirmar: boolean
@@ -41,6 +45,73 @@ export type Orden = {
   /** RF-1013: alguien dijo "No se hizo". Sale de los avisos y queda anotada. */
   readonly cerrada: boolean
   readonly cerradaMotivo: string | null
+}
+
+/** Fase 2 (plan-fase-2.md de semaforo-base): lo que la base deriva de los avisos de pago de las
+ *  facturas de una orden (vw_ordenes_trabajo, columnas pago_*). Magnitudes, no conclusiones: qué es
+ *  "pagada" lo decide pagoDeOrden. */
+export type PagoDeLaFactura = {
+  /** Cuántas de sus facturas no tienen ningún aviso de pago. */
+  readonly facturasSinAviso: number
+  /** Total de sus facturas menos lo que los avisos dicen que pagaron. NUMERIC: texto. Nulo si alguna
+   *  factura no tiene un aviso que diga el importe. */
+  readonly falta: string | null
+  /** Hay un aviso de pago que no dice el importe (La Segunda, Federación Patronal agrupado). */
+  readonly sinImporte: boolean
+  readonly ultimoPago: string | null
+  /** El aviso nombra el siniestro, no la factura (San Cristóbal, pregunta 7 del plan). */
+  readonly porSiniestro: boolean
+  /** El último acuse: 'acuse' (la recibieron), 'aprobacion' o 'fecha_prometida'. R3: no es un pago. */
+  readonly acuse: string | null
+  readonly fechaPrometida: string | null
+}
+
+/** Lo que se dice del pago de una orden facturada. */
+export type EstadoDelPago = 'pagada' | 'pagada_por_siniestro' | 'sin_importe' | 'pago_parcial' | 'aprobada' | 'recibida' | 'sin_aviso'
+
+/** Hasta cuánto puede faltar y que igual se lea "pagada": el residuo de centavos de un pago redondeado
+ *  (criterio 9 de la spec 005). Se muestra igual, pero no deja la orden abierta. */
+export const RESIDUO_EN_PESOS = 1
+
+/** El pago de una orden facturada, o nulo si no está facturada. Un acuse nunca la da por pagada (R3). */
+export function pagoDeOrden(o: Pick<Orden, 'facturada' | 'pago'>): EstadoDelPago | null {
+  if (!o.facturada || o.pago === null) return null
+  const p = o.pago
+  if (p.facturasSinAviso === 0) {
+    if (p.falta !== null) return Number(p.falta) > RESIDUO_EN_PESOS ? 'pago_parcial' : 'pagada'
+    if (p.porSiniestro) return 'pagada_por_siniestro'
+    if (p.sinImporte) return 'sin_importe'
+  }
+  if (p.ultimoPago !== null) return 'pago_parcial'
+  if (p.acuse === 'aprobacion' || p.acuse === 'fecha_prometida') return 'aprobada'
+  if (p.acuse === 'acuse') return 'recibida'
+  return 'sin_aviso'
+}
+
+/** El pago, como lo diría una persona. Nulo si no hay nada que decir más allá de "facturada". */
+export function pagoEnPalabras(o: Pick<Orden, 'facturada' | 'pago'>, formatearFecha: (f: string | null) => string, formatearPesos: (p: string | null) => string): string | null {
+  const estado = pagoDeOrden(o)
+  const p = o.pago
+  if (estado === null || p === null) return null
+  const cuando = p.ultimoPago !== null ? ` el ${formatearFecha(p.ultimoPago)}` : ''
+  switch (estado) {
+    case 'pagada':
+      return p.falta !== null && Number(p.falta) > 0
+        ? `Pagada${cuando} (quedaron ${formatearPesos(p.falta)} sin pagar)`
+        : `Pagada${cuando}`
+    case 'pagada_por_siniestro':
+      return `Pagada${cuando} (el aviso nombra el siniestro, no la factura)`
+    case 'sin_importe':
+      return `Hay un aviso de pago${cuando}, pero no dice el importe`
+    case 'pago_parcial':
+      return p.falta !== null && p.facturasSinAviso === 0 ? `Pago parcial${cuando}: faltan ${formatearPesos(p.falta)}` : `Pago parcial${cuando}: una de sus facturas todavía no tiene aviso`
+    case 'aprobada':
+      return p.fechaPrometida !== null ? `Aprobada: pagan el ${formatearFecha(p.fechaPrometida)}` : 'Aprobada por la compañía, sin fecha de pago'
+    case 'recibida':
+      return 'La compañía acusó recibo de la factura'
+    case 'sin_aviso':
+      return null
+  }
 }
 
 /** En orden de prioridad: lo primero que se cumple manda. A confirmar va antes que todo porque,
@@ -84,7 +155,9 @@ export type Grupos = {
   /** Vencidas sin factura hace más de DIAS_QUE_SE_MUESTRA_VENCIDA. Ya no son urgentes, pero
    *  tampoco se esconden: si el trabajo no se hizo, alguien lo tiene que decir. */
   readonly vencidasViejas: readonly Orden[]
-  /** Facturadas, anuladas, cerradas y descartadas: para consultar. */
+  /** Facturadas y pagadas (fase 2): plegadas, para consultar. */
+  readonly pagadas: readonly Orden[]
+  /** Facturadas sin pago, anuladas, cerradas y descartadas: para consultar. */
   readonly resueltas: readonly Orden[]
 }
 
@@ -95,16 +168,22 @@ export function agruparOrdenes(ordenes: readonly Orden[]): Grupos {
   const paraAtender: Orden[] = []
   const vigentes: Orden[] = []
   const vencidasViejas: Orden[] = []
+  const pagadas: Orden[] = []
   const resueltas: Orden[] = []
   for (const o of ordenes) {
     switch (estadoDeOrden(o)) {
       case 'a_confirmar':
         paraConfirmar.push(o)
         break
+      case 'facturada': {
+        const pago = pagoDeOrden(o)
+        if (pago === 'pagada' || pago === 'pagada_por_siniestro') pagadas.push(o)
+        else resueltas.push(o)
+        break
+      }
       case 'descartada':
       case 'cerrada':
       case 'anulada':
-      case 'facturada':
         resueltas.push(o)
         break
       case 'vigente':
@@ -119,7 +198,7 @@ export function agruparOrdenes(ordenes: readonly Orden[]): Grupos {
         break
     }
   }
-  return { paraConfirmar, paraAtender, vigentes, vencidasViejas, resueltas }
+  return { paraConfirmar, paraAtender, vigentes, vencidasViejas, pagadas, resueltas }
 }
 
 /** Cómo se resolvió una orden. Nula en las que todavía no se resolvieron (las que siguen corriendo

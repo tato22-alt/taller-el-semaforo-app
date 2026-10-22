@@ -53,7 +53,19 @@ describe('leer órdenes', () => {
     const { cliente, llamadas } = clienteFalso()
     const r = await leerOrdenes(cliente)
     expect(r.ok && r.dato[0]).toMatchObject({ id: 7, compania: null, aConfirmar: true, descartada: false, cerrada: false, cerradaMotivo: null, montoAutorizado: '150000.00' })
-    expect(llamadas[0]).toMatch(/a_confirmar, descartada, cerrada, cerrada_motivo$/)
+    expect(llamadas[0]).toMatch(/a_confirmar, descartada, cerrada, cerrada_motivo, /)
+  })
+
+  it('trae el pago de la factura (fase 2) sólo cuando está facturada, con la plata como texto', async () => {
+    const pagada = { ...fila, id_orden: 8, a_confirmar: false, facturada: true, facturas: '2-9101 del 2026-09-01', por_mail: false,
+      por_evidencia: 'aviso', pago_facturas_sin_aviso: 0, pago_falta: '0.00', pago_sin_importe: false, pago_ultimo: '2026-09-14',
+      pago_por_siniestro: false, pago_acuse: null, pago_fecha_prometida: null }
+    const { cliente, llamadas } = clienteFalso({ vista: [pagada, fila] })
+    const r = await leerOrdenes(cliente)
+    expect(r.ok && r.dato[0]).toMatchObject({ facturaPorEvidencia: 'aviso',
+      pago: { facturasSinAviso: 0, falta: '0.00', sinImporte: false, ultimoPago: '2026-09-14', porSiniestro: false, acuse: null } })
+    expect(r.ok && r.dato[1]?.pago).toBeNull()
+    expect(llamadas[0]).toMatch(/por_evidencia, pago_facturas_sin_aviso, pago_falta, pago_sin_importe, pago_ultimo, pago_por_siniestro, pago_acuse, pago_fecha_prometida$/)
   })
 
   it('el siniestro puede faltar en una a confirmar que el robot no pudo leer (RF-1014)', async () => {

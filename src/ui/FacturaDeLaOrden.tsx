@@ -9,7 +9,7 @@ import { useState } from 'react'
 import { desvincularFacturas, leerPropuestas, vincularFactura, type FacturaPropuesta } from '../datos/orden-factura'
 import { formatearPesos } from '../dominio/dinero'
 import { formatearFecha } from '../dominio/fechas'
-import { siniestroEnPalabras, type Orden } from '../dominio/ordenes'
+import { pagoDeOrden, pagoEnPalabras, siniestroEnPalabras, type Orden } from '../dominio/ordenes'
 import { textoDeFallo, type Fallo, type Resultado } from '../dominio/resultado'
 
 type Hacer = (accion: () => Promise<Resultado<null>>) => Promise<void>
@@ -26,11 +26,15 @@ export function FacturaDeLaOrden({ orden: o, ocupado, hacer }: Props) {
   const [eligiendo, setEligiendo] = useState(false)
 
   if (o.facturada) {
+    const pago = pagoEnPalabras(o, formatearFecha, formatearPesos)
     return (
+      <>
       <p className="acciones factura">
         <span>
           Factura {o.facturas}
           {o.facturaPorMail && <span className="apagado"> · la vinculó el mail con que se mandó</span>}
+          {o.facturaPorEvidencia === 'aviso' && <span className="apagado"> · la vinculó el aviso de pago</span>}
+          {o.facturaPorEvidencia === 'acuse' && <span className="apagado"> · la vinculó el aviso de la compañía</span>}
         </span>
         <button
           type="button"
@@ -45,6 +49,8 @@ export function FacturaDeLaOrden({ orden: o, ocupado, hacer }: Props) {
           No es ésta
         </button>
       </p>
+      {pago !== null && <p className={`pago pago-${pagoDeOrden(o) ?? ''}`}>{pago}</p>}
+      </>
     )
   }
 

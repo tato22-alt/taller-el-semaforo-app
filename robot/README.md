@@ -4,9 +4,10 @@ Lee los avisos de pago que llegan al Gmail del taller y los anota en una planill
 qué compañía pagó, qué factura nombra, cuánto, y qué le retuvieron. También anota las facturas
 que el taller mandó con el asunto estándar (`factura n°… siniestro n°…`).
 
-**Todavía no toca la base.** Es la fase 0 del plan 005: juntar los 21 meses de avisos en un lugar,
-con su texto, para medir contra mails reales cuánto acierta cada lector antes de escribir nada en
-Supabase. Lo que no entiende queda a la vista, nunca se descarta en silencio.
+Empezó como la fase 0 del plan 005: juntar los 21 meses de avisos en un lugar, con su texto, para
+medir contra mails reales cuánto acierta cada lector. **Desde la fase 2 (2026-10-22) también los sube
+a la base**, con las órdenes de trabajo y los envíos de factura (ver las versiones, abajo). Lo que no
+entiende queda a la vista, nunca se descarta en silencio.
 
 | Archivo | Qué es |
 |---|---|
@@ -256,10 +257,32 @@ Siniestro:…", "Siniestro … Factura 3308"), y las adjudicaciones de Grant con
 
 Para instalarla: aplicá la migración 28 en Supabase, pegá el `robot.gs` nuevo y ejecutá `barrer`.
 
+## La versión del 2026-10-22, segunda: los avisos de pago van a la base (fase 2)
+
+El robot sube a la base **cada aviso de pago y cada acuse** de la pestaña *avisos* (columna nueva
+**`base`**), con lo que dice su lector hoy. Con eso:
+
+- **La app muestra si la factura de cada orden está pagada**, pagada en parte, o aprobada con fecha
+  de pago (un acuse no es un pago: se ve distinto).
+- **Un aviso o un acuse que dicen la factura y el siniestro vinculan solos la orden**, como el mail
+  de la factura. Es lo que resuelve las órdenes de las compañías que reciben la factura por portal:
+  por ejemplo Mercantil, que avisa "tu factura fue aprobada" con el siniestro.
+
+En la columna `base` queda lo que contestó: `guardado`, `releído`, y cuántas órdenes vinculó
+(`guardado · vinculó 1 orden`). Si dice `error…`, la próxima corrida lo vuelve a intentar.
+
+**Nada se borra en la base.** Cuando corregís un lector y corrés `releer`, los avisos cuya lectura
+cambió se vuelven a subir: la base guarda la lectura nueva, que pasa a ser la que vale, y la vieja
+queda guardada.
+
+Para instalarla: pegá el `robot.gs` nuevo y ejecutá `barrer` hasta que diga "Al día.". La primera
+vez sube todos los avisos de la planilla, así que puede llevar varias corridas. No hay que aplicar
+nada en Supabase: la base ya está lista.
+
 ## Lo que esta planilla NO es
 
-- **No es la base.** En la fase 2 lo mismo pasa a Supabase, con un usuario `robot@` que sólo
-  puede insertar evidencia (spec 005 §3, plan D2). Hasta entonces, nada de acá suma a ningún saldo.
-  Las órdenes de trabajo son la primera pieza que ya va a la base (arriba).
+- **No es la base.** Desde la fase 2 lo que importa está en Supabase, adonde el robot sube con un
+  usuario `robot@` que sólo puede llamar a sus funciones (spec 005 §3, plan D2). La planilla se sigue
+  escribiendo dos semanas para comparar, y después deja de usarse.
 - **No va al repo.** Tiene datos reales (montos, números de factura, CBU enmascarados). El repo
   es público: acá sólo hay código y mails inventados para los tests.

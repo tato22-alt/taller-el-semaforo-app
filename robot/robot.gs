@@ -1366,6 +1366,113 @@ function frase(texto, patron) {
   return m ? enUnRenglon(m[0]).trim() : null
 }
 
+// ===== lectores/para-la-base.js =====
+
+/* Lo que el robot le manda a la base por cada aviso: el mail como está en la planilla y lo que dice
+ * su lector. Fase 2 de cobranzas (plan-fase-2.md en semaforo-base).
+ *
+ * Es una función pura, como los lectores: se testea sin Google. La base (fn_robot_guarda_aviso)
+ * recibe esto entero y decide qué hacer; acá sólo se vuelve a leer el mail con los lectores de hoy y
+ * se deja todo con la forma que la base entiende: fechas aaaa-mm-dd, importes como texto con punto
+ * decimal, y vacíos como null. Lo que no tiene esa forma no se manda roto: el aviso va como
+ * no_entendido, con el motivo, y una persona lo ve en Revisar. */
+
+/** Las columnas de la pestaña "avisos", en su orden (barrido.js, COLUMNAS.avisos). */
+const COL_AVISO = { id: 0, fecha: 1, remitente: 2, asunto: 3, cuerpo: 4, pdfs: 5, textoPdf: 6, pdfsDrive: 12, base: 13 }
+
+/**
+ * @typedef {{
+ *   id: string, fecha: string, remitente: string, asunto: string, cuerpo: string, textoPdf: string,
+ *   pdfs: string[], pdfsDrive: string[], leido: AvisoLeido | AcuseLeido | AvisoNoLeido
+ * }} AvisoParaLaBase
+ */
+
+/**
+ * Un renglón de la pestaña "avisos" → lo que se le manda a fn_robot_guarda_aviso.
+ * @param {readonly unknown[]} fila
+ * @returns {AvisoParaLaBase}
+ */
+function avisoParaLaBase(fila) {
+  const texto = (/** @type {number} */ i) => {
+    const v = fila[i]
+    return v === null || v === undefined ? '' : String(v)
+  }
+  const lista = (/** @type {number} */ i) => texto(i).split('\n').map((x) => x.trim()).filter((x) => x !== '')
+  const mail = { remitente: texto(COL_AVISO.remitente), asunto: texto(COL_AVISO.asunto), cuerpo: texto(COL_AVISO.cuerpo),
+    textoPdf: texto(COL_AVISO.textoPdf), adjuntos: lista(COL_AVISO.pdfs), copia: '' }
+  return {
+    id: texto(COL_AVISO.id),
+    fecha: texto(COL_AVISO.fecha),
+    remitente: mail.remitente,
+    asunto: mail.asunto,
+    cuerpo: mail.cuerpo,
+    textoPdf: mail.textoPdf,
+    pdfs: mail.adjuntos,
+    pdfsDrive: lista(COL_AVISO.pdfsDrive),
+    leido: conFormaDeLaBase(leerAviso(mail)),
+  }
+}
+
+/**
+ * Lo leído, con fechas e importes revisados. Si algo no tiene la forma que guarda la base, el aviso
+ * pasa a no_entendido: mejor a la vista que perdido en un error de la subida.
+ * @param {AvisoLeido | AcuseLeido | AvisoNoLeido} leido
+ * @returns {AvisoLeido | AcuseLeido | AvisoNoLeido}
+ */
+function conFormaDeLaBase(leido) {
+  /** @type {string[]} */
+  const problemas = []
+  const fecha = (/** @type {string | null} */ f, /** @type {string} */ que) => {
+    if (f === null || f === '') return null
+    if (/^\d{4}-\d{2}-\d{2}$/.test(f)) return f
+    problemas.push(`${que} "${f}" no es una fecha`)
+    return null
+  }
+  const importe = (/** @type {string | null} */ i, /** @type {string} */ que) => {
+    if (i === null || i === '') return null
+    if (/^\d+(\.\d{1,2})?$/.test(i)) return i
+    problemas.push(`${que} "${i}" no es un importe`)
+    return null
+  }
+
+  if (leido.estado === 'acuse') {
+    const a = { ...leido, monto: importe(leido.monto, 'el monto'), fechaPrometida: fecha(leido.fechaPrometida, 'la fecha prometida') }
+    return problemas.length === 0 ? a : noEntendido(leido.lector, leido.version, `Acuse con ${problemas.join('; ')}.`)
+  }
+  if (leido.estado !== 'leido' && leido.estado !== 'no_cierra') return leido
+
+  const lineas = leido.lineas.map((l) => ({ ...l, bruto: importe(l.bruto, 'el bruto'), neto: importe(l.neto, 'el neto') }))
+  const retenciones = leido.retenciones.map((r) => {
+    if (r.importe === '') problemas.push(`la retención "${r.concepto}" no tiene un importe legible`)
+    return { ...r, importe: importe(r.importe, `la retención "${r.concepto}"`) ?? '' }
+  })
+  const a = { ...leido, fechaPago: fecha(leido.fechaPago, 'la fecha de pago'), neto: importe(leido.neto, 'el neto'), lineas, retenciones }
+  return problemas.length === 0 ? a : noEntendido(leido.lector, leido.version, `El lector leyó ${problemas.join('; ')}.`)
+}
+
+/**
+ * ¿Hay que subir (o volver a subir) este renglón? Sí si nunca entró, o si la vez anterior la base
+ * contestó con un error: se reintenta en la próxima corrida.
+ * @param {readonly unknown[]} fila
+ * @returns {boolean}
+ */
+function avisoPendienteDeSubir(fila) {
+  const base = fila[COL_AVISO.base]
+  const texto = base === null || base === undefined ? '' : String(base)
+  return String(fila[COL_AVISO.id] ?? '') !== '' && (texto === '' || texto.startsWith('error'))
+}
+
+/**
+ * Lo que contestó la base, en una celda: "guardado", "releído · vinculó 1 orden".
+ * @param {{ resultado: string, vinculadas: number }} r
+ * @returns {string}
+ */
+function respuestaDeLaBase(r) {
+  const que = r.resultado === 'releido' ? 'releído' : r.resultado
+  if (!r.vinculadas) return que
+  return `${que} · vinculó ${r.vinculadas} ${r.vinculadas === 1 ? 'orden' : 'órdenes'}`
+}
+
 // ===== lectores/rio-uruguay.js =====
 
 /* Río Uruguay Seguros (RUS) · el detalle está en el PDF "OrdenesDePago".
@@ -1693,7 +1800,7 @@ const MAX_CELDA = 49000
 
 const COLUMNAS = {
   remitentes: ['remitente', 'compañía'],
-  avisos: ['message_id', 'fecha', 'remitente', 'asunto', 'cuerpo', 'pdfs', 'texto_pdf', 'lector', 'version', 'estado', 'motivo', 'control', 'pdfs_drive'],
+  avisos: ['message_id', 'fecha', 'remitente', 'asunto', 'cuerpo', 'pdfs', 'texto_pdf', 'lector', 'version', 'estado', 'motivo', 'control', 'pdfs_drive', 'base'],
   lineas: ['message_id', 'fecha_aviso', 'remitente', 'tipo', 'op', 'fecha_pago', 'factura_como_dice', 'punto_venta', 'numero', 'siniestro', 'bruto', 'neto', 'neto_del_aviso', 'control', 'lector', 'version'],
   retenciones: ['message_id', 'certificado', 'concepto', 'impuesto', 'importe'],
   acuses: ['message_id', 'fecha', 'remitente', 'tipo', 'factura_como_dice', 'punto_venta', 'numero', 'siniestro', 'monto', 'fecha_prometida', 'referencia', 'lector'],
@@ -1775,17 +1882,21 @@ function barrer() {
     (id) => guardarOrden(id, hojas, dominios),
     inicio,
   )
-  // Primero las órdenes y después los envíos: la base vincula cada factura a una orden que ya esté.
+  // Primero las órdenes, después los envíos y al final los avisos: la base vincula cada factura a una
+  // orden que ya esté, y un pago a una factura que ya tenga su orden.
   const subidas = subirOrdenes(hojas.ordenes, inicio)
   const envios = subirEnvios(hojas.enviados, inicio)
+  const avisos = subirAvisos(hojas.avisos, inicio)
   console.log(`Avisos nuevos: ${nuevosAvisos.guardados}. Envíos nuevos: ${nuevosEnvios.guardados}. ` +
-    `Mails de órdenes nuevos: ${nuevasOrdenes.guardados + paraConfirmar.guardados}. ${subidas} ${envios}` +
+    `Mails de órdenes nuevos: ${nuevasOrdenes.guardados + paraConfirmar.guardados}. ${subidas} ${envios} ${avisos}` +
     (nuevosAvisos.cortado || nuevosEnvios.cortado || nuevasOrdenes.cortado || paraConfirmar.cortado ? ' Quedan más: la próxima corrida sigue.' : ' Al día.'))
 }
 
 /**
  * Vuelve a leer todos los avisos de la planilla con los lectores de hoy, sin ir a Gmail (RF-508).
- * Se corre a mano después de corregir o agregar un lector. Rehace "lineas" y "retenciones".
+ * Se corre a mano después de corregir o agregar un lector. Rehace "lineas" y "retenciones", y marca
+ * para volver a subir a la base los avisos cuya lectura cambió (la base guarda la nueva y deja la
+ * vieja: nada se borra).
  */
 function releer() {
   const hojas = prepararHojas()
@@ -1800,7 +1911,10 @@ function releer() {
     const aviso = { id: String(f[0]), fecha: String(f[1]), remitente: String(f[2]) }
     const leido = leerAviso({ remitente: aviso.remitente, asunto: String(f[3]), cuerpo: String(f[4]), textoPdf: String(f[6]),
       adjuntos: String(f[5]).split('\n').filter((n) => n !== ''), copia: '' })
-    hojas.avisos.getRange(i + 2, 8, 1, 5).setValues([estadoDe(leido)])
+    const estado = estadoDe(leido)
+    // Si cambió el lector, la versión, el estado o el control, la base tiene que ver la lectura nueva.
+    if ([0, 1, 2, 4].some((k) => String(f[7 + k] ?? '') !== String(estado[k] ?? ''))) hojas.avisos.getRange(i + 2, 14).setValue('')
+    hojas.avisos.getRange(i + 2, 8, 1, 5).setValues([estado])
     lineas.push(...filasDeLineas(aviso, leido))
     retenciones.push(...filasDeRetenciones(aviso.id, leido))
     acuses.push(...filasDeAcuses(aviso, leido))
@@ -2082,6 +2196,47 @@ function subirEnvios(hoja, inicio = Date.now()) {
     hechas++
   }
   return `Envíos a la base: ${hechas}, con ${vinculadas} facturas vinculadas a su orden.`
+}
+
+/**
+ * Sube a la base los avisos de la pestaña que todavía no entraron (fase 2 de cobranzas): el mail como
+ * está en la planilla y lo que dice su lector hoy, por fn_robot_guarda_aviso. La base guarda la
+ * evidencia, vincula las órdenes que el aviso nombra con factura y siniestro, y deriva qué facturas
+ * están pagadas. Lo que contesta queda en la columna "base"; un error se reintenta en la próxima
+ * corrida. Comparte el reloj con el barrido.
+ * @returns {string} una línea para el registro
+ */
+function subirAvisos(hoja, inicio = Date.now()) {
+  if (!hayPropiedadesDelRobot()) return 'Avisos sin subir: faltan las propiedades del robot.'
+  const pendientes = hoja.getDataRange().getValues().slice(1)
+    .map((f, i) => ({ f, fila: i + 2 }))
+    .filter(({ f }) => avisoPendienteDeSubir(f))
+    .sort((a, b) => String(a.f[1]).localeCompare(String(b.f[1])))
+  if (pendientes.length === 0) return 'Avisos en la base: al día.'
+
+  const sesion = entrarALaBase()
+  if (typeof sesion === 'string') return `Avisos sin subir: ${sesion}.`
+  const { url, clave, token } = sesion
+
+  let vinculadas = 0
+  let hechas = 0
+  for (const { f, fila } of pendientes) {
+    if (Date.now() - inicio > LIMITE_SUBIDA_MS) return `Avisos a la base: ${hechas}, con ${vinculadas} órdenes vinculadas; quedan ${pendientes.length - hechas}, siguen en la próxima corrida.`
+    const r = UrlFetchApp.fetch(`${url}/rest/v1/rpc/fn_robot_guarda_aviso`, {
+      method: 'post', contentType: 'application/json', headers: { apikey: clave, Authorization: `Bearer ${token}` },
+      muteHttpExceptions: true,
+      payload: JSON.stringify({ p_aviso: avisoParaLaBase(f) }),
+    })
+    if (r.getResponseCode() === 200) {
+      const respuesta = JSON.parse(r.getContentText())
+      hoja.getRange(fila, 14).setValue(respuestaDeLaBase(respuesta))
+      vinculadas += Number(respuesta.vinculadas) || 0
+    } else {
+      hoja.getRange(fila, 14).setValue(`error HTTP ${r.getResponseCode()}: ${r.getContentText().slice(0, 200)}`)
+    }
+    hechas++
+  }
+  return `Avisos a la base: ${hechas}, con ${vinculadas} órdenes vinculadas.`
 }
 
 /**
