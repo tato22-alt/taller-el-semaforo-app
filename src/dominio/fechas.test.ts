@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { antiguedadEnPalabras, diasDesde, formatearFecha, hoyEnElTaller } from './fechas'
+import { antiguedadEnPalabras, diaEnPalabras, diasDesde, formatearFecha, hoyEnElTaller } from './fechas'
 
 describe('formatearFecha', () => {
   it('no corre la fecha un día para atrás', () => {
@@ -58,5 +58,14 @@ describe('antiguedadEnPalabras', () => {
     expect(antiguedadEnPalabras(1)).toBe('ayer')
     expect(antiguedadEnPalabras(40)).toBe('hace 40 días')
     expect(antiguedadEnPalabras(null)).toBe('sin fecha')
+  })
+})
+
+describe('diaEnPalabras', () => {
+  it('dice el día de la semana del calendario, sin correrse por la zona', () => {
+    // 2026-10-28 es miércoles en el calendario. Con new Date('2026-10-28') en Argentina saldría martes.
+    expect(diaEnPalabras('2026-10-28')).toBe('miércoles 28/10')
+    expect(diaEnPalabras('2026-11-01')).toBe('domingo 01/11')
+    expect(diaEnPalabras(null)).toBe('—')
   })
 })

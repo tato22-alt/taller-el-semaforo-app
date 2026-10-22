@@ -26,7 +26,7 @@ ordena es esto:
 - **El principio IX sigue vigente:** lo que lista como fuera (stock, RRHH, etapas de la reparación,
   registro manual de comunicaciones, entre otros) sólo entra con una enmienda escrita.
 
-Hoy hay dos módulos especificados, y los dos siguen con su frontera:
+Hoy hay dos módulos especificados y el flujo de los hitos del auto, cada uno con su frontera:
 
 ### Módulo 1 — Presupuestos (spec 002)
 
@@ -48,6 +48,13 @@ para cobrarlo**, con datos que ya están escritos en ARCA y en Gmail. Sus pantal
 la spec 005 §6: **Cobranzas, Ficha de factura, Revisar, Ficha de compañía y Antes de emitir**,
 más **Importar** (subir el CSV de ARCA), que entró con el plan de la fase 1, y nada más. Lo que este módulo no hace está en la spec 005 §10, y se defiende igual que el
 resto.
+
+### Hitos del auto (spec 011 de `semaforo-base`, aprobada el 2026-10-22)
+
+La pantalla **Hoy**: qué autos hay en el taller y hace cuánto, a quién hay que llamar, quién no vino
+al turno y qué auto listo nadie retiró. Cinco toques por auto (llegaron los repuestos, turno, entró,
+listo, salió) y un mensaje de WhatsApp armado para cada momento, que manda una persona (R1). Es lo que
+el tablero esperaba para volver a crecer: el estado del auto, derivado de hechos y no cargado.
 
 Lo próximo, en borrador: siniestros, peritos y fotos del caso (spec 009 de `semaforo-base`). Si
 algo suena a "podría ser útil algún día" y no a un paso de un flujo real, no va.
@@ -105,8 +112,8 @@ Cinco reglas que salen de ahí y no se negocian:
   herramienta ya marca desde su ficha interna (spec 004 §4). Los conceptos, el texto tal como
   se imprimió y los hechos sobre el trabajo tienen un solo dueño; si esta app también los
   escribiera, habría dos implementaciones de lo mismo comportándose distinto. Lo que esta app
-  escribe son tablas del módulo de cobranzas, y sólo las que figuran por nombre en
-  `src/arquitectura.test.ts` (hoy `importacion` y `comprobante`, desde la pantalla Importar, `comprobante_vinculo`, desde Revisar, `orden_trabajo`, desde Órdenes, para confirmar, anular y cerrar: las carga el robot, y `orden_factura`, desde Órdenes, para confirmar o deshacer la factura de una orden: la vincula sola la base). Una
+  escribe son tablas propias (de cobranzas y, desde la spec 011, los hitos del auto), y sólo las que figuran por nombre en
+  `src/arquitectura.test.ts` (hoy `importacion` y `comprobante`, desde la pantalla Importar, `comprobante_vinculo`, desde Revisar, `orden_trabajo`, desde Órdenes, para confirmar, anular y cerrar: las carga el robot, y `orden_factura`, desde Órdenes, para confirmar o deshacer la factura de una orden: la vincula sola la base, y `hito_trabajo`, desde Hoy, para anotar y deshacer los toques de la spec 011 de `semaforo-base`). Una
   tabla nueva que la app escriba se agrega a esa lista en el mismo commit que la escribe, no
   antes: un test que se afloja por adelantado no protege nada.
 
