@@ -5,7 +5,7 @@
  * ya decidido, para deshacer lo equivocado. La pantalla no decide ni calcula nada: pinta y llama. */
 
 import { useCallback, useEffect, useState } from 'react'
-import { deshacerDecision, descartar, leerCandidatas, leerDecisiones, leerPorRevisar, vincularConFactura } from '../datos/avisos'
+import { TODAVIA_NO, deshacerDecision, descartar, leerCandidatas, leerDecisiones, leerPorRevisar, vincularConFactura } from '../datos/avisos'
 import { formatearPesos } from '../dominio/dinero'
 import { formatearFecha } from '../dominio/fechas'
 import { RESIDUO_EN_PESOS } from '../dominio/ordenes'
@@ -29,7 +29,7 @@ const numero = (c: { puntoVenta: number; numero: number }) => `${String(c.puntoV
 type Decidir = (accion: () => Promise<Resultado<null>>) => Promise<void>
 
 export function RevisarAvisos() {
-  const [cosas, setCosas] = useState<readonly CosaPorRevisar[] | Fallo | null>(null)
+  const [cosas, setCosas] = useState<readonly CosaPorRevisar[] | typeof TODAVIA_NO | Fallo | null>(null)
   const [decisiones, setDecisiones] = useState<readonly Decision[]>([])
   const [fallo, setFallo] = useState<Fallo | null>(null)
   const [ocupado, setOcupado] = useState(false)
@@ -51,6 +51,14 @@ export function RevisarAvisos() {
   }
 
   if (cosas === null) return <p className="apagado">Buscando avisos de pago para revisar…</p>
+  if (cosas === TODAVIA_NO) {
+    return (
+      <section className="revisar-avisos">
+        <h3>Avisos de pago</h3>
+        <p className="apagado">Esta parte se activa con la próxima actualización de la base.</p>
+      </section>
+    )
+  }
   if ('tipo' in cosas) return <p className="error tarjeta">{textoDeFallo(cosas)}</p>
 
   const grupos = agruparPorCompania(cosas)

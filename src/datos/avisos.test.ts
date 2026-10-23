@@ -6,10 +6,10 @@ import { describe, expect, it } from 'vitest'
 import type { ClienteBase } from './cliente-supabase'
 import { descartar, deshacerDecision, leerCandidatas, leerDecisiones, leerPorRevisar, vincularConFactura } from './avisos'
 
-function clienteFalso(o: { conSesion?: boolean; filas?: readonly unknown[] } = {}) {
+function clienteFalso(o: { conSesion?: boolean; filas?: readonly unknown[]; error?: { code: string; message: string } } = {}) {
   const llamadas: string[] = []
   const cadena = (datos: unknown): unknown =>
-    Object.assign(Promise.resolve({ data: datos, error: null }), {
+    Object.assign(Promise.resolve({ data: o.error ? null : datos, error: o.error ?? null }), {
       eq: (c: string, v: unknown) => { llamadas.push(`  where ${c} = ${String(v)}`); return cadena(datos) },
       is: (c: string, v: unknown) => { llamadas.push(`  where ${c} is ${String(v)}`); return cadena(datos) },
       order: (c: string) => { llamadas.push(`  order ${c}`); return cadena(datos) },
@@ -35,6 +35,13 @@ describe('revisar avisos, en la base', () => {
     const { cliente } = clienteFalso({ filas: [fila, { ...fila, que: 'algo_nuevo', gmail_message_id: 'm2' }] })
     const r = await leerPorRevisar(cliente)
     expect(r.ok && r.dato).toEqual([expect.objectContaining({ gmailMessageId: 'm1', que: 'aviso_sin_lector', bruto: '1500.00', pdfsDrive: ['id1'] })])
+  })
+
+  it('antes de la M7 (la columna no existe) no es un error: es que todavía no está', async () => {
+    const { cliente } = clienteFalso({ error: { code: '42703', message: 'column vw_revisar.linea_orden does not exist' } })
+    expect(await leerPorRevisar(cliente)).toEqual({ ok: true, dato: 'todavia_no' })
+    const otro = clienteFalso({ error: { code: '57014', message: 'canceling statement due to statement timeout' } })
+    expect((await leerPorRevisar(otro.cliente)).ok).toBe(false)
   })
 
   it('pide las candidatas del aviso entero con linea_orden nula, y las de un renglón con su número', async () => {

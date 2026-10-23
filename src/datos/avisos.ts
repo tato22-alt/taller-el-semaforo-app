@@ -34,13 +34,20 @@ const CANDIDATAS = 6
 /** Cuántas decisiones se muestran para poder deshacerlas: las últimas. */
 const DECISIONES = 15
 
+/** La base todavía no tiene la M7 (las columnas nuevas de vw_revisar y la tabla imputacion): la app
+ *  puede estar publicada antes de que se aplique, y no por eso tiene que mostrar un error. */
+export const TODAVIA_NO = 'todavia_no'
+
+/** Códigos con los que PostgREST dice que una columna o una vista no existe. */
+const SIN_M7 = new Set(['42703', '42P01', 'PGRST204', 'PGRST205'])
+
 /** Todo lo que espera a una persona. Lo que la base devuelva con un "que" que esta app no conoce, no se
  *  muestra mal: se deja afuera (aparece cuando la app lo aprenda). */
-export async function leerPorRevisar(base: ClienteBase | null = null): Promise<Resultado<readonly CosaPorRevisar[]>> {
+export async function leerPorRevisar(base: ClienteBase | null = null): Promise<Resultado<readonly CosaPorRevisar[] | typeof TODAVIA_NO>> {
   const cliente = await clienteConSesion(base)
   if (!cliente.ok) return cliente
   const r = await cliente.dato.from('vw_revisar').select(COLUMNAS).order('recibido_en', { ascending: false })
-  if (r.error !== null) return mal(clasificar(r.error))
+  if (r.error !== null) return r.error.code !== undefined && SIN_M7.has(r.error.code) ? bien(TODAVIA_NO) : mal(clasificar(r.error))
   return bien((r.data as unknown as FilaRevisar[]).flatMap((f) => (esQueRevisar(f.que) ? [{
     gmailMessageId: f.gmail_message_id,
     lineaOrden: f.linea_orden,
