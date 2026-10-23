@@ -1,4 +1,5 @@
-/* Revisar: las notas de crédito y de débito que la base no puede resolver sola. Spec 005 §6, P9.
+/* Revisar: lo que la base no puede resolver sola. Spec 005 §6. Arriba, los avisos de pago que el robot
+ * no cerró (RevisarAvisos, M7); abajo, las notas de crédito y de débito (P9).
  *
  * Tres bloques, en el orden en que hay que mirarlos: lo que falta decidir, las notas de débito, y
  * lo que ya está resuelto (por la base o por una persona), con la posibilidad de deshacer. Cada
@@ -9,6 +10,7 @@ import { delCliente, desvincular, leerNotas, vincular, type Comprobante, type Mo
 import { formatearPesos } from '../dominio/dinero'
 import { formatearFecha } from '../dominio/fechas'
 import { textoDeFallo, type Fallo, type Resultado } from '../dominio/resultado'
+import { RevisarAvisos } from './RevisarAvisos'
 
 const numero = (c: { puntoVenta: number; numero: number }) => `${String(c.puntoVenta).padStart(4, '0')}-${String(c.numero).padStart(8, '0')}`
 
@@ -44,11 +46,12 @@ export function Revisar() {
 
   return (
     <div className="revisar">
-      <h2>Revisar notas de crédito y débito</h2>
+      <h2>Revisar</h2>
+      <RevisarAvisos />
       {fallo !== null && <p className="error">{textoDeFallo(fallo)}</p>}
 
       <section>
-        <h3>Para decidir ({porDecidir.length})</h3>
+        <h3>Notas de crédito para decidir ({porDecidir.length})</h3>
         {porDecidir.length === 0 && <p className="apagado">No queda ninguna nota de crédito sin resolver.</p>}
         {porDecidir.map((n) => (
           <NotaPorDecidir key={n.id} nota={n} ocupado={ocupado} decidir={decidir} />
@@ -64,7 +67,7 @@ export function Revisar() {
       </section>
 
       <section>
-        <h3>Ya resueltas ({resueltas.length})</h3>
+        <h3>Notas de crédito ya resueltas ({resueltas.length})</h3>
         <p className="apagado">
           {solas === 1 ? '1 se resolvió sola' : `${solas} se resolvieron solas`}: había una sola factura del mismo cliente y el mismo importe.
           {dePersona.length === 1 && ' 1 la decidió una persona.'}

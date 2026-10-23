@@ -5,7 +5,9 @@
  * que se aplica una migración en semaforo-base, y el archivo se pisa entero: lo que corrige lo
  * que el generador dice mal (los montos llegan como string) vive en `filas.ts`.
  *
- * Generado el 2026-10-23 contra la base real. */
+ * Generado el 2026-10-23 contra la base real. EXCEPCIÓN, hasta que se aplique la M7 de semaforo-base:
+ * `imputacion`, `vw_revisar_candidatas` y las columnas nuevas de `vw_revisar` se sumaron a mano, con la
+ * forma del generador. Apenas se aplique, se regenera el archivo entero y gana el generado. */
 
 export type Json =
   | string
@@ -628,6 +630,63 @@ export type Database = {
           id_importacion?: never
         }
         Relationships: []
+      }
+      imputacion: {
+        Row: {
+          bruto: number | null
+          decidido_en: string
+          decidido_por: string | null
+          decision: string
+          deshecho_en: string | null
+          deshecho_por: string | null
+          gmail_message_id: string
+          id_comprobante: number | null
+          id_imputacion: number
+          linea_orden: number | null
+          nota: string | null
+        }
+        Insert: {
+          bruto?: number | null
+          decidido_en?: string
+          decidido_por?: string | null
+          decision: string
+          deshecho_en?: string | null
+          deshecho_por?: string | null
+          gmail_message_id: string
+          id_comprobante?: number | null
+          id_imputacion?: never
+          linea_orden?: number | null
+          nota?: string | null
+        }
+        Update: {
+          bruto?: number | null
+          decidido_en?: string
+          decidido_por?: string | null
+          decision?: string
+          deshecho_en?: string | null
+          deshecho_por?: string | null
+          gmail_message_id?: string
+          id_comprobante?: number | null
+          id_imputacion?: never
+          linea_orden?: number | null
+          nota?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imputacion_gmail_message_id_fkey"
+            columns: ["gmail_message_id"]
+            isOneToOne: false
+            referencedRelation: "aviso"
+            referencedColumns: ["gmail_message_id"]
+          },
+          {
+            foreignKeyName: "imputacion_id_comprobante_fkey"
+            columns: ["id_comprobante"]
+            isOneToOne: false
+            referencedRelation: "comprobante"
+            referencedColumns: ["id_comprobante"]
+          },
+        ]
       }
       orden_factura: {
         Row: {
@@ -1300,14 +1359,35 @@ export type Database = {
       }
       vw_revisar: {
         Row: {
+          asunto: string | null
+          bruto: number | null
           compania: string | null
+          cuit_compania: string | null
           detalle: string | null
           gmail_message_id: string | null
+          linea_orden: number | null
           numero: number | null
+          pdfs_drive: string[] | null
           que: string | null
           recibido_en: string | null
           remitente: string | null
           siniestro: string | null
+        }
+        Relationships: []
+      }
+      vw_revisar_candidatas: {
+        Row: {
+          diferencia: number | null
+          falta: number | null
+          fecha_emision: string | null
+          gmail_message_id: string | null
+          id_comprobante: number | null
+          linea_orden: number | null
+          mismo_numero: boolean | null
+          numero: number | null
+          orden: number | null
+          punto_venta: number | null
+          total: number | null
         }
         Relationships: []
       }
