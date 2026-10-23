@@ -531,7 +531,7 @@ describe('el robot', () => {
   const codigo = [...fuentes.map((n) => join('lectores', n)), 'barrido.js', 'robot.gs'].map((n) => ({ nombre: n, texto: readFileSync(join(CARPETA, n), 'utf8') }))
 
   it('no guarda enlaces que inician sesión en un portal sin clave (R2)', () => {
-    const { sinEnlacesDeSesion } = runInNewContext(readFileSync(join(CARPETA, 'barrido.js'), 'utf8') + '\n;({ sinEnlacesDeSesion })', {}) as {
+    const { sinEnlacesDeSesion } = runInNewContext(readFileSync(join(DIR_LECTORES, 'claves.js'), 'utf8') + '\n;({ sinEnlacesDeSesion })', {}) as {
       sinEnlacesDeSesion: (t: string) => string
     }
     const limpio = sinEnlacesDeSesion('Ingresar[](https://www.portal.example/api/v1/session/fromToken/?utm_source=x&token=eyJhbGciOi.abc.def) | y https://www.ejemplo.com/ayuda queda')
@@ -541,7 +541,7 @@ describe('el robot', () => {
   })
 
   it('no guarda claves que una compañía mandó por mail (R2)', () => {
-    const { sinClaves } = runInNewContext(readFileSync(join(CARPETA, 'barrido.js'), 'utf8') + '\n;({ sinClaves })', {}) as { sinClaves: (t: string) => string }
+    const { sinClaves } = runInNewContext(readFileSync(join(DIR_LECTORES, 'claves.js'), 'utf8') + '\n;({ sinClaves })', {}) as { sinClaves: (t: string) => string }
     const limpio = sinClaves('Usuario taller@ejemplo.com Contraseña Qw7[>9=k2 y Clave: abc123 y password=zz9')
     expect(limpio).not.toMatch(/Qw7|abc123|zz9/)
     expect(limpio).toContain('Usuario taller@ejemplo.com')

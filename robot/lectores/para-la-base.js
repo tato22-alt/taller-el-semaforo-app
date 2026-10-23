@@ -36,8 +36,9 @@ function avisoParaLaBase(fila) {
     fecha: texto(COL_AVISO.fecha),
     remitente: mail.remitente,
     asunto: mail.asunto,
-    cuerpo: mail.cuerpo,
-    textoPdf: mail.textoPdf,
+    // Otra vez sin claves: una fila vieja de la planilla puede traer una que la regla de antes no tapó.
+    cuerpo: paraGuardar(mail.cuerpo),
+    textoPdf: paraGuardar(mail.textoPdf),
     pdfs: mail.adjuntos,
     pdfsDrive: lista(COL_AVISO.pdfsDrive),
     leido: conFormaDeLaBase(leerAviso(mail)),
