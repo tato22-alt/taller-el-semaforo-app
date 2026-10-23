@@ -20,6 +20,8 @@ function lectores() {
     { dominio: 'fedpat.com.ar', asunto: /dep[oó]sito de transferencia/i, leer: leerFedPatronal },
     { dominio: 'lasegunda.com.ar', asunto: /retenciones factura/i, leer: leerLaSegunda },
     { dominio: 'lps.com.ar', asunto: /orden de pago/i, leer: leerLps },
+    { dominio: 'cooperacionseguros.com.ar', asunto: /orden de pago/i, leer: leerCooperacion },
+    { dominio: 'pseguros.com.ar', asunto: /[oó]rdenes de pagos?/i, leer: leerProvincia },
     { dominio: 'riouruguay.com.ar', asunto: /pago/i, leer: leerRioUruguay },
     { dominio: 'nacion-seguros.com.ar', asunto: /aviso de pago/i, leer: leerNacion },
     { dominio: 'sancristobal.com.ar', asunto: /aviso de pago/i, leer: leerSanCristobal },

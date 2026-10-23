@@ -192,6 +192,116 @@ describe('LPS (PDF de la orden de pago)', () => {
   })
 })
 
+describe('LPS, la forma nueva (desde mayo de 2026): primero los nombres, después los importes', () => {
+  const LPS = 'no-responder@lps.com.ar'
+  const pdf = [
+    'LA PERSEVERANCIA SEGUROS ORDEN DE PAGO Nro. 00100002 ORIGINAL', '30/09/2026 T.E. :', 'COMPROBANTES CANCELADOS',
+    'Fecha Tipo y Nro.Comprobante Imp.Cancelado Cotiz. Moneda Deducciones',
+    '26/08/2026 FS -A / 00002/ 1234 100.000,00 1,0000 $ TOTAL CPTES.: 100.000,00',
+    'VALORES Ente Pagador 1191 BANCO DE PRUEBA TRANS. CBU $ 80.200,00',
+    'DETALLE RETENCIONES Tipo DGI % Exención Vto. Exen. Monto Ret. Base Ret.',
+    'GANANCIAS - 1 94 0,0000 / / 2.000,00 82.000,00 IVA - R 212 0,0000 / / 13.800,00 82.000,00',
+    'SUBTOTAL RET.GANANCIAS RET.I.V.A. RET.I.BRUTOS RET.S.U.S.S. RET. OSSEG RET. MEDICOS',
+    '100.000,00 2.000,00 13.800,00 3.000,00 1.000,00 0,00 0,00 RET.TASA LOCAL 0,00 TOTAL 80.200,00',
+    'CONSTANCIA DE RETENCIÓN Fecha : 30/09/2026 Afectado a la OP: 100002',
+  ].join('\n')
+
+  it('lee la factura, las retenciones y lo transferido, y cierra', () => {
+    const r = leer({ remitente: LPS, asunto: 'Orden de Pago Número: 00100002', textoPdf: pdf })
+    expect(r).toMatchObject({ estado: 'leido', lector: 'lps', version: 2, op: '100002', fechaPago: '2026-09-30', neto: '80200.00' })
+    expect(r.lineas).toEqual([{ factura: { texto: 'FS A 00002-1234', puntoVenta: 2, numero: 1234 }, siniestro: null, bruto: '100000.00', neto: '80200.00' }])
+    expect(impuestos(r)).toEqual([['ganancias', '2000.00', null], ['iva', '13800.00', null], ['iibb', '3000.00', null], ['suss', '1000.00', null]])
+    expect(r.control.resultado).toBe('cierra')
+  })
+})
+
+describe('Cooperación (PDF de la orden de pago)', () => {
+  const COOP = 'seguros@cooperacionseguros.com.ar'
+  const pdf = (filas: string[], total: string, retencion: string, neto: string) => [
+    'COMPROBANTE DE RETENCION Nº: Impuesto a las Ganancias - R.G. (AFIP) 830 AGENTE DE RETENCION: Compañía de prueba',
+    `DATOS DEL SUJETO RETENIDO: TALLER DE PRUEBA S.R.L. C.U.I.T. : 30000000001 123456 / 2026 COMPROBANTE QUE ORIGINA LA RETENCION`,
+    '----- siguiente PDF -----',
+    'ORDEN DE PAGO Fecha Emision: 00100003 17/09/2026 TALLER DE PRUEBA S.R.L.',
+    'Tipo y Nº Compr. Fecha Emision Fecha Vto. Importe Forma Pago Banco Cheque/Transf Importe Fecha Vto.',
+    ...filas,
+    `Total ${total} RET.GCIAS. ${retencion} TRF BANCO DE PRUEBA 0000100003 17/09/2026 ${neto} Total ${total} Autorizo Firma`,
+  ].join('\n')
+
+  it('una factura: su bruto, la retención con su certificado, lo transferido y la fecha', () => {
+    const r = leer({ remitente: COOP, asunto: 'Orden de Pago Nro 100003',
+      textoPdf: pdf(['FACT.A 0002-00001234 17/08/2026 17/09/2026 100.000,00 Sin: 33 Liq: 44'], '100.000,00', '1.500,00', '98.500,00') })
+    expect(r).toMatchObject({ estado: 'leido', lector: 'cooperacion', op: '100003', fechaPago: '2026-09-17', neto: '98500.00' })
+    expect(r.lineas).toEqual([{ factura: { texto: 'FACTA 0002-00001234', puntoVenta: 2, numero: 1234 }, siniestro: null, bruto: '100000.00', neto: '98500.00' }])
+    expect(impuestos(r)).toEqual([['ganancias', '1500.00', '123456/2026']])
+    expect(r.control.resultado).toBe('cierra')
+  })
+
+  it('dos facturas: cada una con su bruto, y el total controla contra lo transferido', () => {
+    const r = leer({ remitente: COOP, asunto: 'Orden de Pago Nro 100004', textoPdf: pdf([
+      'FACT.A 0002-00001234 05/06/2025 14/07/2025 60.000,00 Sin: 1 Liq: 2', 'FACT.A 0002-00001235 05/06/2025 14/07/2025 40.000,00 Sin: 3 Liq: 4',
+    ], '100.000,00', '1.000,00', '99.000,00') })
+    expect(r.lineas.map((l) => [l.factura?.numero, l.bruto, l.neto])).toEqual([[1234, '60000.00', null], [1235, '40000.00', null]])
+    expect(r.control.resultado).toBe('cierra')
+  })
+
+  it('un comprobante que no es factura: no adivina el signo', () => {
+    const r = leer({ remitente: COOP, asunto: 'Orden de Pago Nro 100005',
+      textoPdf: pdf(['N.CRED.A 0002-00000012 05/06/2025 14/07/2025 10.000,00'], '10.000,00', '0,00', '10.000,00') })
+    expect(r.estado).toBe('no_entendido')
+  })
+})
+
+describe('Provincia (PDF de la orden de pago y sus certificados)', () => {
+  const PROV = 'pagos@pseguros.com.ar'
+  const ASUNTO = 'Ordenes de pagos y certificados de retencion'
+  const cabecera = 'PROVINCIA DE PRUEBA SA Orden de Pago Informacion del Pago 13-OCT-2026 Número de Orden 3700001 Número de Factura Categoría Transacción Fecha Transacción Divisa Divisa PES PES'
+  const certificados = [
+    'Importe Total Pagado: XXX',
+    'Original Certificado de Retencion Ingresos Brutos Buenos Aires Numero de Certificado 600001 IIBB_BSAS Importe Retenido 2,900.00',
+    'Original retencion SUSS RG 1784 Numero de Certificado 100001 Importe Retenido 800.00',
+    'Original RETENCION IVA RG 4569 Numero de Certificado 300001 Importe Retenido 13,900.00',
+    'Original Certificado de Retencion Ganancias RG. 830 Numero de Certificado 500001 Importe Retenido 1,600.00',
+  ].join('\n')
+
+  it('una factura (la forma de 2026): su bruto, las cuatro retenciones con su certificado, y cierra', () => {
+    const r = leer({ remitente: PROV, asunto: ASUNTO, textoPdf: [
+      cabecera, '( ) ( ) 00002-00001234 FC A 26-SEP-2026 Desc.: SINRECTOR OP:04-0000001-0000001:FIN 100,000.00 100,000.00',
+      'GCIAS_SERVICIOS IB_BSAS_PG_SERV IVA_RG_4569_80 SUSS_RG 1784 (1,600.00) (2,900.00) (13,900.00) (800.00) (1,600.00) (2,900.00) (13,900.00) (800.00)',
+      'Pago 80,800.00 80,800.00', certificados.replace('XXX', '80,800.00 80,800.00'),
+    ].join('\n') })
+    expect(r).toMatchObject({ estado: 'leido', lector: 'provincia', op: '3700001', fechaPago: '2026-10-13', neto: '80800.00' })
+    expect(r.lineas).toEqual([{ factura: { texto: 'FC A 00002-00001234', puntoVenta: 2, numero: 1234 }, siniestro: null, bruto: '100000.00', neto: '80800.00' }])
+    expect(impuestos(r)).toEqual([['ganancias', '1600.00', '500001'], ['iibb', '2900.00', '600001'], ['iva', '13900.00', '300001'], ['suss', '800.00', '100001']])
+    expect(r.control.resultado).toBe('cierra')
+  })
+
+  it('dos facturas (la forma de 2025, con E adelante): cada una con su bruto, y las retenciones del mismo impuesto juntas', () => {
+    const r = leer({ remitente: PROV, asunto: ASUNTO, textoPdf: [
+      cabecera, 'E0002-00001234 FC A 02-DIC-2025 ( ) 40,000.00 ( ) 40,000.00 Desc.: SINRECTOR OP:04-0000002-0000002:FIN',
+      'GCIAS_SERVICIOS IB_BSAS_PG_SERV IVA_RG_4569_80 SUSS_RG 1784 Pago (600.00) (1,100.00) (5,600.00) (300.00) 32,400.00 (600.00) (1,100.00) (5,600.00) (300.00) 32,400.00',
+      'E0002-00001235 FC A 02-DIC-2025 60,000.00 60,000.00 Desc.: SINRECTOR OP:04-0000003-0000003:FIN',
+      'GCIAS_SERVICIOS IB_BSAS_PG_SERV IVA_RG_4569_80 SUSS_RG 1784 Pago (1,000.00) (1,800.00) (8,300.00) (500.00) 48,400.00 (1,000.00) (1,800.00) (8,300.00) (500.00) 48,400.00',
+      certificados.replace('XXX', '80,800.00 80,800.00'),
+    ].join('\n') })
+    expect(r.lineas.map((l) => [l.factura?.numero, l.bruto, l.neto])).toEqual([[1234, '40000.00', null], [1235, '60000.00', null]])
+    expect(impuestos(r)).toEqual([['ganancias', '1600.00', '500001'], ['iibb', '2900.00', '600001'], ['iva', '13900.00', '300001'], ['suss', '800.00', '100001']])
+    expect(r.control.resultado).toBe('cierra')
+  })
+
+  it('un pago chico, sin retenciones: el bruto es lo pagado', () => {
+    const r = leer({ remitente: PROV, asunto: ASUNTO, textoPdf: [
+      cabecera, '( ) ( ) E0002-00001236 FC A 30-ENE-2025 Desc.: SINRECTOR OP:04-0000004-0000004:FIN 608.00 608.00 Pago 608.00 608.00',
+      'Importe Total Pagado: 608.00 608.00',
+    ].join('\n') })
+    expect(r).toMatchObject({ estado: 'leido', neto: '608.00', retenciones: [] })
+    expect(r.control.resultado).toBe('cierra')
+  })
+
+  it('sin la tabla de facturas, lo dice', () => {
+    expect(leer({ remitente: PROV, asunto: ASUNTO, textoPdf: 'Un PDF que no es una orden de pago' }).estado).toBe('no_entendido')
+  })
+})
+
 describe('Río Uruguay (PDF de la orden de pago)', () => {
   const RUS = 'retenciones.rus@riouruguay.com.ar'
   const ASUNTO = 'Detalle de pago y retenciones RUS'

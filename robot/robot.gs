@@ -368,6 +368,70 @@ function noEntendido(lector, version, motivo) {
   return { estado: 'no_entendido', lector, version, motivo }
 }
 
+// ===== lectores/cooperacion.js =====
+
+/* Cooperación Seguros · el detalle está en el PDF de la orden de pago. Escrito el 2026-10-23: sus órdenes
+ * de pago estaban sin lector.
+ *
+ * El mail ("Orden de Pago Nro 123456") trae dos PDF: el comprobante de retención de Ganancias y la orden.
+ * De la orden se leen:
+ *   "FACT.A 0002-00001234 01/08/2026 01/09/2026 100.000,00 Sin: 123 Liq: 456"   una fila por factura
+ *   "Total 100.000,00 RET.GCIAS. 2.000,00 TRF BANCO … 0000123456 01/09/2026 98.000,00"
+ * El primer Total es el bruto, después las retenciones, y la transferencia con su fecha es lo neto.
+ * Del comprobante de retención sale su número ("… 171482 / 2026 COMPROBANTE QUE ORIGINA"). */
+
+const VERSION_COOPERACION = 1
+
+/**
+ * @param {Mail} mail
+ * @returns {AvisoLeido | AvisoNoLeido}
+ */
+function leerCooperacion(mail) {
+  const lector = 'cooperacion'
+  const v = VERSION_COOPERACION
+  const t = enUnRenglon(mail.textoPdf)
+  if (t === '') return noEntendido(lector, v, 'El mail no trae el PDF de la orden de pago, o no se le pudo sacar el texto.')
+
+  const NUM = String.raw`\d[\d.]*,\d{2}`
+  const filas = [...t.matchAll(new RegExp(String.raw`([A-Z][A-Z.]*?)\.?([A-C]) (\d{4})-(\d{8}) \d{2}\/\d{2}\/\d{4} \d{2}\/\d{2}\/\d{4} (${NUM})`, 'g'))]
+  if (filas.length === 0) return noEntendido(lector, v, 'No encontré las facturas de la orden de pago.')
+  const otroTipo = filas.find((f) => !/^FACT/.test(f[1] ?? ''))
+  if (otroTipo) return noEntendido(lector, v, `Paga un comprobante "${otroTipo[1]}": todavía no sé si suma o resta.`)
+
+  const cierre = new RegExp(String.raw`Total (${NUM}) (.*?)(?:TRF|TRANSF\w*|CHEQUE) .*? (\d{2}\/\d{2}\/\d{4}) (${NUM})`).exec(t)
+  if (!cierre) return noEntendido(lector, v, 'No encontré el total y la transferencia de la orden.')
+
+  const certificado = /C\.U\.I\.T\. ?: ?\d{11} (\d+ ?\/ ?\d{4}) COMPROBANTE QUE ORIGINA/.exec(t)
+  /** @type {Retencion[]} */
+  const retenciones = []
+  for (const r of (cierre[2] ?? '').matchAll(new RegExp(String.raw`RET\.\s?([A-Z][A-Z.]*?)\.? (${NUM})`, 'g'))) {
+    const importe = aImporte(r[2] ?? '')
+    if (importe === null || centavos(importe) === 0) continue
+    const nombre = r[1] ?? ''
+    retenciones.push({ certificado: null, concepto: `RET.${nombre}`, impuesto: impuestoDe(nombre), importe })
+  }
+  // El comprobante de retención que viene en el mail es el de Ganancias: si hay una sola, es suyo.
+  const deGanancias = retenciones.filter((r) => r.impuesto === 'ganancias')
+  if (certificado && deGanancias.length === 1 && deGanancias[0]) deGanancias[0].certificado = (certificado[1] ?? '').replace(/\s/g, '')
+
+  const op = /Nro\.?\s*0*(\d+)/i.exec(mail.asunto)
+  return conControl({
+    lector,
+    version: v,
+    tipo: 'pago',
+    op: op ? (op[1] ?? null) : null,
+    fechaPago: aFecha(cierre[3] ?? ''),
+    neto: aImporte(cierre[4] ?? ''),
+    lineas: filas.map((f) => ({
+      factura: { texto: `${f[1]}${f[2]} ${f[3]}-${f[4]}`, puntoVenta: Number(f[3]), numero: Number(f[4]) },
+      siniestro: null,
+      bruto: aImporte(f[5] ?? ''),
+      neto: filas.length === 1 ? aImporte(cierre[4] ?? '') : null,
+    })),
+    retenciones,
+  }, aImporte(cierre[1] ?? ''))
+}
+
 // ===== lectores/fed-patronal.js =====
 
 /* Federación Patronal · todo está en el cuerpo del mail, no hay PDF.
@@ -526,6 +590,8 @@ function lectores() {
     { dominio: 'fedpat.com.ar', asunto: /dep[oó]sito de transferencia/i, leer: leerFedPatronal },
     { dominio: 'lasegunda.com.ar', asunto: /retenciones factura/i, leer: leerLaSegunda },
     { dominio: 'lps.com.ar', asunto: /orden de pago/i, leer: leerLps },
+    { dominio: 'cooperacionseguros.com.ar', asunto: /orden de pago/i, leer: leerCooperacion },
+    { dominio: 'pseguros.com.ar', asunto: /[oó]rdenes de pagos?/i, leer: leerProvincia },
     { dominio: 'riouruguay.com.ar', asunto: /pago/i, leer: leerRioUruguay },
     { dominio: 'nacion-seguros.com.ar', asunto: /aviso de pago/i, leer: leerNacion },
     { dominio: 'sancristobal.com.ar', asunto: /aviso de pago/i, leer: leerSanCristobal },
@@ -662,9 +728,16 @@ function leerLaSegunda(mail) {
  *    01/01/2026 FS - A / 00002 / 1234 100.000,00 1,0000 $"     una fila por factura, con su bruto
  *   "SUBTOTAL 100.000,00 RET.GANANCIAS 2.000,00 RET.I.V.A. … TOTAL 80.000,00"
  * SUBTOTAL es el bruto, TOTAL lo transferido, y en el medio las retenciones. Los certificados
- * repiten lo mismo con más detalle; no se leen, para no contar dos veces. */
+ * repiten lo mismo con más detalle; no se leen, para no contar dos veces.
+ *
+ * Versión 2 (2026-10-23): desde mayo de 2026 el PDF trae la tabla de otra forma, y la versión 1 no la
+ * encontraba: esas órdenes quedaban sin entender. Los espacios del comprobante cambiaron
+ * ("FS -A / 00002/ 3553") y el cierre trae primero los nombres y después los importes:
+ *   "SUBTOTAL RET.GANANCIAS RET.I.V.A. … RET. MEDICOS 100.000,00 2.000,00 16.800,00 … 0,00
+ *    RET.TASA LOCAL 0,00 TOTAL 80.000,00"
+ * Se leen las dos formas. */
 
-const VERSION_LPS = 1
+const VERSION_LPS = 2
 
 /**
  * @param {Mail} mail
@@ -676,20 +749,19 @@ function leerLps(mail) {
   const t = enUnRenglon(mail.textoPdf)
   if (t === '') return noEntendido(lector, v, 'El mail no trae el PDF de la orden de pago, o no se le pudo sacar el texto.')
 
-  const filas = [...t.matchAll(/(\d{2}\/\d{2}\/\d{4}) ([A-Z]{1,3}) - ([A-C]) \/ (\d+) \/ (\d+) (\d[\d.]*,\d{2}) 1,0000/g)]
+  const filas = [...t.matchAll(/(\d{2}\/\d{2}\/\d{4}) ([A-Z]{1,3}) ?- ?([A-C]) ?\/ ?(\d+) ?\/ ?(\d+) (\d[\d.]*,\d{2}) 1,0000/g)]
   if (filas.length === 0) return noEntendido(lector, v, 'No encontré la tabla de comprobantes cancelados.')
   const otroTipo = filas.find((f) => !(f[2] ?? '').startsWith('F'))
   if (otroTipo) return noEntendido(lector, v, `Cancela un comprobante de tipo "${otroTipo[2]}": todavía no sé si suma o resta.`)
 
-  const cierre = /SUBTOTAL (\d[\d.]*,\d{2}) (.*?)(?<![A-Z.])TOTAL (\d[\d.]*,\d{2})/.exec(t)
-  if (!cierre) return noEntendido(lector, v, 'No encontré el SUBTOTAL y el TOTAL de la orden.')
+  const cierre = cierreLps(t)
+  if (cierre === null) return noEntendido(lector, v, 'No encontré el SUBTOTAL y el TOTAL de la orden.')
 
   /** @type {Retencion[]} */
   const retenciones = []
-  for (const r of (cierre[2] ?? '').matchAll(/RET\.\s?([A-Z][A-Z. ]*?) (\d[\d.]*,\d{2})/g)) {
-    const importe = aImporte(r[2] ?? '')
+  for (const [nombre, texto] of cierre.retenciones) {
+    const importe = aImporte(texto)
     if (importe === null || centavos(importe) === 0) continue
-    const nombre = (r[1] ?? '').trim()
     retenciones.push({ certificado: null, concepto: `RET.${nombre}`, impuesto: impuestoDe(nombre), importe })
   }
 
@@ -703,15 +775,41 @@ function leerLps(mail) {
     tipo: 'pago',
     op: op ? (op[1] ?? null) : null,
     fechaPago: fecha ? aFecha(fecha[1] ?? '') : null,
-    neto: aImporte(cierre[3] ?? ''),
+    neto: aImporte(cierre.total),
     lineas: filas.map((f) => ({
       factura: { texto: `${f[2]} ${f[3]} ${f[4]}-${f[5]}`, puntoVenta: Number(f[4]), numero: Number(f[5]) },
       siniestro: null,
       bruto: aImporte(f[6] ?? ''),
-      neto: filas.length === 1 ? aImporte(cierre[3] ?? '') : null,
+      neto: filas.length === 1 ? aImporte(cierre.total) : null,
     })),
     retenciones,
-  }, aImporte(cierre[1] ?? ''))
+  }, aImporte(cierre.subtotal))
+}
+
+/**
+ * El cierre de la orden: el bruto (SUBTOTAL), cada retención con su nombre, y lo transferido (TOTAL).
+ * Lee la forma vieja, con cada importe después de su nombre, y la nueva, con todos los nombres primero.
+ * @param {string} t el PDF en un renglón
+ * @returns {{ subtotal: string, retenciones: [string, string][], total: string } | null}
+ */
+function cierreLps(t) {
+  const NUM = String.raw`\d[\d.]*,\d{2}`
+  const nueva = new RegExp(String.raw`SUBTOTAL ((?:RET\.\s?[A-Z][A-Z.]* )+)((?:${NUM} ?)+)(.*?)(?<![A-Z.])TOTAL (${NUM})`).exec(t)
+  if (nueva) {
+    const nombres = [...(nueva[1] ?? '').matchAll(/RET\.\s?([A-Z][A-Z.]*)/g)].map((m) => m[1] ?? '')
+    const importes = (nueva[2] ?? '').trim().split(' ')
+    if (importes.length === nombres.length + 1) {
+      /** @type {[string, string][]} */
+      const retenciones = nombres.map((n, i) => [n, importes[i + 1] ?? ''])
+      for (const r of (nueva[3] ?? '').matchAll(new RegExp(String.raw`RET\.\s?([A-Z][A-Z. ]*?) (${NUM})`, 'g'))) retenciones.push([(r[1] ?? '').trim(), r[2] ?? ''])
+      return { subtotal: importes[0] ?? '', retenciones, total: nueva[4] ?? '' }
+    }
+  }
+  const vieja = new RegExp(String.raw`SUBTOTAL (${NUM}) (.*?)(?<![A-Z.])TOTAL (${NUM})`).exec(t)
+  if (!vieja) return null
+  /** @type {[string, string][]} */
+  const retenciones = [...(vieja[2] ?? '').matchAll(new RegExp(String.raw`RET\.\s?([A-Z][A-Z. ]*?) (${NUM})`, 'g'))].map((r) => [(r[1] ?? '').trim(), r[2] ?? ''])
+  return { subtotal: vieja[1] ?? '', retenciones, total: vieja[3] ?? '' }
 }
 
 // ===== lectores/nacion.js =====
@@ -1518,6 +1616,128 @@ function respuestaDeLaBase(r) {
   const que = r.resultado === 'releido' ? 'releído' : r.resultado
   if (!r.vinculadas) return que
   return `${que} · vinculó ${r.vinculadas} ${r.vinculadas === 1 ? 'orden' : 'órdenes'}`
+}
+
+// ===== lectores/provincia.js =====
+
+/* Provincia Seguros · el detalle está en el PDF de la orden de pago. Escrito el 2026-10-23: sus órdenes
+ * de pago estaban sin lector.
+ *
+ * El mail ("Ordenes de pagos y certificados de retencion") trae un PDF con la orden y un certificado por
+ * impuesto. Los importes van con coma de miles y punto decimal ("2,315,842.00"). De la orden se leen:
+ *   "Informacion del Pago 13-OCT-2026" y "Número de Orden 3728707"
+ *   por factura: "E0002-00001234 FC A 26-SEP-2026 … 100,000.00 100,000.00 GCIAS_SERVICIOS
+ *                 IB_BSAS_PG_SERV IVA_RG_4569_80 SUSS_RG 1784 (1,600.00) (2,900.00) (13,900.00) (800.00) …"
+ *   y al final "Importe Total Pagado: 80,800.00".
+ * Cada importe sale dos veces (la columna de la factura y la del pago): se toma el primero. El bruto de
+ * cada factura es su primer importe sin paréntesis; las retenciones, los primeros importes entre
+ * paréntesis, uno por cada nombre de impuesto. Si dos facturas van en la misma orden, las retenciones
+ * del mismo impuesto se juntan en una, que es la que tiene certificado:
+ *   "Certificado de Retencion Ingresos Brutos Buenos Aires Numero de Certificado 645194". */
+
+const VERSION_PROVINCIA = 1
+
+const MESES_PROVINCIA = { ENE: '01', FEB: '02', MAR: '03', ABR: '04', MAY: '05', JUN: '06', JUL: '07', AGO: '08', SEP: '09', OCT: '10', NOV: '11', DIC: '12' }
+
+/**
+ * "13-OCT-2026" → "2026-10-13".
+ * @param {string} texto
+ * @returns {string | null}
+ */
+function fechaProvincia(texto) {
+  const m = /^(\d{2})-([A-Z]{3})-(\d{4})$/.exec(texto)
+  const mes = m ? MESES_PROVINCIA[/** @type {keyof typeof MESES_PROVINCIA} */ (m[2] ?? '')] : undefined
+  return m && mes ? `${m[3]}-${mes}-${m[1]}` : null
+}
+
+/**
+ * @param {Mail} mail
+ * @returns {AvisoLeido | AvisoNoLeido}
+ */
+function leerProvincia(mail) {
+  const lector = 'provincia'
+  const v = VERSION_PROVINCIA
+  const t = enUnRenglon(mail.textoPdf)
+  if (t === '') return noEntendido(lector, v, 'El mail no trae el PDF de la orden de pago, o no se le pudo sacar el texto.')
+
+  const desde = t.indexOf('Número de Factura')
+  const hasta = t.indexOf('Importe Total Pagado:')
+  if (desde < 0 || hasta < desde) return noEntendido(lector, v, 'No encontré la tabla de facturas de la orden de pago.')
+  const tabla = t.slice(desde, hasta)
+  const neto = /Importe Total Pagado: (\d{1,3}(?:,\d{3})*\.\d{2})/.exec(t)
+
+  const marcas = [...tabla.matchAll(/E?(\d{4,5})-(\d{8}) ([A-Z]{2}) ([A-C])/g)]
+  if (marcas.length === 0) return noEntendido(lector, v, 'No encontré ninguna factura en la orden de pago.')
+  const otroTipo = marcas.find((m) => m[3] !== 'FC')
+  if (otroTipo) return noEntendido(lector, v, `Paga un comprobante "${otroTipo[3]}": todavía no sé si suma o resta.`)
+
+  const IMPORTE = /\d{1,3}(?:,\d{3})*\.\d{2}/
+  /** @type {LineaAviso[]} */
+  const lineas = []
+  /** @type {Map<string, { concepto: string, centavos: number }>} */
+  const porImpuesto = new Map()
+  for (const [i, m] of marcas.entries()) {
+    const tramo = tabla.slice((m.index ?? 0) + m[0].length, marcas[i + 1]?.index ?? tabla.length)
+    const bruto = new RegExp(String.raw`(?<!\()\b(${IMPORTE.source})\b(?!\))`).exec(tramo)
+    if (!bruto) return noEntendido(lector, v, `No encontré el importe de la factura ${m[1]}-${m[2]}.`)
+    lineas.push({
+      factura: { texto: `${m[3]} ${m[4]} ${m[1]}-${m[2]}`, puntoVenta: Number(m[1]), numero: Number(m[2]) },
+      siniestro: null,
+      bruto: aImporteConComa(bruto[1] ?? ''),
+      neto: null,
+    })
+    const nombres = [...tramo.matchAll(/\b(GCIAS\w*|IB_\w+|IVA_\w+|SUSS_RG \d+)/g)].map((n) => n[1] ?? '')
+    const retenidos = [...tramo.matchAll(new RegExp(String.raw`\((${IMPORTE.source})\)`, 'g'))].map((r) => r[1] ?? '')
+    if (retenidos.length < nombres.length) return noEntendido(lector, v, `Las retenciones de la factura ${m[1]}-${m[2]} no tienen su importe.`)
+    for (const [j, nombre] of nombres.entries()) {
+      const importe = aImporteConComa(retenidos[j] ?? '')
+      if (importe === null) continue
+      const impuesto = impuestoProvincia(nombre)
+      const antes = porImpuesto.get(impuesto)
+      porImpuesto.set(impuesto, { concepto: antes?.concepto ?? nombre, centavos: (antes?.centavos ?? 0) + centavos(importe) })
+    }
+  }
+
+  const certificados = new Map([...t.matchAll(/(Ingresos Brutos|SUSS|IVA|Ganancias)\b.{0,60}?Numero de Certificado (\d+)/g)]
+    .map((c) => [impuestoDe(c[1] ?? ''), c[2] ?? '']))
+  /** @type {Retencion[]} */
+  const retenciones = [...porImpuesto.entries()]
+    .filter(([, r]) => r.centavos > 0)
+    .map(([impuesto, r]) => ({ certificado: certificados.get(impuesto) ?? null, concepto: r.concepto, impuesto, importe: (r.centavos / 100).toFixed(2) }))
+
+  const netoTexto = neto ? aImporteConComa(neto[1] ?? '') : null
+  if (lineas.length === 1 && lineas[0]) lineas[0] = { ...lineas[0], neto: netoTexto }
+  const op = /Número de Orden (\d+)/.exec(t)
+  const fecha = /Informacion del Pago (\d{2}-[A-Z]{3}-\d{4})/.exec(t)
+  return conControl({
+    lector,
+    version: v,
+    tipo: 'pago',
+    op: op ? (op[1] ?? null) : null,
+    fechaPago: fecha ? fechaProvincia(fecha[1] ?? '') : null,
+    neto: netoTexto,
+    lineas,
+    retenciones,
+  }, brutoDeLasLineas(lineas))
+}
+
+/**
+ * Cómo nombra Provincia cada impuesto en la tabla: GCIAS_SERVICIOS, IB_BSAS_PG_SERV, IVA_RG_4569_80, SUSS_RG 1784.
+ * @param {string} nombre
+ * @returns {Impuesto}
+ */
+function impuestoProvincia(nombre) {
+  if (/^IB_/.test(nombre)) return 'iibb'
+  return impuestoDe(nombre.replace(/_/g, ' '))
+}
+
+/**
+ * "2,315,842.00" → "2315842.00": coma de miles, punto decimal.
+ * @param {string} texto
+ * @returns {string | null}
+ */
+function aImporteConComa(texto) {
+  return /^\d{1,3}(?:,\d{3})*\.\d{2}$/.test(texto) ? aImporteConPunto(texto.replace(/,/g, '')) : null
 }
 
 // ===== lectores/rio-uruguay.js =====
