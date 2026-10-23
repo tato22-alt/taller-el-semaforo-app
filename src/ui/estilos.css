@@ -230,6 +230,13 @@ body {
 .opciones button:disabled, .nota > button:disabled { opacity: 0.6; cursor: default; }
 .notas li { overflow-wrap: anywhere; }
 .notas .enlace { margin-left: 0.5rem; }
+.revisar-avisos { display: grid; gap: 0.6rem; }
+.revisar-avisos details { display: grid; gap: 0.6rem; }
+.nota .acciones { display: flex; flex-wrap: wrap; align-items: center; gap: 1rem; margin: 0.5rem 0 0; }
+.nota .acciones button:not(.enlace) { padding: 0.4rem 0.8rem; border: 0; border-radius: 6px; background: var(--acento); color: #fff; font: inherit; cursor: pointer; }
+.nota .acciones button:disabled { opacity: 0.6; cursor: default; }
+.nota .opciones input:not([type=radio]) { padding: 0.3rem; border: 1px solid var(--borde); border-radius: 6px; font: inherit; background: var(--papel); color: var(--tinta); max-width: 12rem; }
+.nota .opciones label { cursor: pointer; }
 details summary { cursor: pointer; color: var(--acento); margin-bottom: 0.5rem; }
 
 /* --- Órdenes de trabajo ------------------------------------------------ */

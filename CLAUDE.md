@@ -157,9 +157,9 @@ Los tipos de la base no se escriben a mano: se generan con
 `src/datos/tipos-base.ts`. **Regeneralos cada vez que se agregue una migración en
 `semaforo-base`**: el archivo es el único puente entre los dos repos, y si queda viejo, la app
 compila contra una base que ya no existe.
-**Hoy el archivo es provisorio:** se escribió a partir de las migraciones porque el generador no
-corre en la máquina de Luciano. Está marcado así en su encabezado; cuando el generador corra,
-gana el generado.
+**Desde el 2026-10-23 es el generado:** lo corre el conector de Supabase (`generate_typescript_types`),
+que no depende de la máquina de Luciano. Se pisa entero cada vez: lo que corrige lo que el generador
+dice mal (los montos llegan como string) vive en `src/datos/filas.ts`, no ahí.
 
 **Este repo es la app:** `tato22-alt/taller-el-semaforo-app`, público. El modelo de datos está
 en `tato22-alt/semaforo-base`, privado. La herramienta de presupuesto **no se muda**: sigue en

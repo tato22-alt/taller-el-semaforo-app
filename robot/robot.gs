@@ -109,6 +109,52 @@ function leerAcuseGrant(mail) {
   return acuse('acuse-grant', 'acuse', { factura: facturaDelAsunto(mail.asunto) })
 }
 
+// ===== lectores/claves.js =====
+
+/* Lo que el robot NO guarda: claves y enlaces que inician sesión (R2, RF-502). Plan 005, fase 0.
+ *
+ * Vivía en barrido.js. Pasó acá, como función pura y con tests, el 2026-10-23: un mail de acceso a un
+ * portal traía "*Contraseña* <la clave>", con la palabra en negrita, y la regla vieja tapaba el
+ * asterisco y dejaba la clave. Se aplica a todo lo que se escribe en la planilla y en la base: el
+ * cuerpo del mail y el texto de sus PDF. Los lectores leen el texto original, antes de taparlo. */
+
+const TAPADA = '[quitada por el robot]'
+
+/**
+ * Hay compañías que mandan el usuario y la clave de su portal por mail, en texto plano. Lo que sigue
+ * a "contraseña", "clave" o "password" se reemplaza, aunque entre la palabra y la clave haya
+ * asteriscos, dos puntos, comillas o un guion. Se puede aplicar dos veces: lo que ya está tapado
+ * queda igual.
+ * @param {string} texto
+ * @returns {string}
+ */
+function sinClaves(texto) {
+  return texto.replace(
+    /\b(contrase(?:ñ|n|\uFFFD)a|clave|pass(?:word)?)\b(\s*(?:provisoria|temporal|de acceso)?[\s*_:=\-"'“”]*)(?!\[quitada)[^\s*_:=\-"'“”][^\s*"'“”]*/gi,
+    `$1$2${TAPADA}`,
+  )
+}
+
+/**
+ * Algunos avisos traen un enlace que inicia sesión en el portal de la compañía sin pedir clave
+ * (cobranzas.com lo hace, con un token que dura días). Es una credencial: no se guarda (R2). Se
+ * reemplaza cualquier URL que lleve un token, una sesión o una clave en sus parámetros.
+ * @param {string} texto
+ * @returns {string}
+ */
+function sinEnlacesDeSesion(texto) {
+  return texto.replace(/https?:\/\/[^\s)\]"'<>]*[?&](token|session|sesion|auth|key|clave|pass\w*)=[^\s)\]"'<>]*/gi, '[enlace de acceso quitado por el robot]')
+}
+
+/**
+ * Lo que se guarda de un texto: sin claves ni enlaces de sesión.
+ * @param {string} texto
+ * @returns {string}
+ */
+function paraGuardar(texto) {
+  return sinClaves(sinEnlacesDeSesion(texto))
+}
+
 // ===== lectores/comun.js =====
 
 /* Lo que comparten los lectores de avisos de pago. Spec 005 §5.3 · Plan 005, fase 0.
@@ -1405,8 +1451,9 @@ function avisoParaLaBase(fila) {
     fecha: texto(COL_AVISO.fecha),
     remitente: mail.remitente,
     asunto: mail.asunto,
-    cuerpo: mail.cuerpo,
-    textoPdf: mail.textoPdf,
+    // Otra vez sin claves: una fila vieja de la planilla puede traer una que la regla de antes no tapó.
+    cuerpo: paraGuardar(mail.cuerpo),
+    textoPdf: paraGuardar(mail.textoPdf),
     pdfs: mail.adjuntos,
     pdfsDrive: lista(COL_AVISO.pdfsDrive),
     leido: conFormaDeLaBase(leerAviso(mail)),
@@ -1951,12 +1998,13 @@ function guardarAviso(id, hojas) {
   const partes = aplanar(msg.payload)
   const aviso = { id, fecha: fechaDe(msg), remitente: encabezado(msg, 'From') }
   const asunto = encabezado(msg, 'Subject')
-  const cuerpo = sinClaves(sinEnlacesDeSesion(cuerpoDe(partes)))
+  const cuerpo = cuerpoDe(partes)
 
   const { nombres, idsDrive, textoPdf } = guardarPdfs(id, partes, aviso.fecha)
 
   const leido = leerAviso({ remitente: aviso.remitente, asunto, cuerpo, textoPdf, adjuntos: adjuntosDe(partes), copia: encabezado(msg, 'Cc') })
-  agregar(hojas.avisos, [[id, aviso.fecha, aviso.remitente, asunto, cortar(cuerpo), nombres.join('\n'), cortar(textoPdf), ...estadoDe(leido), idsDrive.join('\n')]])
+  // Se lee el texto tal cual y se guarda sin claves (lectores/claves.js).
+  agregar(hojas.avisos, [[id, aviso.fecha, aviso.remitente, asunto, cortar(paraGuardar(cuerpo)), nombres.join('\n'), cortar(paraGuardar(textoPdf)), ...estadoDe(leido), idsDrive.join('\n')]])
   agregar(hojas.lineas, filasDeLineas(aviso, leido))
   agregar(hojas.retenciones, filasDeRetenciones(id, leido))
   agregar(hojas.acuses, filasDeAcuses(aviso, leido))
@@ -1989,7 +2037,7 @@ function filaParaMail(id, dominios, yaEnDrive = []) {
   const mail = {
     remitente: encabezado(msg, 'From'),
     asunto: encabezado(msg, 'Subject'),
-    cuerpo: sinClaves(sinEnlacesDeSesion(cuerpoDe(partes))),
+    cuerpo: paraGuardar(cuerpoDe(partes)),
     textoPdf: '',
     adjuntos: adjuntosDe(partes),
     copia: encabezado(msg, 'Cc'),
@@ -2309,24 +2357,6 @@ function cuerpoDe(partes) {
     .replace(/&nbsp;/g, ' ')
     .replace(/&amp;/g, '&')
     .replace(/[ \t]+/g, ' ')
-}
-
-/**
- * Algunos avisos traen un enlace que inicia sesión en el portal de la compañía sin pedir clave
- * (cobranzas.com lo hace, con un token que dura días). Es una credencial: no se guarda (R2). Se
- * reemplaza cualquier URL que lleve un token, una sesión o una clave en sus parámetros.
- */
-function sinEnlacesDeSesion(texto) {
-  return texto.replace(/https?:\/\/[^\s)\]"'<>]*[?&](token|session|sesion|auth|key|clave|pass\w*)=[^\s)\]"'<>]*/gi, '[enlace de acceso quitado por el robot]')
-}
-
-/**
- * Hay compañías que mandan el usuario y la clave de su portal por mail, en texto plano. El robot no
- * los guarda (R2): lo que sigue a "contraseña" o "clave" (o su versión en inglés) se reemplaza antes de
- * escribir la planilla.
- */
-function sinClaves(texto) {
-  return texto.replace(/\b(contrase(?:ñ|n|\uFFFD)a|clave|pass(?:word)?)\b(\s*(?:provisoria|temporal|de acceso)?\s*[:=]?\s*)\S+/gi, '$1$2[quitada por el robot]')
 }
 
 function decodificar(parte) {

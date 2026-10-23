@@ -2,6 +2,9 @@
 
 Sistema de gestión para un taller de chapa y pintura en Villa Gesell, Buenos Aires.
 
+**La app publicada: [tato22-alt.github.io/taller-el-semaforo-app](https://tato22-alt.github.io/taller-el-semaforo-app/)**
+— entra sólo quien tiene usuario del taller. Se publica sola desde `main`, con GitHub Pages.
+
 
 ---
 
@@ -17,9 +20,10 @@ esquema completo, datos reales ni documentos del negocio. La app conoce la forma
 
 | | |
 |---|---|
-| **Base de datos** (repo privado `semaforo-base`) | ✅ Aplicada y verificada — 23 migraciones, 57/57 verificaciones, RLS activa y forzada |
+| **Base de datos** (repo privado `semaforo-base`) | ✅ Aplicada y verificada, con RLS activa y forzada en todas las tablas |
 | **Herramienta de presupuestos** | ✅ En producción, emitiendo contra la base |
-| **Esta aplicación** (raíz) | 🟡 Login y tablero leyendo la base, probados de punta a punta. 44 tests en verde. Todavía no está publicada |
+| **Esta aplicación** (raíz) | ✅ [Publicada](https://tato22-alt.github.io/taller-el-semaforo-app/): login, tablero, Importar (ARCA), Revisar, Órdenes de trabajo y Hoy. Los tests corren antes de cada publicación |
+| **Robot de cobranzas** (`robot/`) | ✅ Lee Gmail y sube a la base las órdenes de trabajo, los envíos de factura y los avisos de pago |
 
 El detalle honesto de qué funciona y qué no está en **[`ESTADO.md`](./ESTADO.md)**, con el
 orden de trabajo. El alcance y los límites, en

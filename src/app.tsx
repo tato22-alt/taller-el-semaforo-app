@@ -23,7 +23,7 @@ export function App() {
             {ruta.pantalla !== 'hoy' && <a href="#/hoy">Hoy</a>}
             {ruta.pantalla !== 'tablero' && <a href="#/">Tablero</a>}
             {ruta.pantalla !== 'importar' && <a href="#/importar">Importar facturas</a>}
-            {ruta.pantalla !== 'revisar' && <a href="#/revisar">Revisar notas</a>}
+            {ruta.pantalla !== 'revisar' && <a href="#/revisar">Revisar</a>}
             {ruta.pantalla !== 'ordenes' && <a href="#/ordenes">Órdenes de trabajo</a>}
           </nav>
         )}
