@@ -50,6 +50,18 @@ export function antiguedadEnPalabras(dias: number | null): string {
   return `hace ${dias} días`
 }
 
+const DIAS_DE_LA_SEMANA = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'] as const
+
+/** "2026-10-28" → "martes 28/10", para un mensaje al cliente. "—" si la fecha falta. */
+export function diaEnPalabras(fecha: string | null | undefined): string {
+  const partes = partesDeFecha(fecha)
+  if (partes === null) return '—'
+  const [anio, mes, dia] = partes
+  // Date.UTC sobre las partes: el día de la semana no depende de la zona del dispositivo.
+  const semana = DIAS_DE_LA_SEMANA[new Date(Date.UTC(anio, mes - 1, dia)).getUTCDay()]
+  return `${semana} ${pad(dia)}/${pad(mes)}`
+}
+
 function partesDeFecha(fecha: string | null | undefined): readonly [number, number, number] | null {
   if (typeof fecha !== 'string') return null
   const coincide = FECHA_ISO.exec(fecha.trim())

@@ -1,5 +1,21 @@
 # Estado del proyecto — dónde está todo
 
+> **Al 2026-10-22.** Lo de abajo quedó del 2026-10-07 y se actualiza por partes. Lo que falta hacer,
+> en orden, está en `PENDIENTES.md` de `semaforo-base` (privado, porque lleva números del negocio).
+>
+> - Pantallas hechas desde entonces: **Revisar** (notas de crédito), **Órdenes** (spec 010, con la
+>   factura de cada orden de la spec 012) y **Hoy** (spec 011, los hitos del auto), ésta en la rama
+>   `claude/business-improvement-priorities-5u3jc4`. Su migración está aplicada en la base desde el
+>   2026-10-22: falta pasar la rama a `main` para que Pages la publique.
+> - La app escribe seis tablas, todas en `src/arquitectura.test.ts`: `importacion`, `comprobante`,
+>   `comprobante_vinculo`, `orden_trabajo`, `orden_factura` y `hito_trabajo`.
+> - Hoy se probó contra una base simulada (311 tests, build, y capturas en un celular de 390 px). Falta
+>   verla con la base real.
+> - **Fase 2 de cobranzas (2026-10-22):** la tarjeta de cada orden dice si su factura está **pagada**,
+>   pagada en parte, con un aviso que no dice el importe, o **aprobada con fecha de pago** (un acuse no
+>   es un pago), y las pagadas van a su grupo. Lo deriva la base de los avisos que sube el robot, que
+>   ahora también sube los avisos y acuses (`robot/README.md`). Falta pegar el robot nuevo.
+
 Punto de entrada cuando volvés. Si esto y el código se contradicen, gana el código.
 
 **Fecha:** 2026-10-07 · **Rama de trabajo:** `claude/zen-hawking-3cmq54` · **`main`:** `b7bf211`

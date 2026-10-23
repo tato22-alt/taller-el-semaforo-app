@@ -17,7 +17,9 @@
  * miente, y miente igual en el archivo generado. Por eso la plata no se suma nunca en el
  * navegador y se formatea con `dominio/dinero.ts`, que acepta `string | number`.
  *
- * Fuente: 19 migraciones, hasta 20260919130000_pendientes.sql.
+ * Fuente: las migraciones hasta 20261024130000_vistas_evidencia.sql (fase 2 de cobranzas, aplicada en
+ * la base real el 2026-10-22). Las tablas de la evidencia (aviso, aviso_linea, acuse…) no están: la app
+ * no las lee todavía.
  */
 
 export type Json =
@@ -521,6 +523,46 @@ export type Database = {
         }
         Relationships: []
       }
+      /* Feature 011: los hechos del auto, un toque cada uno. Sólo personas; el robot no la ve.
+       * tipo: 'repuestos' | 'turno' | 'entro' | 'listo' | 'salio'. fecha_turno sólo en el turno. */
+      hito_trabajo: {
+        Row: {
+          id_hito: number
+          id_trabajo: number
+          tipo: string
+          fecha: string
+          fecha_turno: string | null
+          creado_en: string
+          creado_por: string | null
+        }
+        Insert: {
+          id_hito?: never
+          id_trabajo: number
+          tipo: string
+          fecha?: string
+          fecha_turno?: string | null
+          creado_en?: string
+          creado_por?: string | null
+        }
+        Update: {
+          id_hito?: never
+          id_trabajo?: number
+          tipo?: string
+          fecha?: string
+          fecha_turno?: string | null
+          creado_en?: string
+          creado_por?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'hito_trabajo_id_trabajo_fkey'
+            columns: ['id_trabajo']
+            isOneToOne: false
+            referencedRelation: 'trabajos'
+            referencedColumns: ['id_trabajo']
+          },
+        ]
+      }
       /* Feature 012: cada mail con que el taller mandó una factura. Lo escribe sólo el robot. */
       envio_factura: {
         Row: {
@@ -763,6 +805,34 @@ export type Database = {
           facturada: boolean | null
           facturado: number | null
           por_mail: boolean | null
+          /* Fase 2: 'aviso' o 'acuse' si la vinculó la evidencia, y lo que dicen los avisos de sus
+           * facturas (vw_pago_factura). pago_falta: total menos lo pagado; nulo si algún aviso no dice el
+           * importe. */
+          por_evidencia: string | null
+          pago_facturas_sin_aviso: number | null
+          pago_falta: number | null
+          pago_sin_importe: boolean | null
+          pago_ultimo: string | null
+          pago_por_siniestro: boolean | null
+          pago_acuse: string | null
+          pago_fecha_prometida: string | null
+        }
+        Relationships: []
+      }
+      /* Fase 2: por factura con avisos o acuses, lo que dicen. Los numeric llegan como texto. */
+      vw_pago_factura: {
+        Row: {
+          id_comprobante: number | null
+          total: number | null
+          avisos: number | null
+          pagado: number | null
+          sin_importe: number | null
+          falta: number | null
+          ultimo_pago: string | null
+          por_siniestro: boolean | null
+          acuse: string | null
+          fecha_prometida: string | null
+          acuse_recibido: string | null
         }
         Relationships: []
       }
@@ -777,6 +847,34 @@ export type Database = {
           total: number | null
           motivo: string | null
           orden_propuesta: number | null
+        }
+        Relationships: []
+      }
+      /* Feature 011: un trabajo con hitos por fila. Días derivados por la base; dias_para_turno
+       * negativo = el turno pasó y no entró. */
+      vw_autos_en_taller: {
+        Row: {
+          id_trabajo: number | null
+          numero_presupuesto: number | null
+          patente: string | null
+          vehiculo: string | null
+          cliente: string | null
+          telefono: string | null
+          origen: string | null
+          repuestos_llegaron: string | null
+          turno_para: string | null
+          turno_dado_el: string | null
+          entro: string | null
+          listo: string | null
+          salio: string | null
+          en_taller: boolean | null
+          dias_en_taller: number | null
+          dias_sin_turno: number | null
+          dias_para_turno: number | null
+          dias_listo: number | null
+          ultimo_hito: number | null
+          ultimo_tipo: string | null
+          ultimo_se_puede_deshacer: boolean | null
         }
         Relationships: []
       }

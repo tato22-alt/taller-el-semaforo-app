@@ -32,7 +32,7 @@ const MAX_CELDA = 49000
 
 const COLUMNAS = {
   remitentes: ['remitente', 'compañía'],
-  avisos: ['message_id', 'fecha', 'remitente', 'asunto', 'cuerpo', 'pdfs', 'texto_pdf', 'lector', 'version', 'estado', 'motivo', 'control', 'pdfs_drive'],
+  avisos: ['message_id', 'fecha', 'remitente', 'asunto', 'cuerpo', 'pdfs', 'texto_pdf', 'lector', 'version', 'estado', 'motivo', 'control', 'pdfs_drive', 'base'],
   lineas: ['message_id', 'fecha_aviso', 'remitente', 'tipo', 'op', 'fecha_pago', 'factura_como_dice', 'punto_venta', 'numero', 'siniestro', 'bruto', 'neto', 'neto_del_aviso', 'control', 'lector', 'version'],
   retenciones: ['message_id', 'certificado', 'concepto', 'impuesto', 'importe'],
   acuses: ['message_id', 'fecha', 'remitente', 'tipo', 'factura_como_dice', 'punto_venta', 'numero', 'siniestro', 'monto', 'fecha_prometida', 'referencia', 'lector'],
@@ -114,17 +114,21 @@ function barrer() {
     (id) => guardarOrden(id, hojas, dominios),
     inicio,
   )
-  // Primero las órdenes y después los envíos: la base vincula cada factura a una orden que ya esté.
+  // Primero las órdenes, después los envíos y al final los avisos: la base vincula cada factura a una
+  // orden que ya esté, y un pago a una factura que ya tenga su orden.
   const subidas = subirOrdenes(hojas.ordenes, inicio)
   const envios = subirEnvios(hojas.enviados, inicio)
+  const avisos = subirAvisos(hojas.avisos, inicio)
   console.log(`Avisos nuevos: ${nuevosAvisos.guardados}. Envíos nuevos: ${nuevosEnvios.guardados}. ` +
-    `Mails de órdenes nuevos: ${nuevasOrdenes.guardados + paraConfirmar.guardados}. ${subidas} ${envios}` +
+    `Mails de órdenes nuevos: ${nuevasOrdenes.guardados + paraConfirmar.guardados}. ${subidas} ${envios} ${avisos}` +
     (nuevosAvisos.cortado || nuevosEnvios.cortado || nuevasOrdenes.cortado || paraConfirmar.cortado ? ' Quedan más: la próxima corrida sigue.' : ' Al día.'))
 }
 
 /**
  * Vuelve a leer todos los avisos de la planilla con los lectores de hoy, sin ir a Gmail (RF-508).
- * Se corre a mano después de corregir o agregar un lector. Rehace "lineas" y "retenciones".
+ * Se corre a mano después de corregir o agregar un lector. Rehace "lineas" y "retenciones", y marca
+ * para volver a subir a la base los avisos cuya lectura cambió (la base guarda la nueva y deja la
+ * vieja: nada se borra).
  */
 function releer() {
   const hojas = prepararHojas()
@@ -139,7 +143,10 @@ function releer() {
     const aviso = { id: String(f[0]), fecha: String(f[1]), remitente: String(f[2]) }
     const leido = leerAviso({ remitente: aviso.remitente, asunto: String(f[3]), cuerpo: String(f[4]), textoPdf: String(f[6]),
       adjuntos: String(f[5]).split('\n').filter((n) => n !== ''), copia: '' })
-    hojas.avisos.getRange(i + 2, 8, 1, 5).setValues([estadoDe(leido)])
+    const estado = estadoDe(leido)
+    // Si cambió el lector, la versión, el estado o el control, la base tiene que ver la lectura nueva.
+    if ([0, 1, 2, 4].some((k) => String(f[7 + k] ?? '') !== String(estado[k] ?? ''))) hojas.avisos.getRange(i + 2, 14).setValue('')
+    hojas.avisos.getRange(i + 2, 8, 1, 5).setValues([estado])
     lineas.push(...filasDeLineas(aviso, leido))
     retenciones.push(...filasDeRetenciones(aviso.id, leido))
     acuses.push(...filasDeAcuses(aviso, leido))
@@ -421,6 +428,47 @@ function subirEnvios(hoja, inicio = Date.now()) {
     hechas++
   }
   return `Envíos a la base: ${hechas}, con ${vinculadas} facturas vinculadas a su orden.`
+}
+
+/**
+ * Sube a la base los avisos de la pestaña que todavía no entraron (fase 2 de cobranzas): el mail como
+ * está en la planilla y lo que dice su lector hoy, por fn_robot_guarda_aviso. La base guarda la
+ * evidencia, vincula las órdenes que el aviso nombra con factura y siniestro, y deriva qué facturas
+ * están pagadas. Lo que contesta queda en la columna "base"; un error se reintenta en la próxima
+ * corrida. Comparte el reloj con el barrido.
+ * @returns {string} una línea para el registro
+ */
+function subirAvisos(hoja, inicio = Date.now()) {
+  if (!hayPropiedadesDelRobot()) return 'Avisos sin subir: faltan las propiedades del robot.'
+  const pendientes = hoja.getDataRange().getValues().slice(1)
+    .map((f, i) => ({ f, fila: i + 2 }))
+    .filter(({ f }) => avisoPendienteDeSubir(f))
+    .sort((a, b) => String(a.f[1]).localeCompare(String(b.f[1])))
+  if (pendientes.length === 0) return 'Avisos en la base: al día.'
+
+  const sesion = entrarALaBase()
+  if (typeof sesion === 'string') return `Avisos sin subir: ${sesion}.`
+  const { url, clave, token } = sesion
+
+  let vinculadas = 0
+  let hechas = 0
+  for (const { f, fila } of pendientes) {
+    if (Date.now() - inicio > LIMITE_SUBIDA_MS) return `Avisos a la base: ${hechas}, con ${vinculadas} órdenes vinculadas; quedan ${pendientes.length - hechas}, siguen en la próxima corrida.`
+    const r = UrlFetchApp.fetch(`${url}/rest/v1/rpc/fn_robot_guarda_aviso`, {
+      method: 'post', contentType: 'application/json', headers: { apikey: clave, Authorization: `Bearer ${token}` },
+      muteHttpExceptions: true,
+      payload: JSON.stringify({ p_aviso: avisoParaLaBase(f) }),
+    })
+    if (r.getResponseCode() === 200) {
+      const respuesta = JSON.parse(r.getContentText())
+      hoja.getRange(fila, 14).setValue(respuestaDeLaBase(respuesta))
+      vinculadas += Number(respuesta.vinculadas) || 0
+    } else {
+      hoja.getRange(fila, 14).setValue(`error HTTP ${r.getResponseCode()}: ${r.getContentText().slice(0, 200)}`)
+    }
+    hechas++
+  }
+  return `Avisos a la base: ${hechas}, con ${vinculadas} órdenes vinculadas.`
 }
 
 /**

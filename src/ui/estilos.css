@@ -251,3 +251,34 @@ details summary { cursor: pointer; color: var(--acento); margin-bottom: 0.5rem; 
 .orden .acciones select, .orden .acciones input { padding: 0.3rem; border: 1px solid var(--borde); border-radius: 6px; font: inherit; background: var(--papel); color: var(--tinta); }
 .orden .acciones button:not(.enlace) { padding: 0.4rem 0.8rem; border: 0; border-radius: 6px; background: var(--acento); color: #fff; font: inherit; cursor: pointer; }
 .orden .acciones button:disabled { opacity: 0.6; cursor: default; }
+
+/* --- Hoy (spec 011 de semaforo-base) ------------------------------------ */
+
+.hoy { display: grid; gap: 1.25rem; }
+.hoy h2 { margin: 0; font-size: 1.1rem; }
+.hoy h3 { margin: 0; font-size: 1rem; }
+.hoy section, .hoy details { display: grid; gap: 0.6rem; }
+.auto p { margin: 0.2rem 0; }
+.auto-encabezado { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: baseline; }
+/* Botones grandes: se tocan parado al lado del auto, con una mano. */
+.auto .acciones { display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: center; margin-top: 0.5rem; }
+.auto .acciones button:not(.enlace), .buscar button { padding: 0.55rem 0.9rem; border: 0; border-radius: 6px; background: var(--acento); color: #fff; font: inherit; cursor: pointer; }
+.auto .acciones button:disabled { opacity: 0.6; cursor: default; }
+.auto .acciones input, .buscar input { padding: 0.4rem; border: 1px solid var(--borde); border-radius: 6px; font: inherit; background: var(--papel); color: var(--tinta); }
+.dar-turno { display: inline-flex; gap: 0.4rem; align-items: center; }
+.whatsapp { display: inline-block; padding: 0.55rem 0.9rem; border-radius: 6px; background: #15803d; color: #fff; text-decoration: none; }
+.auto-recordar_turno, .auto-vino_al_turno { border-left: 4px solid #d97706; }
+.auto-dar_turno { border-left: 4px solid var(--acento); }
+.auto-retirar { border-left: 4px solid #15803d; }
+.buscar form { display: flex; gap: 0.5rem; }
+.buscar input { flex: 1; min-width: 0; }
+.plegado summary { color: var(--acento); cursor: pointer; font-size: 0.9rem; }
+.plegado[open] { display: grid; gap: 0.4rem; }
+.auto-linea { margin: 0; display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: baseline; padding: 0 0.25rem; }
+
+/* --- El pago de la factura de una orden (fase 2) ------------------------ */
+
+.orden .pago { font-size: 0.95rem; }
+.pago-pagada, .pago-pagada_por_siniestro { color: #15803d; font-weight: 600; }
+.pago-pago_parcial, .pago-sin_importe { color: #b45309; }
+.pago-aprobada, .pago-recibida { color: var(--acento); }

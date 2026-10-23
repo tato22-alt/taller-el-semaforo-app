@@ -56,7 +56,7 @@ export function Ordenes() {
   if (ordenes === null) return <p className="apagado">Buscando órdenes de trabajo…</p>
   if ('tipo' in ordenes) return <p className="error tarjeta">{textoDeFallo(ordenes)}</p>
 
-  const { paraConfirmar, paraAtender, vigentes, vencidasViejas, resueltas } = agruparOrdenes(ordenes)
+  const { paraConfirmar, paraAtender, vigentes, vencidasViejas, pagadas, resueltas } = agruparOrdenes(ordenes)
   const tarjeta = (o: Orden) => <TarjetaOrden key={o.id} orden={o} companias={companias} ocupado={ocupado} hacer={hacer} />
 
   return (
@@ -93,6 +93,14 @@ export function Ordenes() {
             Vencieron hace más de {DIAS_QUE_SE_MUESTRA_VENCIDA} días y nadie las facturó. Si el trabajo no se hizo, tocá «No se hizo» y salen de acá.
           </p>
           {vencidasViejas.map(tarjeta)}
+        </details>
+      )}
+
+      {pagadas.length > 0 && (
+        <details>
+          <summary>Pagadas ({pagadas.length})</summary>
+          <p className="apagado">Un aviso de pago de la compañía nombra su factura.</p>
+          {pagadas.map(tarjeta)}
         </details>
       )}
 

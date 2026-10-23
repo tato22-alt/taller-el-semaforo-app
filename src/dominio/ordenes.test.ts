@@ -1,12 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import {
-  agruparOrdenes, estadoDeOrden, siniestroEnPalabras, siniestroTipeado, situacionEnPalabras, vencimientoEnPalabras, type Orden,
+  agruparOrdenes, estadoDeOrden, pagoDeOrden, pagoEnPalabras, siniestroEnPalabras, siniestroTipeado, situacionEnPalabras,
+  vencimientoEnPalabras, type Orden, type PagoDeLaFactura,
 } from './ordenes'
 
 const orden = (o: Partial<Orden>): Orden => ({
   id: 1, compania: 'Compañía inventada', siniestro: 'ZZ-1', patente: null, fechaEmision: '2026-01-01',
   vence: '2027-01-01', diasParaVencer: 100, montoAutorizado: null, perito: null, vehiculo: null, observaciones: null, anulada: false, anuladaPorMail: false, facturada: false, facturas: null, facturaPorMail: false,
-  aConfirmar: false, descartada: false, cerrada: false, cerradaMotivo: null,
+  facturaPorEvidencia: null, pago: null, aConfirmar: false, descartada: false, cerrada: false, cerradaMotivo: null,
   ...o,
 })
 
@@ -53,6 +54,7 @@ describe('agrupar para la pantalla', () => {
     expect(g.paraAtender.map((o) => o.id)).toEqual([1, 3])
     expect(g.vigentes.map((o) => o.id)).toEqual([2])
     expect(g.vencidasViejas.map((o) => o.id)).toEqual([9])
+    expect(g.pagadas).toEqual([])
     expect(g.resueltas.map((o) => o.id)).toEqual([4, 5, 7, 8])
   })
 
@@ -129,5 +131,64 @@ describe('el vencimiento en palabras', () => {
     expect(vencimientoEnPalabras(12)).toBe('vence en 12 días')
     expect(vencimientoEnPalabras(-1)).toBe('venció ayer')
     expect(vencimientoEnPalabras(-3)).toBe('venció hace 3 días')
+  })
+})
+
+const pago = (p: Partial<PagoDeLaFactura>): PagoDeLaFactura => ({
+  facturasSinAviso: 0, falta: null, sinImporte: false, ultimoPago: null, porSiniestro: false, acuse: null, fechaPrometida: null, ...p,
+})
+const fecha = (f: string | null) => f ?? '—'
+const pesos = (p: string | null) => `$${p ?? '—'}`
+
+describe('el pago de una orden facturada (fase 2)', () => {
+  it('sin factura no hay nada que decir del pago', () => {
+    expect(pagoDeOrden(orden({ facturada: false, pago: null }))).toBeNull()
+  })
+
+  it('pagada: el aviso cubre el total, o deja un residuo de centavos', () => {
+    expect(pagoDeOrden(orden({ facturada: true, pago: pago({ falta: '0.00', ultimoPago: '2026-09-14' }) }))).toBe('pagada')
+    expect(pagoDeOrden(orden({ facturada: true, pago: pago({ falta: '0.01', ultimoPago: '2026-09-14' }) }))).toBe('pagada')
+    expect(pagoDeOrden(orden({ facturada: true, pago: pago({ falta: '-5.00', ultimoPago: '2026-09-14' }) }))).toBe('pagada')
+  })
+
+  it('pago parcial: falta más que un residuo, o una de sus facturas no tiene aviso', () => {
+    expect(pagoDeOrden(orden({ facturada: true, pago: pago({ falta: '142.00', ultimoPago: '2026-09-14' }) }))).toBe('pago_parcial')
+    expect(pagoDeOrden(orden({ facturada: true, pago: pago({ facturasSinAviso: 1, ultimoPago: '2026-09-14' }) }))).toBe('pago_parcial')
+  })
+
+  it('el aviso no dice el importe: no se la da por pagada (pregunta 6)', () => {
+    expect(pagoDeOrden(orden({ facturada: true, pago: pago({ sinImporte: true, ultimoPago: '2026-09-14' }) }))).toBe('sin_importe')
+  })
+
+  it('sólo el siniestro, con una sola factura: pagada por siniestro (pregunta 7)', () => {
+    expect(pagoDeOrden(orden({ facturada: true, pago: pago({ porSiniestro: true, sinImporte: true, ultimoPago: '2026-09-14' }) }))).toBe('pagada_por_siniestro')
+  })
+
+  it('un acuse no es un pago (R3): aprobada o recibida, nunca pagada', () => {
+    expect(pagoDeOrden(orden({ facturada: true, pago: pago({ facturasSinAviso: 1, acuse: 'aprobacion', fechaPrometida: '2026-11-20' }) }))).toBe('aprobada')
+    expect(pagoDeOrden(orden({ facturada: true, pago: pago({ facturasSinAviso: 1, acuse: 'fecha_prometida' }) }))).toBe('aprobada')
+    expect(pagoDeOrden(orden({ facturada: true, pago: pago({ facturasSinAviso: 1, acuse: 'acuse' }) }))).toBe('recibida')
+    expect(pagoDeOrden(orden({ facturada: true, pago: pago({ facturasSinAviso: 1 }) }))).toBe('sin_aviso')
+  })
+
+  it('en palabras', () => {
+    const en = (p: Partial<PagoDeLaFactura>) => pagoEnPalabras(orden({ facturada: true, pago: pago(p) }), fecha, pesos)
+    expect(en({ falta: '0.00', ultimoPago: '2026-09-14' })).toBe('Pagada el 2026-09-14')
+    expect(en({ falta: '0.01', ultimoPago: '2026-09-14' })).toBe('Pagada el 2026-09-14 (quedaron $0.01 sin pagar)')
+    expect(en({ falta: '142.00', ultimoPago: '2026-09-14' })).toBe('Pago parcial el 2026-09-14: faltan $142.00')
+    expect(en({ sinImporte: true, ultimoPago: '2026-09-14' })).toBe('Hay un aviso de pago el 2026-09-14, pero no dice el importe')
+    expect(en({ facturasSinAviso: 1, acuse: 'aprobacion', fechaPrometida: '2026-11-20' })).toBe('Aprobada: pagan el 2026-11-20')
+    expect(en({ facturasSinAviso: 1 })).toBeNull()
+  })
+
+  it('las pagadas van a su grupo; las facturadas sin pago, a resueltas', () => {
+    const g = agruparOrdenes([
+      orden({ id: 1, facturada: true, pago: pago({ falta: '0.00', ultimoPago: '2026-09-14' }) }),
+      orden({ id: 2, facturada: true, pago: pago({ facturasSinAviso: 1, acuse: 'aprobacion' }) }),
+      orden({ id: 3, facturada: true, pago: pago({ porSiniestro: true, ultimoPago: '2026-09-14' }) }),
+      orden({ id: 4, facturada: true, pago: pago({ falta: '50.00', ultimoPago: '2026-09-14' }) }),
+    ])
+    expect(g.pagadas.map((o) => o.id)).toEqual([1, 3])
+    expect(g.resueltas.map((o) => o.id)).toEqual([2, 4])
   })
 })

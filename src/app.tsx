@@ -5,6 +5,7 @@ import { Ficha } from './ui/Ficha'
 import { Importar } from './ui/Importar'
 import { Revisar } from './ui/Revisar'
 import { Ordenes } from './ui/Ordenes'
+import { Hoy } from './ui/Hoy'
 import { Login } from './ui/Login'
 import { cerrarSesion } from './datos/sesion'
 import { textoDeFallo } from './dominio/resultado'
@@ -19,6 +20,7 @@ export function App() {
         <h1>El Semáforo</h1>
         {estado.fase === 'adentro' && (
           <nav className="navegacion">
+            {ruta.pantalla !== 'hoy' && <a href="#/hoy">Hoy</a>}
             {ruta.pantalla !== 'tablero' && <a href="#/">Tablero</a>}
             {ruta.pantalla !== 'importar' && <a href="#/importar">Importar facturas</a>}
             {ruta.pantalla !== 'revisar' && <a href="#/revisar">Revisar notas</a>}
@@ -56,6 +58,7 @@ export function App() {
         {estado.fase === 'adentro' && ruta.pantalla === 'importar' && <Importar />}
         {estado.fase === 'adentro' && ruta.pantalla === 'revisar' && <Revisar />}
         {estado.fase === 'adentro' && ruta.pantalla === 'ordenes' && <Ordenes />}
+        {estado.fase === 'adentro' && ruta.pantalla === 'hoy' && <Hoy />}
       </main>
     </div>
   )

@@ -13,6 +13,7 @@ export type Ruta =
   | { readonly pantalla: 'importar' }
   | { readonly pantalla: 'revisar' }
   | { readonly pantalla: 'ordenes' }
+  | { readonly pantalla: 'hoy' }
 
 export const RUTA_INICIAL: Ruta = { pantalla: 'tablero' }
 
@@ -25,6 +26,7 @@ export function rutaDesdeHash(hash: string): Ruta {
   if (partes[0] === 'importar' && partes.length === 1) return { pantalla: 'importar' }
   if (partes[0] === 'revisar' && partes.length === 1) return { pantalla: 'revisar' }
   if (partes[0] === 'ordenes' && partes.length === 1) return { pantalla: 'ordenes' }
+  if (partes[0] === 'hoy' && partes.length === 1) return { pantalla: 'hoy' }
 
   if (partes[0] === 'ficha') {
     const id = Number(partes[1])
@@ -46,5 +48,7 @@ export function hashDeRuta(ruta: Ruta): string {
       return '#/revisar'
     case 'ordenes':
       return '#/ordenes'
+    case 'hoy':
+      return '#/hoy'
   }
 }
