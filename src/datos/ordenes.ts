@@ -26,12 +26,12 @@ type FilaOrden = {
   vehiculo: string | null; observaciones: string | null
   anulada: boolean; anulada_por_mail: string | null
   facturas: string | null; facturada: boolean; por_mail: boolean | null
-  a_confirmar: boolean; descartada: boolean; cerrada: boolean; cerrada_motivo: string | null
+  a_confirmar: boolean; descartada: boolean; cerrada: boolean; cerrada_motivo: string | null; gmail_message_id?: string | null
   por_evidencia: string | null; pago_facturas_sin_aviso: number | null; pago_falta: string | null; pago_sin_importe: boolean | null
   pago_ultimo: string | null; pago_por_siniestro: boolean | null; pago_acuse: string | null; pago_fecha_prometida: string | null
 }
 
-const COLUMNAS = 'id_orden, compania, siniestro, patente, fecha_emision, vence, dias_para_vencer, monto_autorizado, perito, vehiculo, observaciones, anulada, anulada_por_mail, facturas, facturada, por_mail, a_confirmar, descartada, cerrada, cerrada_motivo, por_evidencia, pago_facturas_sin_aviso, pago_falta, pago_sin_importe, pago_ultimo, pago_por_siniestro, pago_acuse, pago_fecha_prometida'
+const COLUMNAS = 'id_orden, compania, siniestro, patente, fecha_emision, vence, dias_para_vencer, monto_autorizado, perito, vehiculo, observaciones, anulada, anulada_por_mail, facturas, facturada, por_mail, a_confirmar, descartada, cerrada, cerrada_motivo, por_evidencia, pago_facturas_sin_aviso, pago_falta, pago_sin_importe, pago_ultimo, pago_por_siniestro, pago_acuse, pago_fecha_prometida, gmail_message_id'
 
 /** Cuántas filas se piden por vez. Es el tope que PostgREST devuelve por pedido en Supabase ("Max
  *  rows", 1000 de fábrica): pasado eso corta sin avisar, con un 200 y la lista incompleta. No puede
@@ -196,6 +196,7 @@ function orden(f: FilaOrden): Orden {
     descartada: f.descartada,
     cerrada: f.cerrada,
     cerradaMotivo: f.cerrada_motivo,
+    mail: f.gmail_message_id ?? null,
   }
 }
 
