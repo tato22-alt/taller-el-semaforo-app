@@ -6,7 +6,8 @@
  * que el generador dice mal (los montos llegan como string) vive en `filas.ts`.
  *
  * Generado el 2026-10-23 contra la base real. EXCEPCIÓN, hasta que se aplique la M7 de semaforo-base:
- * `imputacion`, `vw_revisar_candidatas` y las columnas nuevas de `vw_revisar` se sumaron a mano, con la
+ * `imputacion`, `vw_revisar_candidatas`, las columnas nuevas de `vw_revisar` y `gmail_message_id` de
+ * `vw_ordenes_trabajo` (20261025125000_orden_con_su_mail.sql) se sumaron a mano, con la
  * forma del generador. Apenas se aplique, se regenera el archivo entero y gana el generado. */
 
 export type Json =
@@ -1256,6 +1257,7 @@ export type Database = {
           facturado: number | null
           facturas: string | null
           fecha_emision: string | null
+          gmail_message_id: string | null
           id_orden: number | null
           monto_autorizado: number | null
           observaciones: string | null

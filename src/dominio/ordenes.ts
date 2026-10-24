@@ -45,6 +45,14 @@ export type Orden = {
   /** RF-1013: alguien dijo "No se hizo". Sale de los avisos y queda anotada. */
   readonly cerrada: boolean
   readonly cerradaMotivo: string | null
+  /** El id del mail que trajo la orden, para llegar a él (issue #9). Nulo si se cargó a mano. */
+  readonly mail: string | null
+}
+
+/** El mail de la orden en Gmail, con su PDF adjunto. Abre la cuenta con que se entró primero a Gmail en
+ *  ese navegador: tiene que ser la del taller, que es la que recibe las órdenes. */
+export function enlaceAlMail(idMail: string): string {
+  return `https://mail.google.com/mail/u/0/#all/${encodeURIComponent(idMail)}`
 }
 
 /** Fase 2 (plan-fase-2.md de semaforo-base): lo que la base deriva de los avisos de pago de las

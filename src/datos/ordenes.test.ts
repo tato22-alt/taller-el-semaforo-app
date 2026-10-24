@@ -65,7 +65,13 @@ describe('leer órdenes', () => {
     expect(r.ok && r.dato[0]).toMatchObject({ facturaPorEvidencia: 'aviso',
       pago: { facturasSinAviso: 0, falta: '0.00', sinImporte: false, ultimoPago: '2026-09-14', porSiniestro: false, acuse: null } })
     expect(r.ok && r.dato[1]?.pago).toBeNull()
-    expect(llamadas[0]).toMatch(/por_evidencia, pago_facturas_sin_aviso, pago_falta, pago_sin_importe, pago_ultimo, pago_por_siniestro, pago_acuse, pago_fecha_prometida$/)
+    expect(llamadas[0]).toMatch(/por_evidencia, pago_facturas_sin_aviso, pago_falta, pago_sin_importe, pago_ultimo, pago_por_siniestro, pago_acuse, pago_fecha_prometida, gmail_message_id$/)
+  })
+
+  it('trae el mail de la orden para llegar a él, y nulo si se cargó a mano (issue #9)', async () => {
+    const { cliente } = clienteFalso({ vista: [{ ...fila, id_orden: 1, gmail_message_id: '19ab0000cd' }, { ...fila, id_orden: 2, gmail_message_id: null }] })
+    const r = await leerOrdenes(cliente)
+    expect(r.ok && r.dato.map((o) => o.mail)).toEqual(['19ab0000cd', null])
   })
 
   it('el siniestro puede faltar en una a confirmar que el robot no pudo leer (RF-1014)', async () => {

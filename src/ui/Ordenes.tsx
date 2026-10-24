@@ -15,6 +15,7 @@ import {
 import { formatearPesos } from '../dominio/dinero'
 import { formatearFecha, hoyEnElTaller } from '../dominio/fechas'
 import {
+  enlaceAlMail,
   agruparOrdenes, DIAS_QUE_SE_MUESTRA_VENCIDA, estadoDeOrden, siniestroEnPalabras, siniestroTipeado, situacionEnPalabras,
   vencimientoEnPalabras, type Orden,
 } from '../dominio/ordenes'
@@ -134,6 +135,11 @@ function TarjetaOrden({ orden: o, companias, ocupado, hacer }: PropsTarjeta) {
         {o.perito !== null && ` · perito ${o.perito}`}
       </p>
       {o.observaciones !== null && <p className="apagado">{o.observaciones}</p>}
+      {o.mail !== null && (
+        <p>
+          <a href={enlaceAlMail(o.mail)} target="_blank" rel="noreferrer">Ver el mail de la orden</a>
+        </p>
+      )}
       {estado === 'a_confirmar' && <AccionesParaConfirmar orden={o} companias={companias} ocupado={ocupado} hacer={hacer} />}
       {estado !== 'a_confirmar' && estado !== 'descartada' && estado !== 'cerrada' && <FacturaDeLaOrden orden={o} ocupado={ocupado} hacer={hacer} />}
       {(estado === 'por_vencer' || estado === 'vigente' || estado === 'vencida') && (

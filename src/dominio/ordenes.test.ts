@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import {
-  agruparOrdenes, estadoDeOrden, pagoDeOrden, pagoEnPalabras, siniestroEnPalabras, siniestroTipeado, situacionEnPalabras,
+  agruparOrdenes, enlaceAlMail, estadoDeOrden, pagoDeOrden, pagoEnPalabras, siniestroEnPalabras, siniestroTipeado, situacionEnPalabras,
   vencimientoEnPalabras, type Orden, type PagoDeLaFactura,
 } from './ordenes'
 
 const orden = (o: Partial<Orden>): Orden => ({
   id: 1, compania: 'Compañía inventada', siniestro: 'ZZ-1', patente: null, fechaEmision: '2026-01-01',
   vence: '2027-01-01', diasParaVencer: 100, montoAutorizado: null, perito: null, vehiculo: null, observaciones: null, anulada: false, anuladaPorMail: false, facturada: false, facturas: null, facturaPorMail: false,
-  facturaPorEvidencia: null, pago: null, aConfirmar: false, descartada: false, cerrada: false, cerradaMotivo: null,
+  facturaPorEvidencia: null, pago: null, aConfirmar: false, descartada: false, cerrada: false, cerradaMotivo: null, mail: null,
   ...o,
 })
 
@@ -190,5 +190,11 @@ describe('el pago de una orden facturada (fase 2)', () => {
     ])
     expect(g.pagadas.map((o) => o.id)).toEqual([1, 3])
     expect(g.resueltas.map((o) => o.id)).toEqual([2, 4])
+  })
+})
+
+describe('el mail de la orden', () => {
+  it('arma el enlace a Gmail con el id del mail', () => {
+    expect(enlaceAlMail('19ab0000cd')).toBe('https://mail.google.com/mail/u/0/#all/19ab0000cd')
   })
 })
