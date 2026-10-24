@@ -1,20 +1,23 @@
 # Estado del proyecto — dónde está todo
 
-> **Al 2026-10-22.** Lo de abajo quedó del 2026-10-07 y se actualiza por partes. Lo que falta hacer,
+> **Al 2026-10-23.** Lo de abajo quedó del 2026-10-07 y se actualiza por partes. Lo que falta hacer,
 > en orden, está en `PENDIENTES.md` de `semaforo-base` (privado, porque lleva números del negocio).
 >
-> - Pantallas hechas desde entonces: **Revisar** (notas de crédito), **Órdenes** (spec 010, con la
->   factura de cada orden de la spec 012) y **Hoy** (spec 011, los hitos del auto), ésta en la rama
->   `claude/business-improvement-priorities-5u3jc4`. Su migración está aplicada en la base desde el
->   2026-10-22: falta pasar la rama a `main` para que Pages la publique.
-> - La app escribe seis tablas, todas en `src/arquitectura.test.ts`: `importacion`, `comprobante`,
->   `comprobante_vinculo`, `orden_trabajo`, `orden_factura` y `hito_trabajo`.
-> - Hoy se probó contra una base simulada (311 tests, build, y capturas en un celular de 390 px). Falta
->   verla con la base real.
-> - **Fase 2 de cobranzas (2026-10-22):** la tarjeta de cada orden dice si su factura está **pagada**,
->   pagada en parte, con un aviso que no dice el importe, o **aprobada con fecha de pago** (un acuse no
->   es un pago), y las pagadas van a su grupo. Lo deriva la base de los avisos que sube el robot, que
->   ahora también sube los avisos y acuses (`robot/README.md`). Falta pegar el robot nuevo.
+> - **Publicado** (https://tato22-alt.github.io/taller-el-semaforo-app/): login, tablero, Importar,
+>   Revisar (notas de crédito y, cuando se aplique la M7, los avisos de pago), Órdenes (spec 010, con la
+>   factura de cada orden de la spec 012 y su pago, fase 2) y Hoy (spec 011, los hitos del auto).
+> - La app escribe siete tablas, todas en `src/arquitectura.test.ts`: `importacion`, `comprobante`,
+>   `comprobante_vinculo`, `orden_trabajo`, `orden_factura`, `hito_trabajo` e `imputacion` (Revisar,
+>   desde la M7 de `semaforo-base`, escrita y sin aplicar: va después del respaldo semanal).
+> - `src/datos/tipos-base.ts` es el generado por el conector de Supabase desde el 2026-10-23. Lo de la
+>   M7 está sumado a mano hasta que se aplique; después se regenera entero.
+> - **El robot** (`robot/README.md`) sube a la base las órdenes, los envíos de factura y los avisos de
+>   pago. Desde el 2026-10-23 lee también Cooperación, Provincia y la forma nueva de LPS, y tapa las
+>   claves aunque vengan en negrita (`robot/lectores/claves.js`). Hay que pegar el `robot.gs` de `main` y
+>   correr `releer` una vez.
+> - Lo próximo: la M7 (cuando ande el respaldo), las specs 014 (retenciones) y 013 (la plata del
+>   taller), aprobadas el 2026-10-23, y que el robot reconozca los mails que no son pagos.
+> - 361 tests en verde.
 
 Punto de entrada cuando volvés. Si esto y el código se contradicen, gana el código.
 

@@ -22,7 +22,9 @@ entiende queda a la vista, nunca se descarta en silencio.
 |---|---|---|
 | Federación Patronal | El cuerpo del mail: fecha, egreso, facturas, lo transferido y las retenciones | No: el mail no trae el bruto |
 | La Segunda | El asunto: el número de factura. Los importes están en el PDF, que todavía no se lee | No |
-| LPS | El PDF: cada factura con su bruto, el SUBTOTAL, las retenciones y el TOTAL | **Sí** |
+| LPS | El PDF, en sus dos formas (la de antes y la de mayo de 2026): cada factura con su bruto, el SUBTOTAL, las retenciones y el TOTAL | **Sí** |
+| Cooperación | El PDF de la orden de pago: cada factura con su bruto, las retenciones, la transferencia con su fecha, y el número del comprobante de Ganancias | **Sí** |
+| Provincia | El PDF de la orden de pago y sus certificados: cada factura con su bruto y sus retenciones (juntas por impuesto, con su certificado) y el total pagado | **Sí** |
 | Río Uruguay | El PDF: la factura, el siniestro, el total a pagar y cada certificado con su número | **Sí** |
 | Nación | El PDF: cada factura con su bruto, sus retenciones con certificado y su neto | **Sí** |
 | San Cristóbal | El PDF, en sus dos formatos: el recibo a proveedor (con factura y bruto) y el de indemnización (siniestro y neto, a veces dos recibos en un PDF) | **Sí**: en el de indemnización, con las bases de Ganancias e IVA de los certificados |
@@ -41,14 +43,15 @@ son pagos: van a la pestaña **acuses**, nunca a *lineas*. Sirven para saber en 
 factura, pero no suman a lo cobrado (R3).
 
 **Las claves tampoco se guardan.** Hay compañías que mandan el usuario y la clave del portal por
-mail. El robot reemplaza lo que sigue a "contraseña" o "clave" antes de escribir la planilla.
+mail. El robot reemplaza lo que sigue a "contraseña" o "clave" (aunque venga en negrita, entre
+asteriscos) antes de escribir la planilla o subir a la base, en el cuerpo y en el texto de los PDF
+(`lectores/claves.js`).
 
 **Los enlaces de acceso no se guardan.** Algunos avisos (cobranzas.com) traen un link que entra al
 portal sin pedir clave. El robot lo reemplaza por *[enlace de acceso quitado por el robot]* antes
 de escribir la planilla: es una credencial, y la regla es no guardar ninguna (R2).
 
-Cooperación y Provincia todavía no tienen lector de pagos (mandan sólo PDF, y todavía no vimos ninguno): sus mails se guardan igual
-(`sin_lector`) y se leen cuando lo tengan.
+Lo que todavía no tiene lector se guarda igual (`sin_lector`) y se lee el día que lo tenga.
 
 ## Instalarlo (una vez, ~10 minutos)
 
@@ -278,6 +281,18 @@ queda guardada.
 Para instalarla: pegá el `robot.gs` nuevo y ejecutá `barrer` hasta que diga "Al día.". La primera
 vez sube todos los avisos de la planilla, así que puede llevar varias corridas. No hay que aplicar
 nada en Supabase: la base ya está lista.
+
+## La versión del 2026-10-23: Cooperación, Provincia y la forma nueva de LPS
+
+Tres lectores, probados también contra las órdenes de pago reales (fuera del repo): todas cierran al
+centavo. Y las claves se tapan aunque vengan en negrita.
+
+Para instalarla:
+
+1. Pegá el `robot.gs` nuevo en lugar del anterior y guardá.
+2. Ejecutá **`releer`** una vez: vuelve a leer con los lectores nuevos los avisos que ya están en la
+   planilla, sin ir a Gmail, y sube a la base los que cambiaron. Las órdenes de Cooperación y
+   Provincia pasan de *sin lector* a *leído*, y las de LPS, de *no entendido* a *leído*.
 
 ## Lo que esta planilla NO es
 
