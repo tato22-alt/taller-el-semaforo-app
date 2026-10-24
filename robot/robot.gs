@@ -1674,7 +1674,7 @@ function leerProvincia(mail) {
   const IMPORTE = /\d{1,3}(?:,\d{3})*\.\d{2}/
   /** @type {LineaAviso[]} */
   const lineas = []
-  /** @type {Map<string, { concepto: string, centavos: number }>} */
+  /** @type {Map<Impuesto, { concepto: string, centavos: number }>} */
   const porImpuesto = new Map()
   for (const [i, m] of marcas.entries()) {
     const tramo = tabla.slice((m.index ?? 0) + m[0].length, marcas[i + 1]?.index ?? tabla.length)
@@ -1698,8 +1698,9 @@ function leerProvincia(mail) {
     }
   }
 
+  /** @type {Map<Impuesto, string>} */
   const certificados = new Map([...t.matchAll(/(Ingresos Brutos|SUSS|IVA|Ganancias)\b.{0,60}?Numero de Certificado (\d+)/g)]
-    .map((c) => [impuestoDe(c[1] ?? ''), c[2] ?? '']))
+    .map((c) => /** @type {[Impuesto, string]} */ ([impuestoDe(c[1] ?? ''), c[2] ?? ''])))
   /** @type {Retencion[]} */
   const retenciones = [...porImpuesto.entries()]
     .filter(([, r]) => r.centavos > 0)
