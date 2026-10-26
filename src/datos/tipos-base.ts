@@ -7,8 +7,10 @@
  *
  * Generado el 2026-10-23 contra la base real. EXCEPCIÓN, hasta que se aplique la M7 de semaforo-base:
  * `imputacion`, `vw_revisar_candidatas`, las columnas nuevas de `vw_revisar` y `gmail_message_id` de
- * `vw_ordenes_trabajo` (20261025125000_orden_con_su_mail.sql) se sumaron a mano, con la
- * forma del generador. Apenas se aplique, se regenera el archivo entero y gana el generado. */
+ * `vw_ordenes_trabajo` (20261025125000_orden_con_su_mail.sql) se sumaron a mano, con la forma del
+ * generador. `vw_libro_retenciones` y `vw_retenciones_mes` (el libro de retenciones, aplicado el
+ * 2026-10-27) son copia de lo que da el generador. Apenas se aplique la M7, se regenera el archivo entero
+ * y gana el generado. */
 
 export type Json =
   | string
@@ -1208,6 +1210,32 @@ export type Database = {
         }
         Relationships: []
       }
+      vw_libro_retenciones: {
+        Row: {
+          certificado: string | null
+          compania: string | null
+          concepto: string | null
+          cuit: string | null
+          facturas: number[] | null
+          fecha: string | null
+          gmail_message_id: string | null
+          id_retencion: number | null
+          importe: number | null
+          impuesto: string | null
+          mes: string | null
+          op: string | null
+          siniestros: string[] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "aviso_retencion_gmail_message_id_fkey"
+            columns: ["gmail_message_id"]
+            isOneToOne: false
+            referencedRelation: "aviso"
+            referencedColumns: ["gmail_message_id"]
+          },
+        ]
+      }
       vw_nc_candidatas: {
         Row: {
           candidatas: number | null
@@ -1356,6 +1384,21 @@ export type Database = {
           monto_mano_obra: number | null
           numero_presupuesto: number | null
           origen_carga: string | null
+        }
+        Relationships: []
+      }
+      vw_retenciones_mes: {
+        Row: {
+          companias: number | null
+          ganancias: number | null
+          iibb: number | null
+          iva: number | null
+          mes: string | null
+          otro: number | null
+          retenciones: number | null
+          sin_certificado: number | null
+          suss: number | null
+          total: number | null
         }
         Relationships: []
       }

@@ -176,7 +176,7 @@ body {
 
 /* --- Importar facturas ------------------------------------------------- */
 
-.navegacion { display: flex; gap: 1rem; }
+.navegacion { display: flex; flex-wrap: wrap; gap: 0.4rem 1rem; }
 
 .importar { display: grid; gap: 1rem; }
 .importar h2 { margin: 0; font-size: 1.1rem; }
@@ -289,3 +289,16 @@ details summary { cursor: pointer; color: var(--acento); margin-bottom: 0.5rem; 
 .pago-pagada, .pago-pagada_por_siniestro { color: #15803d; font-weight: 600; }
 .pago-pago_parcial, .pago-sin_importe { color: #b45309; }
 .pago-aprobada, .pago-recibida { color: var(--acento); }
+
+/* --- Retenciones (spec 014 de semaforo-base) ---------------------------- */
+
+.retenciones { display: grid; gap: 1.25rem; }
+.retenciones h2 { margin: 0; font-size: 1.1rem; }
+.retenciones h3 { margin: 0 0 0.6rem; font-size: 1rem; }
+.retenciones select { padding: 0.4rem; border: 1px solid var(--borde); border-radius: 6px; font: inherit; background: var(--papel); color: var(--tinta); }
+.resumen-retenciones p { margin: 0.2rem 0; }
+.por-impuesto { list-style: none; margin: 0.6rem 0; padding: 0; display: flex; flex-wrap: wrap; gap: 0.4rem 1.25rem; }
+.retencion { padding: 0.75rem 1rem; }
+.retencion-linea { margin: 0.15rem 0; display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: baseline; font-size: 0.9rem; }
+.retenciones button { padding: 0.55rem 0.9rem; border: 0; border-radius: 6px; background: var(--acento); color: #fff; font: inherit; cursor: pointer; }
+.retenciones button:disabled { opacity: 0.6; cursor: default; }
