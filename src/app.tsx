@@ -6,6 +6,7 @@ import { Importar } from './ui/Importar'
 import { Revisar } from './ui/Revisar'
 import { Ordenes } from './ui/Ordenes'
 import { Hoy } from './ui/Hoy'
+import { Retenciones } from './ui/Retenciones'
 import { Login } from './ui/Login'
 import { cerrarSesion } from './datos/sesion'
 import { textoDeFallo } from './dominio/resultado'
@@ -25,6 +26,7 @@ export function App() {
             {ruta.pantalla !== 'importar' && <a href="#/importar">Importar facturas</a>}
             {ruta.pantalla !== 'revisar' && <a href="#/revisar">Revisar</a>}
             {ruta.pantalla !== 'ordenes' && <a href="#/ordenes">Órdenes de trabajo</a>}
+            {ruta.pantalla !== 'retenciones' && <a href="#/retenciones">Retenciones</a>}
           </nav>
         )}
       </header>
@@ -59,6 +61,7 @@ export function App() {
         {estado.fase === 'adentro' && ruta.pantalla === 'revisar' && <Revisar />}
         {estado.fase === 'adentro' && ruta.pantalla === 'ordenes' && <Ordenes />}
         {estado.fase === 'adentro' && ruta.pantalla === 'hoy' && <Hoy />}
+        {estado.fase === 'adentro' && ruta.pantalla === 'retenciones' && <Retenciones />}
       </main>
     </div>
   )

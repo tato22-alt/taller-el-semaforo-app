@@ -46,7 +46,8 @@ Hoy hay dos módulos especificados y el flujo de los hitos del auto, cada uno co
 Contesta en diez segundos **cuánto me deben, quién, desde cuándo, y qué tengo que hacer hoy
 para cobrarlo**, con datos que ya están escritos en ARCA y en Gmail. Sus pantallas son las de
 la spec 005 §6: **Cobranzas, Ficha de factura, Revisar, Ficha de compañía y Antes de emitir**,
-más **Importar** (subir el CSV de ARCA), que entró con el plan de la fase 1, y nada más. Lo que este módulo no hace está en la spec 005 §10, y se defiende igual que el
+más **Importar** (subir el CSV de ARCA), que entró con el plan de la fase 1, y **Retenciones** (el libro de
+retenciones y su control contra ARCA), que entró con la spec 014 de `semaforo-base`, y nada más. Lo que este módulo no hace está en la spec 005 §10, y se defiende igual que el
 resto.
 
 ### Hitos del auto (spec 011 de `semaforo-base`, aprobada el 2026-10-22)

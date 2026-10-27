@@ -1,11 +1,14 @@
 # Estado del proyecto — dónde está todo
 
-> **Al 2026-10-23.** Lo de abajo quedó del 2026-10-07 y se actualiza por partes. Lo que falta hacer,
+> **Al 2026-10-27.** Lo de abajo quedó del 2026-10-07 y se actualiza por partes. Lo que falta hacer,
 > en orden, está en `PENDIENTES.md` de `semaforo-base` (privado, porque lleva números del negocio).
 >
 > - **Publicado** (https://tato22-alt.github.io/taller-el-semaforo-app/): login, tablero, Importar,
 >   Revisar (notas de crédito y, cuando se aplique la M7, los avisos de pago), Órdenes (spec 010, con la
 >   factura de cada orden de la spec 012 y su pago, fase 2) y Hoy (spec 011, los hitos del auto).
+> - **Retenciones** (spec 014, paso 1): lo retenido cada mes, el libro y la planilla para el contador.
+>   Sólo lee. La migración del libro de `semaforo-base` se aplicó el 2026-10-27; la pantalla se publica
+>   cuando se mergea su PR.
 > - La app escribe siete tablas, todas en `src/arquitectura.test.ts`: `importacion`, `comprobante`,
 >   `comprobante_vinculo`, `orden_trabajo`, `orden_factura`, `hito_trabajo` e `imputacion` (Revisar,
 >   desde la M7 de `semaforo-base`, escrita y sin aplicar: va después del respaldo semanal).

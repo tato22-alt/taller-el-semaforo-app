@@ -124,10 +124,55 @@ describe('Federación Patronal (cuerpo del mail)', () => {
 describe('La Segunda (asunto)', () => {
   const LS = 'enviosautomaticos@lasegunda.com.ar'
 
-  it('saca la factura del asunto; los importes están en un PDF que todavía no se lee', () => {
+  it('saca la factura del asunto; sin texto de PDF, no hay retenciones que leer', () => {
     const r = leer({ remitente: LS, asunto: 'Envío de Retenciones Factura/s Nro. 1234, 1235' })
-    expect(r).toMatchObject({ estado: 'leido', lector: 'la-segunda', tipo: 'retencion', neto: null })
+    expect(r).toMatchObject({ estado: 'leido', lector: 'la-segunda', tipo: 'retencion', neto: null, version: 3 })
     expect(r.lineas.map((l) => l.factura?.numero)).toEqual([1234, 1235])
+    expect(r.retenciones).toEqual([])
+  })
+
+  /* Un certificado como los reales: el nombre del que sigue va al final, antes de la raya. */
+  const certificado = (numero: string, retenido: string, siguiente: string) =>
+    [
+      '-----------------------------  ', numero + ' ', '15/10/2026 ', 'LA SEGUNDA COOP.LTDA DE SEGUROS GEN 30-00000000-0 ',
+      'CALLE FALSA 123 ', '2000 ROSARIO-SFE ', '000-00-0000-0 ', 'TALLER DE PRUEBA S.R.L. ', '30-00000000-1 ',
+      'AV SIEMPRE VIVA 742 7165 VILLA GESELL-B A ', '30000000001 ', 'FACTURA 1234 ', '500000.00 ', retenido + ' ',
+      'OP. Nº 1234567', ...(siguiente === '' ? [] : [siguiente + '   ']),
+    ].join('\r\n')
+  const PDF = [
+    'RETENCION ING. BRUTOS   \r\nBUENOS AIRES ',
+    certificado('00-0000-100001', '14500.00', 'RET. GRAL. PREV. RG.1784'),
+    certificado('00-0000-200002', '4130.5', 'RETENCION GANANCIAS'),
+    certificado('00-0001-300003', '8264.46', 'RETENCION I.V.A.'),
+    certificado('00-0001-400004', '69421.49', ''),
+  ].join('\r\n')
+  const ASUNTO = 'Envío de Retenciones Factura/s Nro. 1234'
+
+  it('lee del PDF cada retención con su impuesto, su certificado, la OP y la fecha', () => {
+    const r = leer({ remitente: LS, asunto: ASUNTO, textoPdf: PDF })
+    expect(r).toMatchObject({ estado: 'leido', op: '1234567', fechaPago: '2026-10-15', neto: null })
+    expect(r.control.resultado).toBe('sin_bruto')
+    expect(impuestos(r)).toEqual([
+      ['iibb', '14500.00', '00-0000-100001'],
+      ['suss', '4130.50', '00-0000-200002'],
+      ['ganancias', '8264.46', '00-0001-300003'],
+      ['iva', '69421.49', '00-0001-400004'],
+    ])
+    expect(r.retenciones[0]?.concepto).toBe('RETENCION ING. BRUTOS BUENOS AIRES')
+    expect(r.lineas).toEqual([{ factura: { texto: '1234', puntoVenta: null, numero: 1234 }, siniestro: null, bruto: null, neto: null }])
+  })
+
+  it('un certificado repetido (original y copia, o dos PDF) cuenta una vez, y la marca entre PDF no se mete en el nombre', () => {
+    const r = leer({ remitente: LS, asunto: ASUNTO, textoPdf: PDF + '\n\n----- siguiente PDF -----\n\nRETENCION I.V.A.\r\n' + certificado('00-0001-400004', '69421.49', '') })
+    expect(r.retenciones.map((x) => x.certificado)).toEqual(['00-0000-100001', '00-0000-200002', '00-0001-300003', '00-0001-400004'])
+  })
+
+  it('con un PDF que no tiene esa forma, o un certificado sin número, lo dice en vez de adivinar', () => {
+    expect(leer({ remitente: LS, asunto: ASUNTO, textoPdf: 'Otro formato de PDF, sin rayas' }).estado).toBe('no_entendido')
+    const sinNumero = PDF.replace('00-0000-200002 ', '')
+    expect(leer({ remitente: LS, asunto: ASUNTO, textoPdf: sinNumero })).toMatchObject({ estado: 'no_entendido' })
+    const dosFacturas = PDF.replace('FACTURA 1234 \r\n500000.00 \r\n14500.00', 'FACTURA 1234 \r\nFACTURA 1235 \r\n500000.00 \r\n14500.00')
+    expect(leer({ remitente: LS, asunto: ASUNTO, textoPdf: dosFacturas }).motivo).toMatch(/más de una factura/)
   })
 
   it('un mail de La Segunda que no es de retenciones no lo agarra este lector', () => {
