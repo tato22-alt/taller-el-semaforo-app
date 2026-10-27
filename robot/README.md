@@ -332,6 +332,11 @@ Para instalarla, desde la compu, con la cuenta del taller:
    *+* → *Crear calendario*, y se comparte sólo con quien corresponda. Un pago que se repite se carga
    como evento que se repite, con su aviso.
 
+**En la misma versión, una casilla nueva: Triunfo** (`triunfonet_erp@triunfoseguros.com`). Manda
+"Notificación de Pago" con la orden de pago y el certificado de retención en PDF. El robot la suma sola
+a la pestaña *remitentes*, y desde ahí guarda sus mails con el texto de los PDF. Quedan como *sin lector*
+hasta que exista el suyo, que se escribe mirando esos textos.
+
 Cómo se sabe que anda:
 - **Enseguida:** en El Semáforo aparecen los vencimientos de las órdenes sin factura.
 - **Con un turno en Hoy:** a la hora, el turno está en su día. Si se cambia el día, el evento se mueve.

@@ -746,6 +746,31 @@ describe('el robot', () => {
     expect(fila[12]).toBe('drive-1\ndrive-2')
   })
 
+  it('la pestaña remitentes: la primera vez se llena, una casilla nueva se suma sola, y una borrada no vuelve', () => {
+    const filas: unknown[][] = [['remitente', 'compañía'], ['no_responder@fedpat.com.ar', 'Federación Patronal']]
+    const props = new Map<string, string>()
+    const hoja = {
+      getDataRange: () => ({ getValues: () => filas }),
+      getLastRow: () => filas.length,
+      getRange: () => ({ setValues: (nuevas: unknown[][]) => { filas.push(...nuevas) } }),
+    }
+    const { sumarRemitentesNuevos, REMITENTES_INICIALES } = runInNewContext(
+      readFileSync(join(CARPETA, 'robot.gs'), 'utf8') + '\n;({ sumarRemitentesNuevos, REMITENTES_INICIALES })',
+      { PropertiesService: { getScriptProperties: () => ({ getProperty: (k: string) => props.get(k) ?? null, setProperty: (k: string, v: string) => props.set(k, v) }) } },
+    ) as { sumarRemitentesNuevos: (h: typeof hoja) => void; REMITENTES_INICIALES: [string, string][] }
+
+    sumarRemitentesNuevos(hoja)
+    const casillas = () => filas.slice(1).map((f) => String(f[0]))
+    expect(casillas()).toHaveLength(REMITENTES_INICIALES.length)
+    expect(casillas().filter((c) => c === 'no_responder@fedpat.com.ar')).toHaveLength(1)
+    expect(casillas()).toContain('triunfonet_erp@triunfoseguros.com')
+
+    filas.splice(1, 1)
+    sumarRemitentesNuevos(hoja)
+    expect(casillas()).not.toContain('no_responder@fedpat.com.ar')
+    expect(casillas()).toHaveLength(REMITENTES_INICIALES.length - 1)
+  })
+
   it('robot.gs, el archivo que se pega, está al día con sus fuentes (node robot/armar.mjs)', () => {
     expect(readFileSync(join(CARPETA, 'robot.gs'), 'utf8')).toBe(armar())
   })
