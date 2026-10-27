@@ -16,11 +16,15 @@
 >   M7 está sumado a mano hasta que se aplique; después se regenera entero.
 > - **El robot** (`robot/README.md`) sube a la base las órdenes, los envíos de factura y los avisos de
 >   pago. Desde el 2026-10-23 lee también Cooperación, Provincia y la forma nueva de LPS, y tapa las
->   claves aunque vengan en negrita (`robot/lectores/claves.js`). Hay que pegar el `robot.gs` de `main` y
->   correr `releer` una vez.
-> - Lo próximo: la M7 (cuando ande el respaldo), las specs 014 (retenciones) y 013 (la plata del
->   taller), aprobadas el 2026-10-23, y que el robot reconozca los mails que no son pagos.
-> - 361 tests en verde.
+>   claves aunque vengan en negrita (`robot/lectores/claves.js`). Desde el 2026-10-26 lee las retenciones
+>   de La Segunda, y desde el 2026-10-27 llena el Google Calendar del taller (spec 015: turnos,
+>   vencimientos de órdenes y fechas prometidas de pago), con la función de la base
+>   `20261027120000_calendario.sql`, todavía sin aplicar. Hay que pegar el `appsscript.json` y el
+>   `robot.gs` de `main`, correr `releer` y `sincronizarCalendario` una vez.
+> - Lo próximo: la M7 (cuando ande el respaldo), la spec 016 (la factura lista para mandar), la 013 (la
+>   plata del taller), el control contra ARCA de la 014 (con el archivo de Mis Retenciones), y que el
+>   robot reconozca los mails que no son pagos.
+> - 387 tests en verde.
 
 Punto de entrada cuando volvés. Si esto y el código se contradicen, gana el código.
 

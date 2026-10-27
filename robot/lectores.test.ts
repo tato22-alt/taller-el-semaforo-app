@@ -683,7 +683,7 @@ describe('asunto de las facturas enviadas', () => {
 })
 
 describe('el robot', () => {
-  const codigo = [...fuentes.map((n) => join('lectores', n)), 'barrido.js', 'robot.gs'].map((n) => ({ nombre: n, texto: readFileSync(join(CARPETA, n), 'utf8') }))
+  const codigo = [...fuentes.map((n) => join('lectores', n)), 'calendario.js', 'barrido.js', 'robot.gs'].map((n) => ({ nombre: n, texto: readFileSync(join(CARPETA, n), 'utf8') }))
 
   it('no guarda enlaces que inician sesión en un portal sin clave (R2)', () => {
     const { sinEnlacesDeSesion } = runInNewContext(readFileSync(join(DIR_LECTORES, 'claves.js'), 'utf8') + '\n;({ sinEnlacesDeSesion })', {}) as {
@@ -751,8 +751,11 @@ describe('el robot', () => {
   })
 
   it('pide sólo los permisos de la lista, y ninguno de Gmail que escriba (R1)', () => {
+    // Calendar, desde la spec 015: el calendario del taller. Escribir en el propio calendario no es
+    // mandarle nada a nadie; invitar sí, y eso lo prueba calendario.test.ts.
     const manifiesto = JSON.parse(readFileSync(join(CARPETA, 'appsscript.json'), 'utf8')) as { oauthScopes: string[] }
     expect([...manifiesto.oauthScopes].sort()).toEqual([
+      'https://www.googleapis.com/auth/calendar',
       'https://www.googleapis.com/auth/drive.file',
       'https://www.googleapis.com/auth/gmail.readonly',
       'https://www.googleapis.com/auth/script.external_request',

@@ -15,8 +15,9 @@
  *                (las compañías las suma el robot; los estudios y peritos se agregan acá a mano)
  *
  * Permisos (appsscript.json): leer Gmail, crear archivos propios en Drive, escribir en esta
- * planilla, y llamar a la API de Drive para sacar el texto de los PDF. Ninguno deja mandar,
- * borrar ni modificar un mail (R1): no es una promesa, es lo que Google le autoriza.
+ * planilla, llamar a la API de Drive para sacar el texto de los PDF, y Google Calendar para el
+ * calendario del taller (calendario.js, spec 015). Ninguno deja mandar, borrar ni modificar un mail
+ * (R1): no es una promesa, es lo que Google le autoriza.
  *
  * Se puede correr todas las veces que se quiera: un mail que ya está en la planilla se saltea.
  * Cada corrida para a los 4 minutos y medio (Apps Script corta a los 6) y la siguiente sigue
@@ -119,8 +120,10 @@ function barrer() {
   const subidas = subirOrdenes(hojas.ordenes, inicio)
   const envios = subirEnvios(hojas.enviados, inicio)
   const avisos = subirAvisos(hojas.avisos, inicio)
+  // Al final, el calendario (spec 015): con lo que la base ya sabe después de esta corrida.
+  const calendario = sincronizarCalendarioSinCortar(inicio)
   console.log(`Avisos nuevos: ${nuevosAvisos.guardados}. Envíos nuevos: ${nuevosEnvios.guardados}. ` +
-    `Mails de órdenes nuevos: ${nuevasOrdenes.guardados + paraConfirmar.guardados}. ${subidas} ${envios} ${avisos}` +
+    `Mails de órdenes nuevos: ${nuevasOrdenes.guardados + paraConfirmar.guardados}. ${subidas} ${envios} ${avisos} ${calendario}` +
     (nuevosAvisos.cortado || nuevosEnvios.cortado || nuevasOrdenes.cortado || paraConfirmar.cortado ? ' Quedan más: la próxima corrida sigue.' : ' Al día.'))
 }
 

@@ -8,7 +8,8 @@
  * Generado el 2026-10-23 contra la base real. EXCEPCIÓN, hasta que se aplique la M7 de semaforo-base:
  * `imputacion`, `vw_revisar_candidatas`, las columnas nuevas de `vw_revisar` y `gmail_message_id` de
  * `vw_ordenes_trabajo` (20261025125000_orden_con_su_mail.sql) se sumaron a mano, con la forma del
- * generador. `vw_libro_retenciones` y `vw_retenciones_mes` (el libro de retenciones, aplicado el
+ * generador, igual que `fn_robot_fechas_calendario` (20261027120000_calendario.sql, que la usa el robot y
+ * no la app). `vw_libro_retenciones` y `vw_retenciones_mes` (el libro de retenciones, aplicado el
  * 2026-10-27) son copia de lo que da el generador. Apenas se aplique la M7, se regenera el archivo entero
  * y gana el generado. */
 
@@ -1467,6 +1468,15 @@ export type Database = {
         }[]
       }
       fn_revincular_envios: { Args: never; Returns: number }
+      fn_robot_fechas_calendario: {
+        Args: never
+        Returns: {
+          descripcion: string
+          fecha: string
+          marca: string
+          titulo: string
+        }[]
+      }
       fn_robot_guarda_aviso: { Args: { p_aviso: Json }; Returns: Json }
       fn_robot_guarda_orden: {
         Args: {
