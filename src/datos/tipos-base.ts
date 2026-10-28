@@ -5,13 +5,11 @@
  * que se aplica una migración en semaforo-base, y el archivo se pisa entero: lo que corrige lo
  * que el generador dice mal (los montos llegan como string) vive en `filas.ts`.
  *
- * Generado el 2026-10-23 contra la base real. EXCEPCIÓN, hasta que se aplique la M7 de semaforo-base:
- * `imputacion`, `vw_revisar_candidatas`, las columnas nuevas de `vw_revisar` y `gmail_message_id` de
- * `vw_ordenes_trabajo` (20261025125000_orden_con_su_mail.sql) se sumaron a mano, con la forma del
- * generador, igual que `fn_robot_fechas_calendario` (20261027120000_calendario.sql, que la usa el robot y
- * no la app) y `vw_cobranza_factura` y `vw_cobranzas` (20261028120000_cobranzas.sql, sin aplicar). `vw_libro_retenciones` y `vw_retenciones_mes` (el libro de retenciones, aplicado el
- * 2026-10-27) son copia de lo que da el generador. Apenas se aplique la M7, se regenera el archivo entero
- * y gana el generado. */
+ * Generado el 2026-10-28 contra la base real, con la migración de cobranzas ya aplicada. EXCEPCIÓN,
+ * hasta que se aplique la M7 de semaforo-base (20261025130000_imputacion.sql): `imputacion`,
+ * `vw_revisar_candidatas` y las columnas nuevas de `vw_revisar` se sumaron a mano, con la forma del
+ * generador. Todo lo demás es lo que da el generador. Apenas se aplique la M7, se regenera el archivo
+ * entero y gana el generado. */
 
 export type Json =
   | string
@@ -437,6 +435,13 @@ export type Database = {
             foreignKeyName: "comprobante_vinculo_id_destino_fkey"
             columns: ["id_destino"]
             isOneToOne: false
+            referencedRelation: "vw_cobranza_factura"
+            referencedColumns: ["id_comprobante"]
+          },
+          {
+            foreignKeyName: "comprobante_vinculo_id_destino_fkey"
+            columns: ["id_destino"]
+            isOneToOne: false
             referencedRelation: "vw_factura_contra_autorizado"
             referencedColumns: ["id_comprobante"]
           },
@@ -459,6 +464,13 @@ export type Database = {
             columns: ["id_origen"]
             isOneToOne: false
             referencedRelation: "comprobante"
+            referencedColumns: ["id_comprobante"]
+          },
+          {
+            foreignKeyName: "comprobante_vinculo_id_origen_fkey"
+            columns: ["id_origen"]
+            isOneToOne: false
+            referencedRelation: "vw_cobranza_factura"
             referencedColumns: ["id_comprobante"]
           },
           {
@@ -521,6 +533,13 @@ export type Database = {
             columns: ["id_comprobante"]
             isOneToOne: false
             referencedRelation: "comprobante"
+            referencedColumns: ["id_comprobante"]
+          },
+          {
+            foreignKeyName: "envio_factura_id_comprobante_fkey"
+            columns: ["id_comprobante"]
+            isOneToOne: false
+            referencedRelation: "vw_cobranza_factura"
             referencedColumns: ["id_comprobante"]
           },
           {
@@ -749,6 +768,13 @@ export type Database = {
             columns: ["id_comprobante"]
             isOneToOne: false
             referencedRelation: "comprobante"
+            referencedColumns: ["id_comprobante"]
+          },
+          {
+            foreignKeyName: "orden_factura_id_comprobante_fkey"
+            columns: ["id_comprobante"]
+            isOneToOne: false
+            referencedRelation: "vw_cobranza_factura"
             referencedColumns: ["id_comprobante"]
           },
           {
