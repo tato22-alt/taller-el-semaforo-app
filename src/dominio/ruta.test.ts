@@ -11,6 +11,7 @@ describe('rutaDesdeHash', () => {
     expect(rutaDesdeHash('#/ordenes')).toEqual({ pantalla: 'ordenes' })
     expect(rutaDesdeHash('#/hoy')).toEqual({ pantalla: 'hoy' })
     expect(rutaDesdeHash('#/retenciones')).toEqual({ pantalla: 'retenciones' })
+    expect(rutaDesdeHash('#/cobranzas')).toEqual({ pantalla: 'cobranzas' })
   })
 
   it('cae al tablero ante cualquier hash raro, nunca a una pantalla en blanco', () => {
@@ -31,5 +32,6 @@ describe('hashDeRuta', () => {
     expect(rutaDesdeHash(hashDeRuta({ pantalla: 'ordenes' }))).toEqual({ pantalla: 'ordenes' })
     expect(rutaDesdeHash(hashDeRuta({ pantalla: 'hoy' }))).toEqual({ pantalla: 'hoy' })
     expect(rutaDesdeHash(hashDeRuta({ pantalla: 'retenciones' }))).toEqual({ pantalla: 'retenciones' })
+    expect(rutaDesdeHash(hashDeRuta({ pantalla: 'cobranzas' }))).toEqual({ pantalla: 'cobranzas' })
   })
 })

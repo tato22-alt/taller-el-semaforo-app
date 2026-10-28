@@ -9,7 +9,7 @@
  * `imputacion`, `vw_revisar_candidatas`, las columnas nuevas de `vw_revisar` y `gmail_message_id` de
  * `vw_ordenes_trabajo` (20261025125000_orden_con_su_mail.sql) se sumaron a mano, con la forma del
  * generador, igual que `fn_robot_fechas_calendario` (20261027120000_calendario.sql, que la usa el robot y
- * no la app). `vw_libro_retenciones` y `vw_retenciones_mes` (el libro de retenciones, aplicado el
+ * no la app) y `vw_cobranza_factura` y `vw_cobranzas` (20261028120000_cobranzas.sql, sin aplicar). `vw_libro_retenciones` y `vw_retenciones_mes` (el libro de retenciones, aplicado el
  * 2026-10-27) son copia de lo que da el generador. Apenas se aplique la M7, se regenera el archivo entero
  * y gana el generado. */
 
@@ -1180,6 +1180,70 @@ export type Database = {
           ultimo_se_puede_deshacer: boolean | null
           ultimo_tipo: string | null
           vehiculo: string | null
+        }
+        Relationships: []
+      }
+      vw_cobranza_factura: {
+        Row: {
+          acuse: string | null
+          anulado: number | null
+          avisa_pagos: boolean | null
+          canal: string | null
+          cobrado: number | null
+          compania: string | null
+          con_ficha: boolean | null
+          cuit_receptor: string | null
+          dias: number | null
+          dias_vencida: number | null
+          envio_visto: boolean | null
+          es_deuda: boolean | null
+          estado: string | null
+          fecha_emision: string | null
+          fecha_prometida: string | null
+          id_comprobante: number | null
+          mail_envio: string | null
+          mandada_desde: string | null
+          numero: number | null
+          plazo_dias: number | null
+          plazo_origen: string | null
+          punto_venta: number | null
+          saldo: number | null
+          siniestros: string | null
+          total: number | null
+          tramo: string | null
+          ultimo_pago: string | null
+          vence: string | null
+        }
+        Relationships: []
+      }
+      vw_cobranzas: {
+        Row: {
+          a_reclamar: number | null
+          a_reclamar_desde: string | null
+          anulado: number | null
+          aprobada: number | null
+          avisa_pagos: boolean | null
+          cobrado: number | null
+          compania: string | null
+          cuit: string | null
+          deuda: number | null
+          deuda_de_4_a_12_meses: number | null
+          deuda_de_61_a_120: number | null
+          deuda_hasta_60: number | null
+          deuda_mas_de_un_anio: number | null
+          en_curso: number | null
+          facturado: number | null
+          facturas: number | null
+          facturas_a_reclamar: number | null
+          facturas_deuda: number | null
+          facturas_pago_no_visible: number | null
+          facturas_sin_evidencia: number | null
+          fila: string | null
+          pagada_sin_importe: number | null
+          pago_no_visible: number | null
+          plazo_dias: number | null
+          plazo_origen: string | null
+          sin_evidencia: number | null
         }
         Relationships: []
       }

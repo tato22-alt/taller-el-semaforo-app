@@ -1,11 +1,15 @@
 # Estado del proyecto — dónde está todo
 
-> **Al 2026-10-27.** Lo de abajo quedó del 2026-10-07 y se actualiza por partes. Lo que falta hacer,
+> **Al 2026-10-28.** Lo de abajo quedó del 2026-10-07 y se actualiza por partes. Lo que falta hacer,
 > en orden, está en `PENDIENTES.md` de `semaforo-base` (privado, porque lleva números del negocio).
 >
 > - **Publicado** (https://tato22-alt.github.io/taller-el-semaforo-app/): login, tablero, Importar,
 >   Revisar (notas de crédito y, cuando se aplique la M7, los avisos de pago), Órdenes (spec 010, con la
 >   factura de cada orden de la spec 012 y su pago, fase 2) y Hoy (spec 011, los hitos del auto).
+> - **Cobranzas** (fase 3 de la spec 005, hecha el 2026-10-28, sin publicar): cuánto te deben, quién y desde
+>   cuándo; cada compañía con qué hacer hoy, hasta sus facturas y el mail con que se mandó cada una, y el
+>   reclamo armado para copiar. Sólo lee. Espera la M8 de `semaforo-base` (`20261028120000_cobranzas.sql`):
+>   hasta entonces dice "se activa con la próxima actualización".
 > - **Retenciones** (spec 014, paso 1): lo retenido cada mes, el libro y la planilla para el contador.
 >   Sólo lee. La migración del libro de `semaforo-base` se aplicó el 2026-10-27; la pantalla se publica
 >   cuando se mergea su PR.
@@ -24,7 +28,7 @@
 > - Lo próximo: la M7 (cuando ande el respaldo), la spec 016 (la factura lista para mandar), la 013 (la
 >   plata del taller), el control contra ARCA de la 014 (con el archivo de Mis Retenciones), y que el
 >   robot reconozca los mails que no son pagos.
-> - 387 tests en verde.
+> - 401 tests en verde.
 
 Punto de entrada cuando volvés. Si esto y el código se contradicen, gana el código.
 
