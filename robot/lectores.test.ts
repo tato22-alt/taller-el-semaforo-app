@@ -683,7 +683,7 @@ describe('asunto de las facturas enviadas', () => {
 })
 
 describe('el robot', () => {
-  const codigo = [...fuentes.map((n) => join('lectores', n)), 'barrido.js', 'robot.gs'].map((n) => ({ nombre: n, texto: readFileSync(join(CARPETA, n), 'utf8') }))
+  const codigo = [...fuentes.map((n) => join('lectores', n)), 'calendario.js', 'barrido.js', 'robot.gs'].map((n) => ({ nombre: n, texto: readFileSync(join(CARPETA, n), 'utf8') }))
 
   it('no guarda enlaces que inician sesión en un portal sin clave (R2)', () => {
     const { sinEnlacesDeSesion } = runInNewContext(readFileSync(join(DIR_LECTORES, 'claves.js'), 'utf8') + '\n;({ sinEnlacesDeSesion })', {}) as {
@@ -746,13 +746,41 @@ describe('el robot', () => {
     expect(fila[12]).toBe('drive-1\ndrive-2')
   })
 
+  it('la pestaña remitentes: la primera vez se llena, una casilla nueva se suma sola, y una borrada no vuelve', () => {
+    const filas: unknown[][] = [['remitente', 'compañía'], ['no_responder@fedpat.com.ar', 'Federación Patronal']]
+    const props = new Map<string, string>()
+    const hoja = {
+      getDataRange: () => ({ getValues: () => filas }),
+      getLastRow: () => filas.length,
+      getRange: () => ({ setValues: (nuevas: unknown[][]) => { filas.push(...nuevas) } }),
+    }
+    const { sumarRemitentesNuevos, REMITENTES_INICIALES } = runInNewContext(
+      readFileSync(join(CARPETA, 'robot.gs'), 'utf8') + '\n;({ sumarRemitentesNuevos, REMITENTES_INICIALES })',
+      { PropertiesService: { getScriptProperties: () => ({ getProperty: (k: string) => props.get(k) ?? null, setProperty: (k: string, v: string) => props.set(k, v) }) } },
+    ) as { sumarRemitentesNuevos: (h: typeof hoja) => void; REMITENTES_INICIALES: [string, string][] }
+
+    sumarRemitentesNuevos(hoja)
+    const casillas = () => filas.slice(1).map((f) => String(f[0]))
+    expect(casillas()).toHaveLength(REMITENTES_INICIALES.length)
+    expect(casillas().filter((c) => c === 'no_responder@fedpat.com.ar')).toHaveLength(1)
+    expect(casillas()).toContain('triunfonet_erp@triunfoseguros.com')
+
+    filas.splice(1, 1)
+    sumarRemitentesNuevos(hoja)
+    expect(casillas()).not.toContain('no_responder@fedpat.com.ar')
+    expect(casillas()).toHaveLength(REMITENTES_INICIALES.length - 1)
+  })
+
   it('robot.gs, el archivo que se pega, está al día con sus fuentes (node robot/armar.mjs)', () => {
     expect(readFileSync(join(CARPETA, 'robot.gs'), 'utf8')).toBe(armar())
   })
 
   it('pide sólo los permisos de la lista, y ninguno de Gmail que escriba (R1)', () => {
+    // Calendar, desde la spec 015: el calendario del taller. Escribir en el propio calendario no es
+    // mandarle nada a nadie; invitar sí, y eso lo prueba calendario.test.ts.
     const manifiesto = JSON.parse(readFileSync(join(CARPETA, 'appsscript.json'), 'utf8')) as { oauthScopes: string[] }
     expect([...manifiesto.oauthScopes].sort()).toEqual([
+      'https://www.googleapis.com/auth/calendar',
       'https://www.googleapis.com/auth/drive.file',
       'https://www.googleapis.com/auth/gmail.readonly',
       'https://www.googleapis.com/auth/script.external_request',

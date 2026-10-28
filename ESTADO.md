@@ -1,26 +1,34 @@
 # Estado del proyecto — dónde está todo
 
-> **Al 2026-10-27.** Lo de abajo quedó del 2026-10-07 y se actualiza por partes. Lo que falta hacer,
+> **Al 2026-10-28.** Lo de abajo quedó del 2026-10-07 y se actualiza por partes. Lo que falta hacer,
 > en orden, está en `PENDIENTES.md` de `semaforo-base` (privado, porque lleva números del negocio).
 >
 > - **Publicado** (https://tato22-alt.github.io/taller-el-semaforo-app/): login, tablero, Importar,
 >   Revisar (notas de crédito y, cuando se aplique la M7, los avisos de pago), Órdenes (spec 010, con la
 >   factura de cada orden de la spec 012 y su pago, fase 2) y Hoy (spec 011, los hitos del auto).
+> - **Cobranzas** (fase 3 de la spec 005, hecha el 2026-10-28, sin publicar): cuánto te deben, quién y desde
+>   cuándo; cada compañía con qué hacer hoy, hasta sus facturas y el mail con que se mandó cada una, y el
+>   reclamo armado para copiar. Sólo lee. La M8 de `semaforo-base` (`20261028120000_cobranzas.sql`) se
+>   aplicó el 2026-10-28 y dio 13/13 en la base real; la pantalla se publica cuando se mergea su PR.
 > - **Retenciones** (spec 014, paso 1): lo retenido cada mes, el libro y la planilla para el contador.
 >   Sólo lee. La migración del libro de `semaforo-base` se aplicó el 2026-10-27; la pantalla se publica
 >   cuando se mergea su PR.
 > - La app escribe siete tablas, todas en `src/arquitectura.test.ts`: `importacion`, `comprobante`,
 >   `comprobante_vinculo`, `orden_trabajo`, `orden_factura`, `hito_trabajo` e `imputacion` (Revisar,
 >   desde la M7 de `semaforo-base`, escrita y sin aplicar: va después del respaldo semanal).
-> - `src/datos/tipos-base.ts` es el generado por el conector de Supabase desde el 2026-10-23. Lo de la
->   M7 está sumado a mano hasta que se aplique; después se regenera entero.
+> - `src/datos/tipos-base.ts` es el generado por el conector de Supabase (la última vez, el 2026-10-28,
+>   con cobranzas aplicada). Lo de la M7 está sumado a mano hasta que se aplique; después se regenera entero.
 > - **El robot** (`robot/README.md`) sube a la base las órdenes, los envíos de factura y los avisos de
 >   pago. Desde el 2026-10-23 lee también Cooperación, Provincia y la forma nueva de LPS, y tapa las
->   claves aunque vengan en negrita (`robot/lectores/claves.js`). Hay que pegar el `robot.gs` de `main` y
->   correr `releer` una vez.
-> - Lo próximo: la M7 (cuando ande el respaldo), las specs 014 (retenciones) y 013 (la plata del
->   taller), aprobadas el 2026-10-23, y que el robot reconozca los mails que no son pagos.
-> - 361 tests en verde.
+>   claves aunque vengan en negrita (`robot/lectores/claves.js`). Desde el 2026-10-26 lee las retenciones
+>   de La Segunda, y desde el 2026-10-27 llena el Google Calendar del taller (spec 015: turnos,
+>   vencimientos de órdenes y fechas prometidas de pago), con la función de la base
+>   `20261027120000_calendario.sql`, todavía sin aplicar. Hay que pegar el `appsscript.json` y el
+>   `robot.gs` de `main`, correr `releer` y `sincronizarCalendario` una vez.
+> - Lo próximo: la M7 (cuando ande el respaldo), la spec 016 (la factura lista para mandar), la 013 (la
+>   plata del taller), el control contra ARCA de la 014 (con el archivo de Mis Retenciones), y que el
+>   robot reconozca los mails que no son pagos.
+> - 401 tests en verde.
 
 Punto de entrada cuando volvés. Si esto y el código se contradicen, gana el código.
 

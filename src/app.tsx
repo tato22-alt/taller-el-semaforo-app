@@ -7,6 +7,7 @@ import { Revisar } from './ui/Revisar'
 import { Ordenes } from './ui/Ordenes'
 import { Hoy } from './ui/Hoy'
 import { Retenciones } from './ui/Retenciones'
+import { Cobranzas } from './ui/Cobranzas'
 import { Login } from './ui/Login'
 import { cerrarSesion } from './datos/sesion'
 import { textoDeFallo } from './dominio/resultado'
@@ -22,6 +23,7 @@ export function App() {
         {estado.fase === 'adentro' && (
           <nav className="navegacion">
             {ruta.pantalla !== 'hoy' && <a href="#/hoy">Hoy</a>}
+            {ruta.pantalla !== 'cobranzas' && <a href="#/cobranzas">Cobranzas</a>}
             {ruta.pantalla !== 'tablero' && <a href="#/">Tablero</a>}
             {ruta.pantalla !== 'importar' && <a href="#/importar">Importar facturas</a>}
             {ruta.pantalla !== 'revisar' && <a href="#/revisar">Revisar</a>}
@@ -62,6 +64,7 @@ export function App() {
         {estado.fase === 'adentro' && ruta.pantalla === 'ordenes' && <Ordenes />}
         {estado.fase === 'adentro' && ruta.pantalla === 'hoy' && <Hoy />}
         {estado.fase === 'adentro' && ruta.pantalla === 'retenciones' && <Retenciones />}
+        {estado.fase === 'adentro' && ruta.pantalla === 'cobranzas' && <Cobranzas />}
       </main>
     </div>
   )

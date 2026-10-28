@@ -5,12 +5,11 @@
  * que se aplica una migración en semaforo-base, y el archivo se pisa entero: lo que corrige lo
  * que el generador dice mal (los montos llegan como string) vive en `filas.ts`.
  *
- * Generado el 2026-10-23 contra la base real. EXCEPCIÓN, hasta que se aplique la M7 de semaforo-base:
- * `imputacion`, `vw_revisar_candidatas`, las columnas nuevas de `vw_revisar` y `gmail_message_id` de
- * `vw_ordenes_trabajo` (20261025125000_orden_con_su_mail.sql) se sumaron a mano, con la forma del
- * generador. `vw_libro_retenciones` y `vw_retenciones_mes` (el libro de retenciones, aplicado el
- * 2026-10-27) son copia de lo que da el generador. Apenas se aplique la M7, se regenera el archivo entero
- * y gana el generado. */
+ * Generado el 2026-10-28 contra la base real, con la migración de cobranzas ya aplicada. EXCEPCIÓN,
+ * hasta que se aplique la M7 de semaforo-base (20261025130000_imputacion.sql): `imputacion`,
+ * `vw_revisar_candidatas` y las columnas nuevas de `vw_revisar` se sumaron a mano, con la forma del
+ * generador. Todo lo demás es lo que da el generador. Apenas se aplique la M7, se regenera el archivo
+ * entero y gana el generado. */
 
 export type Json =
   | string
@@ -436,6 +435,13 @@ export type Database = {
             foreignKeyName: "comprobante_vinculo_id_destino_fkey"
             columns: ["id_destino"]
             isOneToOne: false
+            referencedRelation: "vw_cobranza_factura"
+            referencedColumns: ["id_comprobante"]
+          },
+          {
+            foreignKeyName: "comprobante_vinculo_id_destino_fkey"
+            columns: ["id_destino"]
+            isOneToOne: false
             referencedRelation: "vw_factura_contra_autorizado"
             referencedColumns: ["id_comprobante"]
           },
@@ -458,6 +464,13 @@ export type Database = {
             columns: ["id_origen"]
             isOneToOne: false
             referencedRelation: "comprobante"
+            referencedColumns: ["id_comprobante"]
+          },
+          {
+            foreignKeyName: "comprobante_vinculo_id_origen_fkey"
+            columns: ["id_origen"]
+            isOneToOne: false
+            referencedRelation: "vw_cobranza_factura"
             referencedColumns: ["id_comprobante"]
           },
           {
@@ -520,6 +533,13 @@ export type Database = {
             columns: ["id_comprobante"]
             isOneToOne: false
             referencedRelation: "comprobante"
+            referencedColumns: ["id_comprobante"]
+          },
+          {
+            foreignKeyName: "envio_factura_id_comprobante_fkey"
+            columns: ["id_comprobante"]
+            isOneToOne: false
+            referencedRelation: "vw_cobranza_factura"
             referencedColumns: ["id_comprobante"]
           },
           {
@@ -748,6 +768,13 @@ export type Database = {
             columns: ["id_comprobante"]
             isOneToOne: false
             referencedRelation: "comprobante"
+            referencedColumns: ["id_comprobante"]
+          },
+          {
+            foreignKeyName: "orden_factura_id_comprobante_fkey"
+            columns: ["id_comprobante"]
+            isOneToOne: false
+            referencedRelation: "vw_cobranza_factura"
             referencedColumns: ["id_comprobante"]
           },
           {
@@ -1182,6 +1209,70 @@ export type Database = {
         }
         Relationships: []
       }
+      vw_cobranza_factura: {
+        Row: {
+          acuse: string | null
+          anulado: number | null
+          avisa_pagos: boolean | null
+          canal: string | null
+          cobrado: number | null
+          compania: string | null
+          con_ficha: boolean | null
+          cuit_receptor: string | null
+          dias: number | null
+          dias_vencida: number | null
+          envio_visto: boolean | null
+          es_deuda: boolean | null
+          estado: string | null
+          fecha_emision: string | null
+          fecha_prometida: string | null
+          id_comprobante: number | null
+          mail_envio: string | null
+          mandada_desde: string | null
+          numero: number | null
+          plazo_dias: number | null
+          plazo_origen: string | null
+          punto_venta: number | null
+          saldo: number | null
+          siniestros: string | null
+          total: number | null
+          tramo: string | null
+          ultimo_pago: string | null
+          vence: string | null
+        }
+        Relationships: []
+      }
+      vw_cobranzas: {
+        Row: {
+          a_reclamar: number | null
+          a_reclamar_desde: string | null
+          anulado: number | null
+          aprobada: number | null
+          avisa_pagos: boolean | null
+          cobrado: number | null
+          compania: string | null
+          cuit: string | null
+          deuda: number | null
+          deuda_de_4_a_12_meses: number | null
+          deuda_de_61_a_120: number | null
+          deuda_hasta_60: number | null
+          deuda_mas_de_un_anio: number | null
+          en_curso: number | null
+          facturado: number | null
+          facturas: number | null
+          facturas_a_reclamar: number | null
+          facturas_deuda: number | null
+          facturas_pago_no_visible: number | null
+          facturas_sin_evidencia: number | null
+          fila: string | null
+          pagada_sin_importe: number | null
+          pago_no_visible: number | null
+          plazo_dias: number | null
+          plazo_origen: string | null
+          sin_evidencia: number | null
+        }
+        Relationships: []
+      }
       vw_factura_contra_autorizado: {
         Row: {
           autorizado: number | null
@@ -1467,6 +1558,15 @@ export type Database = {
         }[]
       }
       fn_revincular_envios: { Args: never; Returns: number }
+      fn_robot_fechas_calendario: {
+        Args: never
+        Returns: {
+          descripcion: string
+          fecha: string
+          marca: string
+          titulo: string
+        }[]
+      }
       fn_robot_guarda_aviso: { Args: { p_aviso: Json }; Returns: Json }
       fn_robot_guarda_orden: {
         Args: {

@@ -15,8 +15,9 @@
  *                (las compañías las suma el robot; los estudios y peritos se agregan acá a mano)
  *
  * Permisos (appsscript.json): leer Gmail, crear archivos propios en Drive, escribir en esta
- * planilla, y llamar a la API de Drive para sacar el texto de los PDF. Ninguno deja mandar,
- * borrar ni modificar un mail (R1): no es una promesa, es lo que Google le autoriza.
+ * planilla, llamar a la API de Drive para sacar el texto de los PDF, y Google Calendar para el
+ * calendario del taller (calendario.js, spec 015). Ninguno deja mandar, borrar ni modificar un mail
+ * (R1): no es una promesa, es lo que Google le autoriza.
  *
  * Se puede correr todas las veces que se quiera: un mail que ya está en la planilla se saltea.
  * Cada corrida para a los 4 minutos y medio (Apps Script corta a los 6) y la siguiente sigue
@@ -49,8 +50,9 @@ const REMITENTES_ORDENES = ['sistemas@mg.sistema-orion.com', 'sistema.orion@cesv
   'no-responder@mail.lamercantil.flowable-managed.com', 'no-responder@lamercantil.com.ar', 'avisos@sistemavalua.info',
   'zurich@grant.com.ar', 'cooperacionseguros.com.ar']
 
-/* Los remitentes conocidos el 2026-10-08. Se cargan en la pestaña sólo si está vacía; de ahí en
- * más manda la pestaña. Son casillas automáticas de las compañías, no de personas. */
+/* Los remitentes conocidos. Son casillas automáticas de las compañías, no de personas. Cada uno se
+ * ofrece a la pestaña una sola vez (sumarRemitentesNuevos): manda la pestaña, y uno que alguien borró
+ * no vuelve. Triunfo, desde el 2026-10-27: manda la orden de pago y el certificado en PDF. */
 const REMITENTES_INICIALES = [
   ['no_responder@fedpat.com.ar', 'Federación Patronal'],
   ['enviosautomaticos@lasegunda.com.ar', 'La Segunda'],
@@ -68,6 +70,7 @@ const REMITENTES_INICIALES = [
   ['ar-sap@galiciaseguros.com.ar', 'Galicia / SURA'],
   ['no-reply@cobranzas.com', 'La Caja (portal cobranzas.com)'],
   ['facturacion.zurich@grant.com.ar', 'Zurich (Grant): acuses de factura'],
+  ['triunfonet_erp@triunfoseguros.com', 'Triunfo'],
 ]
 
 /* ------------------------------------------------------------------------------------------- */
@@ -119,8 +122,10 @@ function barrer() {
   const subidas = subirOrdenes(hojas.ordenes, inicio)
   const envios = subirEnvios(hojas.enviados, inicio)
   const avisos = subirAvisos(hojas.avisos, inicio)
+  // Al final, el calendario (spec 015): con lo que la base ya sabe después de esta corrida.
+  const calendario = sincronizarCalendarioSinCortar(inicio)
   console.log(`Avisos nuevos: ${nuevosAvisos.guardados}. Envíos nuevos: ${nuevosEnvios.guardados}. ` +
-    `Mails de órdenes nuevos: ${nuevasOrdenes.guardados + paraConfirmar.guardados}. ${subidas} ${envios} ${avisos}` +
+    `Mails de órdenes nuevos: ${nuevasOrdenes.guardados + paraConfirmar.guardados}. ${subidas} ${envios} ${avisos} ${calendario}` +
     (nuevosAvisos.cortado || nuevosEnvios.cortado || nuevasOrdenes.cortado || paraConfirmar.cortado ? ' Quedan más: la próxima corrida sigue.' : ' Al día.'))
 }
 
@@ -608,7 +613,7 @@ function prepararHojas() {
     }
     hojas[nombre] = hoja
   }
-  if (hojas.remitentes.getLastRow() < 2) agregar(hojas.remitentes, REMITENTES_INICIALES)
+  sumarRemitentesNuevos(hojas.remitentes)
   sumarDominiosNuevos(hojas.dominios_ordenes)
   return hojas
 }
@@ -625,6 +630,19 @@ function sumarDominiosNuevos(hoja) {
   const enLaPestania = dominiosDeOrdenes(hoja.getDataRange().getValues().slice(1))
   agregar(hoja, DOMINIOS_ORDENES_INICIALES.filter(([d]) => !ofrecidos.has(d) && !enLaPestania.has(d)).map(([d, c]) => [d, c]))
   props.setProperty('dominios_ofrecidos', JSON.stringify(DOMINIOS_ORDENES_INICIALES.map(([d]) => d)))
+}
+
+/**
+ * Lo mismo para la pestaña remitentes: la primera vez la llena, y cuando una versión nueva del robot
+ * conoce una casilla más (Triunfo, el 2026-10-27), la agrega sola. Lo ofrecido queda anotado: una casilla
+ * que alguien borró de la pestaña no vuelve.
+ */
+function sumarRemitentesNuevos(hoja) {
+  const props = PropertiesService.getScriptProperties()
+  const ofrecidos = new Set(JSON.parse(props.getProperty('remitentes_ofrecidos') || '[]'))
+  const enLaPestania = new Set(leerRemitentes(hoja).map((r) => r.toLowerCase()))
+  agregar(hoja, REMITENTES_INICIALES.filter(([r]) => !ofrecidos.has(r) && !enLaPestania.has(r)).map(([r, c]) => [r, c]))
+  props.setProperty('remitentes_ofrecidos', JSON.stringify(REMITENTES_INICIALES.map(([r]) => r)))
 }
 
 function leerRemitentes(hoja) {

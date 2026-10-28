@@ -12,9 +12,10 @@ entiende queda a la vista, nunca se descarta en silencio.
 | Archivo | Qué es |
 |---|---|
 | `lectores/` | Un lector por compañía, cada uno en su archivo: funciones puras, con tests (`lectores.test.ts`) |
-| `barrido.js` | Lo único que habla con Google: busca en Gmail, guarda los PDF en Drive, les saca el texto, escribe la planilla |
+| `barrido.js` | Lo que habla con Gmail y Drive: busca en Gmail, guarda los PDF en Drive, les saca el texto, escribe la planilla |
+| `calendario.js` | Lo que habla con Google Calendar (spec 015): deja el calendario "El Semáforo" igual a las fechas de la base. Qué crear, cambiar o borrar lo decide `lectores/calendario.js`, con tests (`calendario.test.ts`) |
 | `robot.gs` | **Lo que se pega en Apps Script**: todo lo anterior junto en un archivo. Se arma con `node robot/armar.mjs`; un test falla si quedó viejo |
-| `appsscript.json` | Los permisos. **Leer Gmail, nunca mandar ni borrar**: un test verifica que la lista sea ésa y nada más |
+| `appsscript.json` | Los permisos. **Leer Gmail, nunca mandar ni borrar**, y desde el 2026-10-27, Google Calendar: un test verifica que la lista sea ésa y nada más |
 
 ### Qué compañías lee, y de dónde
 
@@ -71,8 +72,9 @@ como esa cuenta y sólo ve lo que esa cuenta ve.
    - Google pide autorización. Va a decir **"Google no verificó esta app"**: es normal, la app
      es tuya. **Configuración avanzada → Ir a … (no seguro) → Permitir.**
    - Fijate qué pide: *ver tus mensajes de correo* (no enviar), *archivos de Drive que creó esta
-     app*, *esta planilla* y *conectarse a un servicio externo* (es la API de Drive, para leer
-     los PDF). Si pide **enviar** o **administrar** correo, pará: algo no se pegó bien.
+     app*, *esta planilla*, *conectarse a un servicio externo* (es la API de Drive, para leer
+     los PDF) y, desde el 2026-10-27, *tus calendarios* (ver abajo, la versión de esa fecha). Si
+     pide **enviar** o **administrar** correo, pará: algo no se pegó bien.
 6. Abajo aparece el registro. Cada corrida dura hasta 4 minutos y medio. Si termina con
    *"Quedan más"*, tocá **Ejecutar** otra vez, hasta que diga **"Al día."**
 7. Para que siga solo: a la izquierda, el reloj (**Activadores**) → **Agregar activador** →
@@ -293,6 +295,52 @@ Para instalarla:
 2. Ejecutá **`releer`** una vez: vuelve a leer con los lectores nuevos los avisos que ya están en la
    planilla, sin ir a Gmail, y sube a la base los que cambiaron. Las órdenes de Cooperación y
    Provincia pasan de *sin lector* a *leído*, y las de LPS, de *no entendido* a *leído*.
+
+## La versión del 2026-10-27: el calendario del taller (spec 015)
+
+Una vez por hora, al final del barrido, el robot pone en un Google Calendar **"El Semáforo"**, de la
+cuenta del taller:
+- los turnos que se dan en Hoy;
+- el vencimiento de cada orden sin factura, y un aviso un mes antes;
+- las fechas en que una compañía prometió pagar.
+
+Si algo cambia en la app, el evento se mueve o se borra solo. Lo que cargue una persona en el mismo
+calendario (pagos, la VTV), el robot no lo toca nunca.
+
+Para instalarla, desde la compu, con la cuenta del taller:
+
+1. En el editor de Apps Script, pegá **los dos archivos**: el `appsscript.json` nuevo (tiene el permiso
+   de Calendar) y el `robot.gs` nuevo. Guardá.
+2. Arriba, elegí la función **`sincronizarCalendario`** y tocá **Ejecutar**.
+   - Google pide un permiso nuevo: *ver, editar, compartir y borrar todos tus calendarios*. Suena a
+     mucho, pero Apps Script no tiene un permiso más chico que deje crear un calendario. El robot sólo
+     toca los eventos que marcó él, y **nunca invita a nadie** (un invitado recibiría un mail): un test
+     lo verifica. **Permitir.**
+   - Si además pide **enviar** correo, pará: algo no se pegó bien.
+   - El registro dice cuántos eventos creó. La primera vez son unos 200: si dice *"quedan"*, ejecutalo
+     otra vez. Después sigue solo con el activador de cada hora.
+3. **Compartirlo.** En Google Calendar, en la compu: a la izquierda, en *Mis calendarios*, los tres
+   puntos de **El Semáforo** → *Configuración y uso compartido* → *Compartir con personas específicas* →
+   *Agregar personas*. Van los mails de los tres, con el permiso *Realizar cambios en eventos*, así
+   cada uno puede agregar los suyos.
+4. **Cada uno pone su aviso**, una sola vez: en Google, el aviso es de cada persona, no del evento.
+   - Primero, aceptar el calendario: llega un mail de Google.
+   - Después, en Google Calendar → *Configuración* → **El Semáforo** → *Notificaciones de eventos de
+     todo el día* → *Agregar notificación* → **1 día antes, a las 8:00**.
+5. **Los pagos a proveedores van en otro calendario, "Pagos", en la cuenta de Luciano**, no en la del
+   taller: quien abre la cuenta del taller ve todos sus calendarios. Se crea en *Otros calendarios* →
+   *+* → *Crear calendario*, y se comparte sólo con quien corresponda. Un pago que se repite se carga
+   como evento que se repite, con su aviso.
+
+**En la misma versión, una casilla nueva: Triunfo** (`triunfonet_erp@triunfoseguros.com`). Manda
+"Notificación de Pago" con la orden de pago y el certificado de retención en PDF. El robot la suma sola
+a la pestaña *remitentes*, y desde ahí guarda sus mails con el texto de los PDF. Quedan como *sin lector*
+hasta que exista el suyo, que se escribe mirando esos textos.
+
+Cómo se sabe que anda:
+- **Enseguida:** en El Semáforo aparecen los vencimientos de las órdenes sin factura.
+- **Con un turno en Hoy:** a la hora, el turno está en su día. Si se cambia el día, el evento se mueve.
+  Si se deshace, desaparece.
 
 ## Lo que esta planilla NO es
 
