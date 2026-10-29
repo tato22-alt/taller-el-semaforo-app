@@ -317,12 +317,17 @@ Para instalarla, desde la compu, con la cuenta del taller:
      toca los eventos que marcó él, y **nunca invita a nadie** (un invitado recibiría un mail): un test
      lo verifica. **Permitir.**
    - Si además pide **enviar** correo, pará: algo no se pegó bien.
-   - El registro dice cuántos eventos creó. La primera vez son unos 200: si dice *"quedan"*, ejecutalo
-     otra vez. Después sigue solo con el activador de cada hora.
-3. **Compartirlo.** En Google Calendar, en la compu: a la izquierda, en *Mis calendarios*, los tres
-   puntos de **El Semáforo** → *Configuración y uso compartido* → *Compartir con personas específicas* →
-   *Agregar personas*. Van los mails de los tres, con el permiso *Realizar cambios en eventos*, así
-   cada uno puede agregar los suyos.
+   - El registro dice cuántos eventos creó. La primera vez son unos 200, y Google no deja crear tantos
+     de golpe: el robot va de a uno por segundo, y si Google igual frena, el registro dice *"quedan N,
+     siguen solos en la próxima corrida"*. **No hace falta volver a ejecutarlo:** el activador de cada
+     hora lo completa solo, sin repetir nada. (Arreglado el 2026-10-28: la primera versión se cortaba
+     con *"Has creado o eliminado demasiados calendarios o eventos…"*.)
+3. **Que lo vean los otros dos.** El calendario se llena solo, pero está en la cuenta del taller: lo ve
+   quien tiene esa cuenta en el Google Calendar del celular. Quien la tiene no hace nada más. Quien usa
+   su propio Gmail lo tiene que recibir compartido, una vez: en Google Calendar, en la compu, a la
+   izquierda, en *Mis calendarios*, los tres puntos de **El Semáforo** → *Configuración y uso
+   compartido* → *Compartir con personas específicas* → *Agregar personas*. Va su mail, con el permiso
+   *Realizar cambios en eventos*, así puede agregar los suyos.
 4. **Cada uno pone su aviso**, una sola vez: en Google, el aviso es de cada persona, no del evento.
    - Primero, aceptar el calendario: llega un mail de Google.
    - Después, en Google Calendar → *Configuración* → **El Semáforo** → *Notificaciones de eventos de

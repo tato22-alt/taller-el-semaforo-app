@@ -121,20 +121,24 @@ function leerAcuseGrant(mail) {
  *     mueve, no se borra y se crea: el evento sigue siendo el mismo);
  *   - un evento cuya marca la base ya no da se borra (un turno deshecho, una orden que se facturó), y
  *     también el segundo de dos eventos con la misma marca, si alguna vez quedó uno repetido.
- * Los eventos sin marca no llegan acá: son de las personas, y el robot no los toca (RF-1504). */
+ * Los eventos sin marca son de las personas, y el robot no los toca (RF-1504), salvo uno: el que es
+ * idéntico a una fecha que el robot tiene que crear (el mismo día, título y descripción). Ése lo creó el
+ * robot y Google lo cortó antes de que le pusiera la marca: en vez de crear otro igual, se le pone. */
 
 /**
  * @typedef {{ marca: string, fecha: string, titulo: string, descripcion: string }} FechaDelCalendario
  * @typedef {FechaDelCalendario & { id: string }} EventoDelRobot
- * @typedef {{ crear: FechaDelCalendario[], cambiar: { id: string, fecha: FechaDelCalendario }[], borrar: string[] }} PlanDelCalendario
+ * @typedef {{ id: string, fecha: string, titulo: string, descripcion: string }} EventoSinMarca
+ * @typedef {{ crear: FechaDelCalendario[], marcar: { id: string, marca: string }[], cambiar: { id: string, fecha: FechaDelCalendario }[], borrar: string[] }} PlanDelCalendario
  */
 
 /**
  * @param {readonly FechaDelCalendario[]} fechas lo que dice la base, de hoy en adelante
  * @param {readonly EventoDelRobot[]} eventos los eventos con la marca del robot, de hoy en adelante
+ * @param {readonly EventoSinMarca[]} [sinMarca] los de día completo sin marca, de hoy en adelante
  * @returns {PlanDelCalendario}
  */
-function planDelCalendario(fechas, eventos) {
+function planDelCalendario(fechas, eventos, sinMarca = []) {
   /** @type {Map<string, FechaDelCalendario>} */
   const porMarca = new Map()
   for (const f of fechas) if (!porMarca.has(f.marca)) porMarca.set(f.marca, f)
@@ -142,7 +146,7 @@ function planDelCalendario(fechas, eventos) {
   /** @type {Set<string>} */
   const conEvento = new Set()
   /** @type {PlanDelCalendario} */
-  const plan = { crear: [], cambiar: [], borrar: [] }
+  const plan = { crear: [], marcar: [], cambiar: [], borrar: [] }
   for (const e of eventos) {
     const f = porMarca.get(e.marca)
     if (f === undefined || conEvento.has(e.marca)) {
@@ -152,7 +156,18 @@ function planDelCalendario(fechas, eventos) {
     conEvento.add(e.marca)
     if (e.fecha !== f.fecha || e.titulo !== f.titulo || e.descripcion !== f.descripcion) plan.cambiar.push({ id: e.id, fecha: f })
   }
-  plan.crear = [...porMarca.values()].filter((f) => !conEvento.has(f.marca))
+  /** @type {Set<string>} */
+  const usados = new Set()
+  for (const f of porMarca.values()) {
+    if (conEvento.has(f.marca)) continue
+    const igual = sinMarca.find((e) => !usados.has(e.id) && e.fecha === f.fecha && e.titulo === f.titulo && e.descripcion === f.descripcion)
+    if (igual === undefined) {
+      plan.crear.push(f)
+      continue
+    }
+    usados.add(igual.id)
+    plan.marcar.push({ id: igual.id, marca: f.marca })
+  }
   return plan
 }
 
@@ -2164,6 +2179,10 @@ const DESCRIPCION_CALENDARIO = 'Turnos, vencimientos de órdenes y fechas de pag
 const PROPIEDAD_DEL_ROBOT = 'semaforo'
 /** Hasta dónde mira: lo más lejano es el vencimiento de una orden, al año. */
 const ANIOS_ADELANTE = 2
+/** Entre un cambio y otro. Google corta si se crean o borran muchos eventos seguidos ("Has creado o
+ *  eliminado demasiados calendarios o eventos de calendario en poco tiempo"): el 2026-10-28, la primera
+ *  carga, unos 200 de golpe, se cortó a los 20 segundos. */
+const PAUSA_CALENDARIO_MS = 1000
 
 /**
  * Pone el calendario al día. La llama barrer() al final de cada corrida; la primera vez se corre a mano,
@@ -2188,43 +2207,70 @@ function sincronizarCalendario(inicio = Date.now()) {
   const hasta = new Date(desde.getFullYear() + ANIOS_ADELANTE, desde.getMonth(), desde.getDate())
   const porId = new Map()
   const eventos = []
+  const sinMarca = []
   for (const e of calendario.getEvents(desde, hasta)) {
-    const marca = e.getTag(PROPIEDAD_DEL_ROBOT)
-    if (!marca || !e.isAllDayEvent()) continue
+    if (!e.isAllDayEvent()) continue
     const fecha = Utilities.formatDate(e.getAllDayStartDate(), ZONA, 'yyyy-MM-dd')
     // Google devuelve también lo que termina justo hoy a las 0: eso es de ayer, y no se toca.
     if (fecha < hoy) continue
     porId.set(e.getId(), e)
-    eventos.push({ id: e.getId(), marca, fecha, titulo: e.getTitle(), descripcion: e.getDescription() })
+    const marca = e.getTag(PROPIEDAD_DEL_ROBOT)
+    const visto = { id: e.getId(), fecha, titulo: e.getTitle(), descripcion: e.getDescription() }
+    if (marca) eventos.push({ ...visto, marca })
+    else sinMarca.push(visto)
   }
 
-  const plan = planDelCalendario(fechas, eventos)
+  const plan = planDelCalendario(fechas, eventos, sinMarca)
+  /** Cada cambio, en el orden en que se hace. */
+  const tareas = [
+    ...plan.borrar.map((id) => ({ que: 'borrados', hacer: () => porId.get(id).deleteEvent() })),
+    ...plan.marcar.map(({ id, marca }) => ({ que: 'cambiados', hacer: () => porId.get(id).setTag(PROPIEDAD_DEL_ROBOT, marca) })),
+    ...plan.cambiar.map(({ id, fecha }) => ({ que: 'cambiados', hacer: () => {
+      const e = porId.get(id)
+      if (Utilities.formatDate(e.getAllDayStartDate(), ZONA, 'yyyy-MM-dd') !== fecha.fecha) e.setAllDayDate(aDiaDelCalendario(fecha.fecha))
+      if (e.getTitle() !== fecha.titulo) e.setTitle(fecha.titulo)
+      if (e.getDescription() !== fecha.descripcion) e.setDescription(fecha.descripcion)
+    } })),
+    ...plan.crear.map((fecha) => ({ que: 'creados', hacer: () => crearConMarca(calendario, fecha) })),
+  ]
   const hecho = { borrados: 0, cambiados: 0, creados: 0 }
-  const pendientes = plan.borrar.length + plan.cambiar.length + plan.crear.length
-  for (const id of plan.borrar) {
+  let googleFreno = false
+  for (const tarea of tareas) {
     if (Date.now() - inicio > LIMITE_SUBIDA_MS) break
-    porId.get(id).deleteEvent()
-    hecho.borrados++
-  }
-  for (const { id, fecha } of plan.cambiar) {
-    if (Date.now() - inicio > LIMITE_SUBIDA_MS) break
-    const e = porId.get(id)
-    if (Utilities.formatDate(e.getAllDayStartDate(), ZONA, 'yyyy-MM-dd') !== fecha.fecha) e.setAllDayDate(aDiaDelCalendario(fecha.fecha))
-    if (e.getTitle() !== fecha.titulo) e.setTitle(fecha.titulo)
-    if (e.getDescription() !== fecha.descripcion) e.setDescription(fecha.descripcion)
-    hecho.cambiados++
-  }
-  for (const fecha of plan.crear) {
-    if (Date.now() - inicio > LIMITE_SUBIDA_MS) break
-    calendario.createAllDayEvent(fecha.titulo, aDiaDelCalendario(fecha.fecha), { description: fecha.descripcion })
-      .setTag(PROPIEDAD_DEL_ROBOT, fecha.marca)
-    hecho.creados++
+    try {
+      tarea.hacer()
+    } catch (e) {
+      if (!esElFrenoDeGoogle(e)) throw e
+      googleFreno = true
+      break
+    }
+    hecho[tarea.que]++
+    Utilities.sleep(PAUSA_CALENDARIO_MS)
   }
 
-  if (pendientes === 0) return `Calendario al día: ${fechas.length} fechas.`
+  if (tareas.length === 0) return `Calendario al día: ${fechas.length} fechas.`
   const hechos = hecho.borrados + hecho.cambiados + hecho.creados
+  const quedan = tareas.length - hechos
   return `Calendario: ${hecho.creados} eventos nuevos, ${hecho.cambiados} cambiados y ${hecho.borrados} borrados` +
-    (hechos < pendientes ? `; quedan ${pendientes - hechos}, siguen en la próxima corrida.` : '.')
+    (quedan === 0 ? '.' : `; quedan ${quedan}, siguen solos en la próxima corrida` +
+      (googleFreno ? ' (Google pidió esperar: hay un límite de eventos seguidos).' : '.'))
+}
+
+/** Crea el evento y le pone la marca. Si Google corta entre las dos cosas, lo borra: un evento sin marca
+ *  sería de una persona, y el robot crearía otro igual en la próxima corrida. */
+function crearConMarca(calendario, fecha) {
+  const e = calendario.createAllDayEvent(fecha.titulo, aDiaDelCalendario(fecha.fecha), { description: fecha.descripcion })
+  try {
+    e.setTag(PROPIEDAD_DEL_ROBOT, fecha.marca)
+  } catch (error) {
+    try { e.deleteEvent() } catch (_) { /* si tampoco se puede borrar, la próxima corrida le pone la marca */ }
+    throw error
+  }
+}
+
+/** ¿Es el límite de Google, que se pasa esperando? Con el idioma de la cuenta en castellano o en inglés. */
+function esElFrenoDeGoogle(e) {
+  return /demasiad|too many/i.test(String((e && e.message) || e))
 }
 
 /** Lo mismo, sin dejar que un error del calendario corte el barrido: queda en el registro. */
