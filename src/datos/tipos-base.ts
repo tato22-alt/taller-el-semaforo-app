@@ -5,11 +5,14 @@
  * que se aplica una migración en semaforo-base, y el archivo se pisa entero: lo que corrige lo
  * que el generador dice mal (los montos llegan como string) vive en `filas.ts`.
  *
- * Generado el 2026-10-28 contra la base real, con la migración de cobranzas ya aplicada. EXCEPCIÓN,
- * hasta que se aplique la M7 de semaforo-base (20261025130000_imputacion.sql): `imputacion`,
- * `vw_revisar_candidatas` y las columnas nuevas de `vw_revisar` se sumaron a mano, con la forma del
- * generador. Todo lo demás es lo que da el generador. Apenas se aplique la M7, se regenera el archivo
- * entero y gana el generado. */
+ * Generado el 2026-10-28 contra la base real, con la migración de cobranzas ya aplicada. EXCEPCIONES,
+ * sumadas a mano con la forma del generador hasta que se apliquen sus migraciones de semaforo-base:
+ * - la M7 (20261025130000_imputacion.sql): `imputacion`, `vw_revisar_candidatas` y las columnas nuevas
+ *   de `vw_revisar`;
+ * - la spec 016 (20261031120000_factura_para_mandar.sql): `factura_para_mandar`, `archivo_para_mandar`,
+ *   `vw_factura_para_mandar`, sus funciones, y `asunto_factura` y `archivo_factura` de `compania`.
+ * Todo lo demás es lo que da el generador. Apenas se apliquen, se regenera el archivo entero y gana el
+ * generado. */
 
 export type Json =
   | string
@@ -71,6 +74,60 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "aviso"
             referencedColumns: ["gmail_message_id"]
+          },
+        ]
+      }
+      archivo_para_mandar: {
+        Row: {
+          clase: string
+          id_archivo: number
+          id_para_mandar: number
+          nombre: string
+          quitado_en: string | null
+          quitado_por: string | null
+          ruta: string
+          subido_en: string
+          subido_por: string | null
+          tipo: string
+        }
+        Insert: {
+          clase: string
+          id_archivo?: never
+          id_para_mandar: number
+          nombre: string
+          quitado_en?: string | null
+          quitado_por?: string | null
+          ruta: string
+          subido_en?: string
+          subido_por?: string | null
+          tipo: string
+        }
+        Update: {
+          clase?: string
+          id_archivo?: never
+          id_para_mandar?: number
+          nombre?: string
+          quitado_en?: string | null
+          quitado_por?: string | null
+          ruta?: string
+          subido_en?: string
+          subido_por?: string | null
+          tipo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "archivo_para_mandar_id_para_mandar_fkey"
+            columns: ["id_para_mandar"]
+            isOneToOne: false
+            referencedRelation: "factura_para_mandar"
+            referencedColumns: ["id_para_mandar"]
+          },
+          {
+            foreignKeyName: "archivo_para_mandar_id_para_mandar_fkey"
+            columns: ["id_para_mandar"]
+            isOneToOne: false
+            referencedRelation: "vw_factura_para_mandar"
+            referencedColumns: ["id_para_mandar"]
           },
         ]
       }
@@ -267,6 +324,8 @@ export type Database = {
       compania: {
         Row: {
           alias: string[]
+          archivo_factura: string | null
+          asunto_factura: string | null
           canal: string | null
           creado_en: string
           cuit: string
@@ -279,6 +338,8 @@ export type Database = {
         }
         Insert: {
           alias?: string[]
+          archivo_factura?: string | null
+          asunto_factura?: string | null
           canal?: string | null
           creado_en?: string
           cuit: string
@@ -291,6 +352,8 @@ export type Database = {
         }
         Update: {
           alias?: string[]
+          archivo_factura?: string | null
+          asunto_factura?: string | null
           canal?: string | null
           creado_en?: string
           cuit?: string
@@ -562,6 +625,96 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "vw_pago_factura"
             referencedColumns: ["id_comprobante"]
+          },
+        ]
+      }
+      factura_para_mandar: {
+        Row: {
+          armado_en: string | null
+          armar_igual_en: string | null
+          armar_igual_por: string | null
+          asunto: string | null
+          borrado_en: string | null
+          borrador_id: string | null
+          cambiado_en: string
+          controlado_en: string | null
+          creado_en: string
+          creado_por: string | null
+          deshecho_en: string | null
+          deshecho_por: string | null
+          hilo_id: string | null
+          id_orden: number
+          id_para_mandar: number
+          leido: Json | null
+          mandado_en: string | null
+          mandado_message_id: string | null
+          para: string | null
+          problemas: string[] | null
+          rearmar_en: string | null
+          rearmar_por: string | null
+        }
+        Insert: {
+          armado_en?: string | null
+          armar_igual_en?: string | null
+          armar_igual_por?: string | null
+          asunto?: string | null
+          borrado_en?: string | null
+          borrador_id?: string | null
+          cambiado_en?: string
+          controlado_en?: string | null
+          creado_en?: string
+          creado_por?: string | null
+          deshecho_en?: string | null
+          deshecho_por?: string | null
+          hilo_id?: string | null
+          id_orden: number
+          id_para_mandar?: never
+          leido?: Json | null
+          mandado_en?: string | null
+          mandado_message_id?: string | null
+          para?: string | null
+          problemas?: string[] | null
+          rearmar_en?: string | null
+          rearmar_por?: string | null
+        }
+        Update: {
+          armado_en?: string | null
+          armar_igual_en?: string | null
+          armar_igual_por?: string | null
+          asunto?: string | null
+          borrado_en?: string | null
+          borrador_id?: string | null
+          cambiado_en?: string
+          controlado_en?: string | null
+          creado_en?: string
+          creado_por?: string | null
+          deshecho_en?: string | null
+          deshecho_por?: string | null
+          hilo_id?: string | null
+          id_orden?: number
+          id_para_mandar?: never
+          leido?: Json | null
+          mandado_en?: string | null
+          mandado_message_id?: string | null
+          para?: string | null
+          problemas?: string[] | null
+          rearmar_en?: string | null
+          rearmar_por?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "factura_para_mandar_id_orden_fkey"
+            columns: ["id_orden"]
+            isOneToOne: false
+            referencedRelation: "orden_trabajo"
+            referencedColumns: ["id_orden"]
+          },
+          {
+            foreignKeyName: "factura_para_mandar_id_orden_fkey"
+            columns: ["id_orden"]
+            isOneToOne: false
+            referencedRelation: "vw_ordenes_trabajo"
+            referencedColumns: ["id_orden"]
           },
         ]
       }
@@ -1287,6 +1440,28 @@ export type Database = {
         }
         Relationships: []
       }
+      vw_factura_para_mandar: {
+        Row: {
+          archivos: Json | null
+          armado_en: string | null
+          armar_igual_en: string | null
+          asunto: string | null
+          borrado_en: string | null
+          borrador_id: string | null
+          canal: string | null
+          compania: string | null
+          estado: string | null
+          hilo_id: string | null
+          id_orden: number | null
+          id_para_mandar: number | null
+          leido: Json | null
+          mandado_en: string | null
+          para: string | null
+          para_origen: string | null
+          problemas: string[] | null
+        }
+        Relationships: []
+      }
       vw_imputaciones: {
         Row: {
           bruto: number | null
@@ -1529,6 +1704,13 @@ export type Database = {
       }
     }
     Functions: {
+      fn_casilla_factura: {
+        Args: { p_cuit: string }
+        Returns: {
+          origen: string
+          para: string
+        }[]
+      }
       fn_clave_siniestro: { Args: { p_siniestro: string }; Returns: string }
       fn_compania_del_remitente: {
         Args: { p_remitente: string }
@@ -1558,6 +1740,19 @@ export type Database = {
         }[]
       }
       fn_revincular_envios: { Args: never; Returns: number }
+      fn_robot_anota_borrador: {
+        Args: { p_borrador_id: string; p_hilo_id: string; p_id: number }
+        Returns: undefined
+      }
+      fn_robot_anota_lo_visto: {
+        Args: { p_fecha: string; p_id: number; p_message_id: string; p_visto: string }
+        Returns: string
+      }
+      fn_robot_controla_factura: {
+        Args: { p_id: number; p_leido: Json }
+        Returns: Json
+      }
+      fn_robot_facturas_para_mandar: { Args: never; Returns: Json }
       fn_robot_fechas_calendario: {
         Args: never
         Returns: {
@@ -1598,6 +1793,15 @@ export type Database = {
       }
       fn_rol: { Args: never; Returns: string }
       fn_sincronizar_numeracion: { Args: never; Returns: number }
+      fn_texto_factura: {
+        Args: {
+          p_numero: number
+          p_plantilla: string
+          p_siniestro: string
+          p_subsiniestro: string
+        }
+        Returns: string
+      }
       fn_vincular_envio: {
         Args: { p_gmail_message_id: string }
         Returns: string

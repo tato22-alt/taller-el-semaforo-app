@@ -1,6 +1,6 @@
 # Estado del proyecto — dónde está todo
 
-> **Al 2026-10-28.** Lo de abajo quedó del 2026-10-07 y se actualiza por partes. Lo que falta hacer,
+> **Al 2026-10-31.** Lo de abajo quedó del 2026-10-07 y se actualiza por partes. Lo que falta hacer,
 > en orden, está en `PENDIENTES.md` de `semaforo-base` (privado, porque lleva números del negocio).
 >
 > - **Publicado** (https://tato22-alt.github.io/taller-el-semaforo-app/): login, tablero, Importar,
@@ -10,14 +10,21 @@
 >   cuándo; cada compañía con qué hacer hoy, hasta sus facturas y el mail con que se mandó cada una, y el
 >   reclamo armado para copiar. Sólo lee. La M8 de `semaforo-base` (`20261028120000_cobranzas.sql`) se
 >   aplicó el 2026-10-28 y dio 13/13 en la base real; la pantalla se publica cuando se mergea su PR.
+> - **Mandar la factura** (spec 016, hecha el 2026-10-31, sin publicar): en la tarjeta de la orden se suben
+>   la factura de ARCA y la orden firmada, y el robot deja el borrador en Gmail, que manda una persona. La
+>   migración de `semaforo-base` (`20261031120000_factura_para_mandar.sql`) está escrita y verificada,
+>   sin aplicar: hasta entonces la tarjeta no muestra nada nuevo.
 > - **Retenciones** (spec 014, paso 1): lo retenido cada mes, el libro y la planilla para el contador.
 >   Sólo lee. La migración del libro de `semaforo-base` se aplicó el 2026-10-27; la pantalla se publica
 >   cuando se mergea su PR.
-> - La app escribe siete tablas, todas en `src/arquitectura.test.ts`: `importacion`, `comprobante`,
->   `comprobante_vinculo`, `orden_trabajo`, `orden_factura`, `hito_trabajo` e `imputacion` (Revisar,
->   desde la M7 de `semaforo-base`, escrita y sin aplicar: va después del respaldo semanal).
+> - La app escribe nueve tablas, todas en `src/arquitectura.test.ts`: `importacion`, `comprobante`,
+>   `comprobante_vinculo`, `orden_trabajo`, `orden_factura`, `hito_trabajo`, `imputacion` (Revisar,
+>   desde la M7 de `semaforo-base`, escrita y sin aplicar: va después del respaldo semanal), y
+>   `factura_para_mandar` y `archivo_para_mandar` (spec 016, sin aplicar). Y sube archivos a un solo
+>   espacio, "facturas-para-mandar".
 > - `src/datos/tipos-base.ts` es el generado por el conector de Supabase (la última vez, el 2026-10-28,
->   con cobranzas aplicada). Lo de la M7 está sumado a mano hasta que se aplique; después se regenera entero.
+>   con cobranzas aplicada). Lo de la M7 y lo de la spec 016 está sumado a mano hasta que se apliquen;
+>   después se regenera entero.
 > - **El robot** (`robot/README.md`) sube a la base las órdenes, los envíos de factura y los avisos de
 >   pago. Desde el 2026-10-23 lee también Cooperación, Provincia y la forma nueva de LPS, y tapa las
 >   claves aunque vengan en negrita (`robot/lectores/claves.js`). Desde el 2026-10-26 lee las retenciones
@@ -28,7 +35,7 @@
 > - Lo próximo: la M7 (cuando ande el respaldo), la spec 016 (la factura lista para mandar), la 013 (la
 >   plata del taller), el control contra ARCA de la 014 (con el archivo de Mis Retenciones), y que el
 >   robot reconozca los mails que no son pagos.
-> - 401 tests en verde.
+> - 425 tests en verde.
 
 Punto de entrada cuando volvés. Si esto y el código se contradicen, gana el código.
 

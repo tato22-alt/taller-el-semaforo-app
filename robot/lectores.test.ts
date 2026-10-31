@@ -683,7 +683,7 @@ describe('asunto de las facturas enviadas', () => {
 })
 
 describe('el robot', () => {
-  const codigo = [...fuentes.map((n) => join('lectores', n)), 'calendario.js', 'barrido.js', 'robot.gs'].map((n) => ({ nombre: n, texto: readFileSync(join(CARPETA, n), 'utf8') }))
+  const codigo = [...fuentes.map((n) => join('lectores', n)), 'calendario.js', 'mandar.js', 'barrido.js', 'robot.gs'].map((n) => ({ nombre: n, texto: readFileSync(join(CARPETA, n), 'utf8') }))
 
   it('no guarda enlaces que inician sesión en un portal sin clave (R2)', () => {
     const { sinEnlacesDeSesion } = runInNewContext(readFileSync(join(DIR_LECTORES, 'claves.js'), 'utf8') + '\n;({ sinEnlacesDeSesion })', {}) as {
@@ -775,13 +775,16 @@ describe('el robot', () => {
     expect(readFileSync(join(CARPETA, 'robot.gs'), 'utf8')).toBe(armar())
   })
 
-  it('pide sólo los permisos de la lista, y ninguno de Gmail que escriba (R1)', () => {
+  it('pide sólo los permisos de la lista: de Gmail, leer y crear borradores (R1)', () => {
     // Calendar, desde la spec 015: el calendario del taller. Escribir en el propio calendario no es
     // mandarle nada a nadie; invitar sí, y eso lo prueba calendario.test.ts.
+    // gmail.compose, desde la spec 016: crear el borrador de la factura. Google no tiene un permiso que
+    // deje crear borradores sin dejar mandar: que el robot no manda lo garantiza el test de abajo.
     const manifiesto = JSON.parse(readFileSync(join(CARPETA, 'appsscript.json'), 'utf8')) as { oauthScopes: string[] }
     expect([...manifiesto.oauthScopes].sort()).toEqual([
       'https://www.googleapis.com/auth/calendar',
       'https://www.googleapis.com/auth/drive.file',
+      'https://www.googleapis.com/auth/gmail.compose',
       'https://www.googleapis.com/auth/gmail.readonly',
       'https://www.googleapis.com/auth/script.external_request',
       'https://www.googleapis.com/auth/spreadsheets.currentonly',
@@ -789,8 +792,9 @@ describe('el robot', () => {
   })
 
   it('ningún archivo llama a algo que mande, borre o modifique un mail (R1, RF-501)', () => {
-    // GmailApp y MailApp quedan afuera enteros: piden el permiso total de Gmail.
-    const prohibido = /\b(GmailApp|MailApp)\b|sendEmail|createDraft|\.(send|trash|untrash|modify|batchModify|batchDelete|import|insert)\s*\(|Gmail\.Users\.(Drafts|Labels|Settings)|Messages\.(remove|delete)/
+    // GmailApp y MailApp quedan afuera enteros: piden el permiso total de Gmail. De los borradores, sólo
+    // crearlos y mirar si siguen (spec 016): mandarlos, cambiarlos o borrarlos, no.
+    const prohibido = /\b(GmailApp|MailApp)\b|sendEmail|createDraft|\.(send|trash|untrash|modify|batchModify|batchDelete|import|insert)\s*\(|Gmail\.Users\.(Labels|Settings)|Drafts\.(?!create\b|get\b)|Messages\.(remove|delete)/
     for (const { nombre, texto } of codigo) {
       const sinComentarios = texto.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '')
       expect(sinComentarios, nombre).not.toMatch(prohibido)

@@ -16,6 +16,7 @@ export function armar() {
   const fuentes = [
     ...readdirSync(LECTORES).filter((n) => n.endsWith('.js')).sort().map((n) => join('lectores', n)),
     'calendario.js',
+    'mandar.js',
     'barrido.js',
   ]
   const partes = fuentes.map((f) => `// ===== ${f} =====\n\n${readFileSync(join(AQUI, f), 'utf8').replace(/^\/\/ @ts-check\n/, '')}`)

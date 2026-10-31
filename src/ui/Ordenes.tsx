@@ -12,6 +12,7 @@ import {
   anularOrden, cerrarOrden, confirmarOrden, desanularOrden, descartarOrden, deshacerCierre, deshacerDescarte,
   leerCompanias, leerOrdenes, type Compania,
 } from '../datos/ordenes'
+import { leerFacturasParaMandar, TODAVIA_NO } from '../datos/mandar-factura'
 import { formatearPesos } from '../dominio/dinero'
 import { formatearFecha, hoyEnElTaller } from '../dominio/fechas'
 import {
@@ -19,20 +20,25 @@ import {
   agruparOrdenes, DIAS_QUE_SE_MUESTRA_VENCIDA, estadoDeOrden, siniestroEnPalabras, siniestroTipeado, situacionEnPalabras,
   vencimientoEnPalabras, type Orden,
 } from '../dominio/ordenes'
+import type { FacturaParaMandar } from '../dominio/mandar-factura'
 import { textoDeFallo, type Fallo, type Resultado } from '../dominio/resultado'
 import { FacturaDeLaOrden } from './FacturaDeLaOrden'
+import { MandarLaFactura } from './MandarLaFactura'
 
 /** Lo que queda anotado al tocar "No se hizo". */
 const MOTIVO_NO_SE_HIZO = 'No se hizo'
 
 export function Ordenes() {
   const [ordenes, setOrdenes] = useState<readonly Orden[] | Fallo | null>(null)
+  const [paraMandar, setParaMandar] = useState<ReadonlyMap<number, FacturaParaMandar>>(new Map())
   const [companias, setCompanias] = useState<readonly Compania[]>([])
   const [fallo, setFallo] = useState<Fallo | null>(null)
   const [ocupado, setOcupado] = useState(false)
 
   const cargar = useCallback(() => {
     void leerOrdenes().then((r) => setOrdenes(r.ok ? r.dato : r.fallo))
+    // Spec 016. Si falla o todavía no está en la base, las tarjetas no muestran "Mandar la factura".
+    void leerFacturasParaMandar().then((r) => setParaMandar(r.ok && r.dato !== TODAVIA_NO ? r.dato : new Map()))
   }, [])
   useEffect(cargar, [cargar])
 
@@ -58,7 +64,9 @@ export function Ordenes() {
   if ('tipo' in ordenes) return <p className="error tarjeta">{textoDeFallo(ordenes)}</p>
 
   const { paraConfirmar, paraAtender, vigentes, vencidasViejas, pagadas, resueltas } = agruparOrdenes(ordenes)
-  const tarjeta = (o: Orden) => <TarjetaOrden key={o.id} orden={o} companias={companias} ocupado={ocupado} hacer={hacer} />
+  const tarjeta = (o: Orden) => (
+    <TarjetaOrden key={o.id} orden={o} companias={companias} paraMandar={paraMandar.get(o.id) ?? null} ocupado={ocupado} hacer={hacer} />
+  )
 
   return (
     <div className="ordenes">
@@ -118,7 +126,7 @@ export function Ordenes() {
 type Hacer = (accion: () => Promise<Resultado<null>>) => Promise<void>
 type PropsTarjeta = { orden: Orden; companias: readonly Compania[]; ocupado: boolean; hacer: Hacer }
 
-function TarjetaOrden({ orden: o, companias, ocupado, hacer }: PropsTarjeta) {
+function TarjetaOrden({ orden: o, companias, paraMandar, ocupado, hacer }: PropsTarjeta & { paraMandar: FacturaParaMandar | null }) {
   const estado = estadoDeOrden(o)
   const situacion = situacionEnPalabras(o)
   return (
@@ -142,6 +150,7 @@ function TarjetaOrden({ orden: o, companias, ocupado, hacer }: PropsTarjeta) {
       )}
       {estado === 'a_confirmar' && <AccionesParaConfirmar orden={o} companias={companias} ocupado={ocupado} hacer={hacer} />}
       {estado !== 'a_confirmar' && estado !== 'descartada' && estado !== 'cerrada' && <FacturaDeLaOrden orden={o} ocupado={ocupado} hacer={hacer} />}
+      {paraMandar !== null && !o.facturada && <MandarLaFactura fila={paraMandar} ocupado={ocupado} hacer={hacer} />}
       {(estado === 'por_vencer' || estado === 'vigente' || estado === 'vencida') && (
         <p className="acciones">
           <button
