@@ -5,14 +5,11 @@
  * que se aplica una migración en semaforo-base, y el archivo se pisa entero: lo que corrige lo
  * que el generador dice mal (los montos llegan como string) vive en `filas.ts`.
  *
- * Generado el 2026-10-28 contra la base real, con la migración de cobranzas ya aplicada. EXCEPCIONES,
- * sumadas a mano con la forma del generador hasta que se apliquen sus migraciones de semaforo-base:
- * - la M7 (20261025130000_imputacion.sql): `imputacion`, `vw_revisar_candidatas` y las columnas nuevas
- *   de `vw_revisar`;
- * - la spec 016 (20261031120000_factura_para_mandar.sql): `factura_para_mandar`, `archivo_para_mandar`,
- *   `vw_factura_para_mandar`, sus funciones, y `asunto_factura` y `archivo_factura` de `compania`.
- * Todo lo demás es lo que da el generador. Apenas se apliquen, se regenera el archivo entero y gana el
- * generado. */
+ * Generado el 2026-11-03 contra la base real, con la migración de la spec 016 ya aplicada. EXCEPCIÓN,
+ * hasta que se aplique la M7 de semaforo-base (20261025130000_imputacion.sql): `imputacion`,
+ * `vw_revisar_candidatas` y las columnas nuevas de `vw_revisar` se sumaron a mano, con la forma del
+ * generador. Todo lo demás es lo que da el generador. Apenas se aplique la M7, se regenera el archivo
+ * entero y gana el generado. */
 
 export type Json =
   | string
@@ -713,6 +710,20 @@ export type Database = {
             foreignKeyName: "factura_para_mandar_id_orden_fkey"
             columns: ["id_orden"]
             isOneToOne: false
+            referencedRelation: "vw_factura_para_mandar"
+            referencedColumns: ["id_orden"]
+          },
+          {
+            foreignKeyName: "factura_para_mandar_id_orden_fkey"
+            columns: ["id_orden"]
+            isOneToOne: false
+            referencedRelation: "vw_orden_factura_propuesta"
+            referencedColumns: ["id_orden"]
+          },
+          {
+            foreignKeyName: "factura_para_mandar_id_orden_fkey"
+            columns: ["id_orden"]
+            isOneToOne: false
             referencedRelation: "vw_ordenes_trabajo"
             referencedColumns: ["id_orden"]
           },
@@ -962,6 +973,13 @@ export type Database = {
             foreignKeyName: "orden_factura_id_orden_fkey"
             columns: ["id_orden"]
             isOneToOne: false
+            referencedRelation: "vw_factura_para_mandar"
+            referencedColumns: ["id_orden"]
+          },
+          {
+            foreignKeyName: "orden_factura_id_orden_fkey"
+            columns: ["id_orden"]
+            isOneToOne: false
             referencedRelation: "vw_orden_factura_propuesta"
             referencedColumns: ["id_orden"]
           },
@@ -1063,6 +1081,13 @@ export type Database = {
             columns: ["reenvio_de"]
             isOneToOne: false
             referencedRelation: "orden_trabajo"
+            referencedColumns: ["id_orden"]
+          },
+          {
+            foreignKeyName: "orden_trabajo_reenvio_de_fkey"
+            columns: ["reenvio_de"]
+            isOneToOne: false
+            referencedRelation: "vw_factura_para_mandar"
             referencedColumns: ["id_orden"]
           },
           {
@@ -1745,7 +1770,12 @@ export type Database = {
         Returns: undefined
       }
       fn_robot_anota_lo_visto: {
-        Args: { p_fecha: string; p_id: number; p_message_id: string; p_visto: string }
+        Args: {
+          p_fecha: string
+          p_id: number
+          p_message_id: string
+          p_visto: string
+        }
         Returns: string
       }
       fn_robot_controla_factura: {
