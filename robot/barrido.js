@@ -122,10 +122,12 @@ function barrer() {
   const subidas = subirOrdenes(hojas.ordenes, inicio)
   const envios = subirEnvios(hojas.enviados, inicio)
   const avisos = subirAvisos(hojas.avisos, inicio)
-  // Al final, el calendario (spec 015): con lo que la base ya sabe después de esta corrida.
+  // Al final, el calendario (spec 015): con lo que la base ya sabe después de esta corrida. Y las
+  // facturas para mandar (spec 016): arma los borradores que estén listos y mira los que ya están.
   const calendario = sincronizarCalendarioSinCortar(inicio)
+  const facturas = armarFacturasSinCortar(inicio)
   console.log(`Avisos nuevos: ${nuevosAvisos.guardados}. Envíos nuevos: ${nuevosEnvios.guardados}. ` +
-    `Mails de órdenes nuevos: ${nuevasOrdenes.guardados + paraConfirmar.guardados}. ${subidas} ${envios} ${avisos} ${calendario}` +
+    `Mails de órdenes nuevos: ${nuevasOrdenes.guardados + paraConfirmar.guardados}. ${subidas} ${envios} ${avisos} ${calendario} ${facturas}` +
     (nuevosAvisos.cortado || nuevosEnvios.cortado || nuevasOrdenes.cortado || paraConfirmar.cortado ? ' Quedan más: la próxima corrida sigue.' : ' Al día.'))
 }
 

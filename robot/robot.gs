@@ -109,6 +109,172 @@ function leerAcuseGrant(mail) {
   return acuse('acuse-grant', 'acuse', { factura: facturaDelAsunto(mail.asunto) })
 }
 
+// ===== lectores/borrador.js =====
+
+/* El borrador con que se manda una factura (spec 016 de semaforo-base): el texto y el mail entero, con
+ * sus adjuntos, tal como lo guarda Gmail. Lo puro: no habla con Gmail. Lo hace mandar.js.
+ *
+ * El texto es el que el taller usa hoy, tal cual (respuesta 3 de la spec): "Buenos días, adjunto factura
+ * A y conformidad de trabajos realizados." Desde las 13, "Buenas tardes". Sin copia a nadie.
+ *
+ * El robot sólo arma el borrador: lo manda una persona (R1). */
+
+/**
+ * @typedef {{ nombre: string, tipo: string, base64: string }} Adjunto
+ * @typedef {{ para: string, asunto: string, cuerpo: string, adjuntos: Adjunto[] }} Borrador
+ * @typedef {{ clase: string, nombre: string, tipo: string, ruta: string }} ArchivoParaMandar
+ */
+
+/**
+ * @param {number} hora de 0 a 23, en Argentina
+ * @returns {string}
+ */
+function saludoDelTaller(hora) {
+  return hora < 13 ? 'Buenos días' : 'Buenas tardes'
+}
+
+/**
+ * @param {number} hora
+ * @param {string | null} letra la de la factura, leída del PDF
+ * @returns {string}
+ */
+function cuerpoDelBorrador(hora, letra) {
+  return `${saludoDelTaller(hora)}, adjunto factura ${letra ?? 'A'} y conformidad de trabajos realizados.`
+}
+
+/**
+ * Los archivos en el orden en que van: la factura, la orden firmada y lo demás. A la factura le pone el
+ * nombre que pide la compañía, si pide uno (la ficha, para Allianz).
+ * @param {readonly ArchivoParaMandar[]} archivos
+ * @param {string | null} nombreDeLaFactura
+ * @returns {ArchivoParaMandar[]}
+ */
+function adjuntosEnOrden(archivos, nombreDeLaFactura) {
+  const orden = ['factura', 'orden_firmada', 'otro']
+  return [...archivos]
+    .sort((a, b) => orden.indexOf(a.clase) - orden.indexOf(b.clase))
+    .map((a) => (a.clase === 'factura' && nombreDeLaFactura ? { ...a, nombre: nombreDeLaFactura } : a))
+}
+
+const LIMITE_DEL_MAIL = '=_El_Semaforo_016'
+
+/**
+ * El mail entero, en el formato que Gmail recibe para un borrador (RFC 2822, partes MIME). Sale todo en
+ * ASCII: el cuerpo y los adjuntos van en base64, y el asunto y los nombres, codificados.
+ * @param {Borrador} b
+ * @returns {string}
+ */
+function mensajeDelBorrador(b) {
+  const partes = [
+    [
+      'Content-Type: text/plain; charset=UTF-8',
+      'Content-Transfer-Encoding: base64',
+      '',
+      enRenglones(utf8EnBase64(b.cuerpo)),
+    ].join('\r\n'),
+    ...b.adjuntos.map((a) => [
+      `Content-Type: ${a.tipo}; name="${nombreEnAscii(a.nombre)}"`,
+      `Content-Disposition: attachment; filename="${nombreEnAscii(a.nombre)}"; filename*=UTF-8''${nombreCodificado(a.nombre)}`,
+      'Content-Transfer-Encoding: base64',
+      '',
+      enRenglones(a.base64.replace(/\s+/g, '')),
+    ].join('\r\n')),
+  ]
+  return [
+    `To: ${b.para}`,
+    `Subject: ${encabezadoCodificado(b.asunto)}`,
+    'MIME-Version: 1.0',
+    `Content-Type: multipart/mixed; boundary="${LIMITE_DEL_MAIL}"`,
+    '',
+    ...partes.flatMap((p) => [`--${LIMITE_DEL_MAIL}`, p]),
+    `--${LIMITE_DEL_MAIL}--`,
+    '',
+  ].join('\r\n')
+}
+
+/**
+ * Un encabezado con tildes o "°" va como palabras codificadas (RFC 2047), de a pedazos que no corten
+ * una letra a la mitad. Uno en ASCII va tal cual.
+ * @param {string} texto
+ * @returns {string}
+ */
+function encabezadoCodificado(texto) {
+  if (/^[\x20-\x7e]*$/.test(texto)) return texto
+  /** @type {string[]} */
+  const pedazos = []
+  let actual = ''
+  for (const letra of texto) {
+    if (utf8(actual + letra).length > 45) {
+      pedazos.push(actual)
+      actual = ''
+    }
+    actual += letra
+  }
+  if (actual !== '') pedazos.push(actual)
+  return pedazos.map((p) => `=?UTF-8?B?${utf8EnBase64(p)}?=`).join('\r\n ')
+}
+
+/**
+ * @param {string} nombre
+ * @returns {string}
+ */
+function nombreEnAscii(nombre) {
+  return nombre.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^\x20-\x7e]|["\\]/g, '_')
+}
+
+/**
+ * @param {string} nombre
+ * @returns {string}
+ */
+function nombreCodificado(nombre) {
+  return encodeURIComponent(nombre).replace(/['()*]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`)
+}
+
+/**
+ * @param {string} base64
+ * @returns {string}
+ */
+function enRenglones(base64) {
+  return (base64.match(/.{1,76}/g) ?? ['']).join('\r\n')
+}
+
+/**
+ * Los bytes UTF-8 de un texto. Apps Script no tiene TextEncoder.
+ * @param {string} texto
+ * @returns {number[]}
+ */
+function utf8(texto) {
+  /** @type {number[]} */
+  const bytes = []
+  for (const letra of texto) {
+    const c = letra.codePointAt(0) ?? 0
+    if (c < 0x80) bytes.push(c)
+    else if (c < 0x800) bytes.push(0xc0 | (c >> 6), 0x80 | (c & 0x3f))
+    else if (c < 0x10000) bytes.push(0xe0 | (c >> 12), 0x80 | ((c >> 6) & 0x3f), 0x80 | (c & 0x3f))
+    else bytes.push(0xf0 | (c >> 18), 0x80 | ((c >> 12) & 0x3f), 0x80 | ((c >> 6) & 0x3f), 0x80 | (c & 0x3f))
+  }
+  return bytes
+}
+
+const ALFABETO_BASE64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
+
+/**
+ * @param {string} texto
+ * @returns {string}
+ */
+function utf8EnBase64(texto) {
+  const b = utf8(texto)
+  let salida = ''
+  for (let i = 0; i < b.length; i += 3) {
+    const n = ((b[i] ?? 0) << 16) | ((b[i + 1] ?? 0) << 8) | (b[i + 2] ?? 0)
+    salida += ALFABETO_BASE64[(n >> 18) & 63]
+    salida += ALFABETO_BASE64[(n >> 12) & 63]
+    salida += i + 1 < b.length ? ALFABETO_BASE64[(n >> 6) & 63] : '='
+    salida += i + 2 < b.length ? ALFABETO_BASE64[n & 63] : '='
+  }
+  return salida
+}
+
 // ===== lectores/calendario.js =====
 
 /* El calendario del taller (spec 015 de semaforo-base): qué hay que hacer para que el calendario diga lo
@@ -121,20 +287,24 @@ function leerAcuseGrant(mail) {
  *     mueve, no se borra y se crea: el evento sigue siendo el mismo);
  *   - un evento cuya marca la base ya no da se borra (un turno deshecho, una orden que se facturó), y
  *     también el segundo de dos eventos con la misma marca, si alguna vez quedó uno repetido.
- * Los eventos sin marca no llegan acá: son de las personas, y el robot no los toca (RF-1504). */
+ * Los eventos sin marca son de las personas, y el robot no los toca (RF-1504), salvo uno: el que es
+ * idéntico a una fecha que el robot tiene que crear (el mismo día, título y descripción). Ése lo creó el
+ * robot y Google lo cortó antes de que le pusiera la marca: en vez de crear otro igual, se le pone. */
 
 /**
  * @typedef {{ marca: string, fecha: string, titulo: string, descripcion: string }} FechaDelCalendario
  * @typedef {FechaDelCalendario & { id: string }} EventoDelRobot
- * @typedef {{ crear: FechaDelCalendario[], cambiar: { id: string, fecha: FechaDelCalendario }[], borrar: string[] }} PlanDelCalendario
+ * @typedef {{ id: string, fecha: string, titulo: string, descripcion: string }} EventoSinMarca
+ * @typedef {{ crear: FechaDelCalendario[], marcar: { id: string, marca: string }[], cambiar: { id: string, fecha: FechaDelCalendario }[], borrar: string[] }} PlanDelCalendario
  */
 
 /**
  * @param {readonly FechaDelCalendario[]} fechas lo que dice la base, de hoy en adelante
  * @param {readonly EventoDelRobot[]} eventos los eventos con la marca del robot, de hoy en adelante
+ * @param {readonly EventoSinMarca[]} [sinMarca] los de día completo sin marca, de hoy en adelante
  * @returns {PlanDelCalendario}
  */
-function planDelCalendario(fechas, eventos) {
+function planDelCalendario(fechas, eventos, sinMarca = []) {
   /** @type {Map<string, FechaDelCalendario>} */
   const porMarca = new Map()
   for (const f of fechas) if (!porMarca.has(f.marca)) porMarca.set(f.marca, f)
@@ -142,7 +312,7 @@ function planDelCalendario(fechas, eventos) {
   /** @type {Set<string>} */
   const conEvento = new Set()
   /** @type {PlanDelCalendario} */
-  const plan = { crear: [], cambiar: [], borrar: [] }
+  const plan = { crear: [], marcar: [], cambiar: [], borrar: [] }
   for (const e of eventos) {
     const f = porMarca.get(e.marca)
     if (f === undefined || conEvento.has(e.marca)) {
@@ -152,7 +322,18 @@ function planDelCalendario(fechas, eventos) {
     conEvento.add(e.marca)
     if (e.fecha !== f.fecha || e.titulo !== f.titulo || e.descripcion !== f.descripcion) plan.cambiar.push({ id: e.id, fecha: f })
   }
-  plan.crear = [...porMarca.values()].filter((f) => !conEvento.has(f.marca))
+  /** @type {Set<string>} */
+  const usados = new Set()
+  for (const f of porMarca.values()) {
+    if (conEvento.has(f.marca)) continue
+    const igual = sinMarca.find((e) => !usados.has(e.id) && e.fecha === f.fecha && e.titulo === f.titulo && e.descripcion === f.descripcion)
+    if (igual === undefined) {
+      plan.crear.push(f)
+      continue
+    }
+    usados.add(igual.id)
+    plan.marcar.push({ id: igual.id, marca: f.marca })
+  }
   return plan
 }
 
@@ -477,6 +658,63 @@ function leerCooperacion(mail) {
     })),
     retenciones,
   }, aImporte(cierre[1] ?? ''))
+}
+
+// ===== lectores/factura-arca.js =====
+
+/* La factura de ARCA, para armar el mail con que se manda (spec 016 de semaforo-base).
+ *
+ * El PDF es el de "Comprobantes en línea", pasado a texto por el mismo camino que los avisos (Drive).
+ * Trae la factura tres veces (ORIGINAL, DUPLICADO, TRIPLICADO) y, en cada una:
+ *   "COD. 01" (01 es Factura A; 06, Factura B; 201, Factura de Crédito Electrónica MiPyME A)
+ *   "Punto de Venta: 00002 Comp. Nro: 00003285"
+ *   "CUIT: 30111111111" dos veces: primero el del taller, después el de la compañía
+ *   el detalle, con "SINIESTRO N° …" escrito por el taller
+ *   "Importe Neto Gravado: $ 100000,00" e "Importe Total: $ 121000,00"
+ *
+ * Acá no se decide nada: se lee. Qué CUIT es el de la compañía, si el siniestro es el de la orden y
+ * si la factura cierra, lo decide la base (fn_robot_controla_factura). Lo que no se encuentra va nulo. */
+
+/** El código de ARCA de cada tipo de factura, y la letra con que el taller la nombra en el mail. */
+const LETRA_DEL_CODIGO = { 1: 'A', 6: 'B', 11: 'C', 201: 'A', 206: 'B', 211: 'C' }
+
+/**
+ * @typedef {{ puntoVenta: number | null, numero: number | null, cuits: string[], neto: string | null,
+ *             total: string | null, letra: string | null, siniestros: string[] }} FacturaLeida
+ */
+
+/**
+ * @param {string} texto el texto del PDF
+ * @returns {FacturaLeida}
+ */
+function leerFacturaArca(texto) {
+  const t = enUnRenglon(texto)
+  const comprobante = /Punto de Venta:?\s*(\d{1,5})\s*Comp\.?\s*Nro:?\s*(\d{1,8})/i.exec(t)
+  const codigo = /\bCOD\.?\s*(\d{1,3})\b/.exec(t)
+  const letra = codigo ? /** @type {Record<string, string>} */ (LETRA_DEL_CODIGO)[String(Number(codigo[1]))] ?? null : null
+  const neto = /Importe Neto Gravado:?\s*\$?\s*(\d[\d.,]*)/i.exec(t)
+  const total = /Importe Total:?\s*\$?\s*(\d[\d.,]*)/i.exec(t)
+  return {
+    puntoVenta: comprobante ? Number(comprobante[1]) : null,
+    numero: comprobante ? Number(comprobante[2]) : null,
+    // Con o sin guiones ("30-11111111-1"), y cada uno una vez, en el orden en que aparecen.
+    cuits: sinRepetidos([...t.matchAll(/CUIT:?\s*(\d{2})-?(\d{8})-?(\d)\b/gi)].map((m) => `${m[1]}${m[2]}${m[3]}`)),
+    neto: neto ? aImporte(neto[1] ?? '') : null,
+    total: total ? aImporte(total[1] ?? '') : null,
+    letra,
+    // Lo que el taller escribió después de "siniestro": "SINIESTRO N° 900000001", "Siniestro: 12345/26".
+    siniestros: sinRepetidos([...t.matchAll(/siniestro\s*(?:n(?:ro)?\s*[°º.]?|[°º])?\s*:?\s*([A-Za-z0-9][A-Za-z0-9/-]*)/gi)]
+      .map((m) => (m[1] ?? '').replace(/[-/]+$/, ''))
+      .filter((s) => /\d/.test(s))),
+  }
+}
+
+/**
+ * @param {string[]} lista
+ * @returns {string[]}
+ */
+function sinRepetidos(lista) {
+  return lista.filter((x, i) => lista.indexOf(x) === i)
 }
 
 // ===== lectores/fed-patronal.js =====
@@ -2164,6 +2402,10 @@ const DESCRIPCION_CALENDARIO = 'Turnos, vencimientos de órdenes y fechas de pag
 const PROPIEDAD_DEL_ROBOT = 'semaforo'
 /** Hasta dónde mira: lo más lejano es el vencimiento de una orden, al año. */
 const ANIOS_ADELANTE = 2
+/** Entre un cambio y otro. Google corta si se crean o borran muchos eventos seguidos ("Has creado o
+ *  eliminado demasiados calendarios o eventos de calendario en poco tiempo"): el 2026-10-28, la primera
+ *  carga, unos 200 de golpe, se cortó a los 20 segundos. */
+const PAUSA_CALENDARIO_MS = 1000
 
 /**
  * Pone el calendario al día. La llama barrer() al final de cada corrida; la primera vez se corre a mano,
@@ -2188,43 +2430,70 @@ function sincronizarCalendario(inicio = Date.now()) {
   const hasta = new Date(desde.getFullYear() + ANIOS_ADELANTE, desde.getMonth(), desde.getDate())
   const porId = new Map()
   const eventos = []
+  const sinMarca = []
   for (const e of calendario.getEvents(desde, hasta)) {
-    const marca = e.getTag(PROPIEDAD_DEL_ROBOT)
-    if (!marca || !e.isAllDayEvent()) continue
+    if (!e.isAllDayEvent()) continue
     const fecha = Utilities.formatDate(e.getAllDayStartDate(), ZONA, 'yyyy-MM-dd')
     // Google devuelve también lo que termina justo hoy a las 0: eso es de ayer, y no se toca.
     if (fecha < hoy) continue
     porId.set(e.getId(), e)
-    eventos.push({ id: e.getId(), marca, fecha, titulo: e.getTitle(), descripcion: e.getDescription() })
+    const marca = e.getTag(PROPIEDAD_DEL_ROBOT)
+    const visto = { id: e.getId(), fecha, titulo: e.getTitle(), descripcion: e.getDescription() }
+    if (marca) eventos.push({ ...visto, marca })
+    else sinMarca.push(visto)
   }
 
-  const plan = planDelCalendario(fechas, eventos)
+  const plan = planDelCalendario(fechas, eventos, sinMarca)
+  /** Cada cambio, en el orden en que se hace. */
+  const tareas = [
+    ...plan.borrar.map((id) => ({ que: 'borrados', hacer: () => porId.get(id).deleteEvent() })),
+    ...plan.marcar.map(({ id, marca }) => ({ que: 'cambiados', hacer: () => porId.get(id).setTag(PROPIEDAD_DEL_ROBOT, marca) })),
+    ...plan.cambiar.map(({ id, fecha }) => ({ que: 'cambiados', hacer: () => {
+      const e = porId.get(id)
+      if (Utilities.formatDate(e.getAllDayStartDate(), ZONA, 'yyyy-MM-dd') !== fecha.fecha) e.setAllDayDate(aDiaDelCalendario(fecha.fecha))
+      if (e.getTitle() !== fecha.titulo) e.setTitle(fecha.titulo)
+      if (e.getDescription() !== fecha.descripcion) e.setDescription(fecha.descripcion)
+    } })),
+    ...plan.crear.map((fecha) => ({ que: 'creados', hacer: () => crearConMarca(calendario, fecha) })),
+  ]
   const hecho = { borrados: 0, cambiados: 0, creados: 0 }
-  const pendientes = plan.borrar.length + plan.cambiar.length + plan.crear.length
-  for (const id of plan.borrar) {
+  let googleFreno = false
+  for (const tarea of tareas) {
     if (Date.now() - inicio > LIMITE_SUBIDA_MS) break
-    porId.get(id).deleteEvent()
-    hecho.borrados++
-  }
-  for (const { id, fecha } of plan.cambiar) {
-    if (Date.now() - inicio > LIMITE_SUBIDA_MS) break
-    const e = porId.get(id)
-    if (Utilities.formatDate(e.getAllDayStartDate(), ZONA, 'yyyy-MM-dd') !== fecha.fecha) e.setAllDayDate(aDiaDelCalendario(fecha.fecha))
-    if (e.getTitle() !== fecha.titulo) e.setTitle(fecha.titulo)
-    if (e.getDescription() !== fecha.descripcion) e.setDescription(fecha.descripcion)
-    hecho.cambiados++
-  }
-  for (const fecha of plan.crear) {
-    if (Date.now() - inicio > LIMITE_SUBIDA_MS) break
-    calendario.createAllDayEvent(fecha.titulo, aDiaDelCalendario(fecha.fecha), { description: fecha.descripcion })
-      .setTag(PROPIEDAD_DEL_ROBOT, fecha.marca)
-    hecho.creados++
+    try {
+      tarea.hacer()
+    } catch (e) {
+      if (!esElFrenoDeGoogle(e)) throw e
+      googleFreno = true
+      break
+    }
+    hecho[tarea.que]++
+    Utilities.sleep(PAUSA_CALENDARIO_MS)
   }
 
-  if (pendientes === 0) return `Calendario al día: ${fechas.length} fechas.`
+  if (tareas.length === 0) return `Calendario al día: ${fechas.length} fechas.`
   const hechos = hecho.borrados + hecho.cambiados + hecho.creados
+  const quedan = tareas.length - hechos
   return `Calendario: ${hecho.creados} eventos nuevos, ${hecho.cambiados} cambiados y ${hecho.borrados} borrados` +
-    (hechos < pendientes ? `; quedan ${pendientes - hechos}, siguen en la próxima corrida.` : '.')
+    (quedan === 0 ? '.' : `; quedan ${quedan}, siguen solos en la próxima corrida` +
+      (googleFreno ? ' (Google pidió esperar: hay un límite de eventos seguidos).' : '.'))
+}
+
+/** Crea el evento y le pone la marca. Si Google corta entre las dos cosas, lo borra: un evento sin marca
+ *  sería de una persona, y el robot crearía otro igual en la próxima corrida. */
+function crearConMarca(calendario, fecha) {
+  const e = calendario.createAllDayEvent(fecha.titulo, aDiaDelCalendario(fecha.fecha), { description: fecha.descripcion })
+  try {
+    e.setTag(PROPIEDAD_DEL_ROBOT, fecha.marca)
+  } catch (error) {
+    try { e.deleteEvent() } catch (_) { /* si tampoco se puede borrar, la próxima corrida le pone la marca */ }
+    throw error
+  }
+}
+
+/** ¿Es el límite de Google, que se pasa esperando? Con el idioma de la cuenta en castellano o en inglés. */
+function esElFrenoDeGoogle(e) {
+  return /demasiad|too many/i.test(String((e && e.message) || e))
 }
 
 /** Lo mismo, sin dejar que un error del calendario corte el barrido: queda en el registro. */
@@ -2246,6 +2515,158 @@ function calendarioDelTaller() {
 function aDiaDelCalendario(fecha) {
   const [anio, mes, dia] = fecha.split('-').map(Number)
   return new Date(anio, mes - 1, dia)
+}
+
+// ===== mandar.js =====
+
+/* La factura lista para mandar (spec 016 de semaforo-base). Es lo único del robot que escribe en Gmail,
+ * y lo único que escribe es un BORRADOR: lo manda una persona (R1).
+ *
+ * En cada corrida, al final del barrido, le pide a la base dos listas (fn_robot_facturas_para_mandar):
+ * - armar: las facturas con la factura y la orden firmada subidas desde la app. Baja los archivos del
+ *   espacio "facturas-para-mandar", lee la factura (lectores/factura-arca.js), le pregunta a la base si
+ *   cierra con la orden (fn_robot_controla_factura) y, si cierra, arma el borrador con los adjuntos
+ *   (lectores/borrador.js) y lo anota con su conversación de Gmail.
+ * - mirar: los borradores armados. Si en su conversación hay un mail enviado, lo anota como mandado (y
+ *   la base registra el envío con el número del PDF); si el borrador ya no está, como borrado.
+ *
+ * Permiso (appsscript.json): el de Gmail para crear borradores (gmail.compose). Google no tiene uno que
+ * deje crear borradores sin dejar mandar: lo que garantiza que no manda es el código, y un test lo
+ * verifica (ninguna llamada a "send" en el robot). */
+
+const ESPACIO_FACTURAS = 'facturas-para-mandar'
+
+/**
+ * Arma los borradores que estén listos y mira los que ya están. La llama barrer() al final de cada
+ * corrida; la primera vez se corre a mano, para dar el permiso de Gmail.
+ * @returns {string} una línea para el registro
+ */
+function armarFacturas(inicio = Date.now()) {
+  if (!hayPropiedadesDelRobot()) return 'Facturas sin armar: faltan las propiedades del robot.'
+  const sesion = entrarALaBase()
+  if (typeof sesion === 'string') return `Facturas sin armar: ${sesion}.`
+  const listas = llamarALaBase(sesion, 'fn_robot_facturas_para_mandar', {})
+  if (typeof listas === 'string') return `Facturas sin armar: ${listas}`
+
+  const hecho = { mandadas: 0, borradas: 0, armadas: 0, noCierran: 0, errores: /** @type {string[]} */ ([]) }
+  for (const m of listas.mirar) {
+    try {
+      const visto = loQueSeVeDelBorrador(m)
+      if (visto === null) continue
+      const r = llamarALaBase(sesion, 'fn_robot_anota_lo_visto',
+        { p_id: m.id, p_visto: visto.visto, p_message_id: visto.visto === 'mandado' ? visto.id : null, p_fecha: visto.visto === 'mandado' ? visto.fecha : null })
+      if (typeof r === 'string' && /^error/.test(r)) hecho.errores.push(r)
+      else if (visto.visto === 'mandado') hecho.mandadas++
+      else hecho.borradas++
+    } catch (e) {
+      hecho.errores.push(`borrador ${m.borrador}: ${(e && e.message) || e}`)
+    }
+  }
+  let quedan = 0
+  for (const a of listas.armar) {
+    if (Date.now() - inicio > LIMITE_SUBIDA_MS) {
+      quedan++
+      continue
+    }
+    try {
+      const r = armarUnaFactura(sesion, a)
+      if (r === 'armada') hecho.armadas++
+      else if (r === 'no_cierra') hecho.noCierran++
+      else hecho.errores.push(r)
+    } catch (e) {
+      hecho.errores.push(`orden ${a.orden}: ${(e && e.message) || e}`)
+    }
+  }
+
+  const cuantos = (n, uno, varios) => (n === 0 ? '' : `${n} ${n === 1 ? uno : varios}`)
+  const partes = [
+    cuantos(hecho.armadas, 'borrador armado', 'borradores armados'),
+    cuantos(hecho.noCierran, 'no cierra (lo dice la tarjeta)', 'no cierran (lo dice la tarjeta)'),
+    cuantos(hecho.mandadas, 'mandada', 'mandadas'),
+    cuantos(hecho.borradas, 'borrador borrado sin mandar', 'borradores borrados sin mandar'),
+    quedan > 0 ? `quedan ${quedan}, siguen en la próxima corrida` : '',
+    hecho.errores.length > 0 ? `${hecho.errores.length} con error (${hecho.errores[0]})` : '',
+  ].filter((p) => p !== '')
+  return partes.length === 0 ? 'Facturas para mandar: nada nuevo.' : `Facturas para mandar: ${partes.join(', ')}.`
+}
+
+/** Lo mismo, sin dejar que un error corte el barrido: queda en el registro. */
+function armarFacturasSinCortar(inicio) {
+  try {
+    return armarFacturas(inicio)
+  } catch (e) {
+    return `Facturas sin armar: ${(e && e.message) || e}`
+  }
+}
+
+/**
+ * Baja los archivos, lee la factura, pregunta a la base y, si cierra, arma el borrador.
+ * @returns {string} 'armada', 'no_cierra' o el error
+ */
+function armarUnaFactura(sesion, a) {
+  const archivos = a.archivos.map((x) => ({ ...x, blob: bajarArchivo(sesion, x) }))
+  const factura = archivos.find((x) => x.clase === 'factura')
+  if (!factura) return `orden ${a.orden}: falta la factura`
+  const leido = leerFacturaArca(textoDePdf(factura.blob))
+  const control = llamarALaBase(sesion, 'fn_robot_controla_factura', { p_id: a.id, p_leido: leido })
+  if (typeof control === 'string') return `orden ${a.orden}: ${control}`
+  if (!control.armar) return 'no_cierra'
+
+  const hora = Number(Utilities.formatDate(new Date(), ZONA, 'H'))
+  const adjuntos = adjuntosEnOrden(archivos, control.archivo)
+    .map((x) => ({ nombre: x.nombre, tipo: x.tipo, base64: Utilities.base64Encode(x.blob.getBytes()) }))
+  const mensaje = mensajeDelBorrador({ para: control.para, asunto: control.asunto, cuerpo: cuerpoDelBorrador(hora, leido.letra), adjuntos })
+  const borrador = Gmail.Users.Drafts.create({ message: { raw: Utilities.base64EncodeWebSafe(mensaje) } }, 'me')
+  const anotado = llamarALaBase(sesion, 'fn_robot_anota_borrador', { p_id: a.id, p_borrador_id: borrador.id, p_hilo_id: borrador.message.threadId })
+  return typeof anotado === 'string' && /^error/.test(anotado) ? `orden ${a.orden}: el borrador se armó pero no se anotó (${anotado})` : 'armada'
+}
+
+/**
+ * ¿Se mandó el borrador, o se borró? Se mira la conversación, no el asunto: así se reconoce aunque una
+ * persona lo cambie antes de mandar, o aunque no diga el número (Allianz).
+ * @returns {{ visto: 'mandado', id: string, fecha: string } | { visto: 'borrado' } | null} null: sigue esperando
+ */
+function loQueSeVeDelBorrador(m) {
+  const hilo = siExiste(() => Gmail.Users.Threads.get('me', m.hilo, { format: 'minimal' }))
+  const enviado = hilo && (hilo.messages || [])
+    .find((x) => (x.labelIds || []).includes('SENT') && !(x.labelIds || []).includes('DRAFT'))
+  if (enviado) return { visto: 'mandado', id: enviado.id, fecha: Utilities.formatDate(new Date(Number(enviado.internalDate)), ZONA, 'yyyy-MM-dd') }
+  if (siExiste(() => Gmail.Users.Drafts.get('me', m.borrador, { format: 'minimal' })) === null) return { visto: 'borrado' }
+  return null
+}
+
+/** Lo que devuelve Gmail, o null si no existe. Cualquier otro error sigue de largo: no es "se borró". */
+function siExiste(pedir) {
+  try {
+    return pedir()
+  } catch (e) {
+    if (/not found|no se encontr|404/i.test(String((e && e.message) || e))) return null
+    throw e
+  }
+}
+
+/** Un archivo del espacio de la base, con el token del robot (que sólo puede leer). */
+function bajarArchivo({ url, clave, token }, archivo) {
+  const ruta = archivo.ruta.split('/').map(encodeURIComponent).join('/')
+  const r = UrlFetchApp.fetch(`${url}/storage/v1/object/authenticated/${ESPACIO_FACTURAS}/${ruta}`, {
+    headers: { apikey: clave, Authorization: `Bearer ${token}` }, muteHttpExceptions: true,
+  })
+  if (r.getResponseCode() !== 200) throw new Error(`no se pudo bajar "${archivo.nombre}" (HTTP ${r.getResponseCode()})`)
+  return r.getBlob().setName(archivo.nombre).setContentType(archivo.tipo)
+}
+
+/**
+ * Una función de la base. Devuelve lo que contesta, o un texto que empieza con "error".
+ * @returns {any}
+ */
+function llamarALaBase({ url, clave, token }, funcion, datos) {
+  const r = UrlFetchApp.fetch(`${url}/rest/v1/rpc/${funcion}`, {
+    method: 'post', contentType: 'application/json', headers: { apikey: clave, Authorization: `Bearer ${token}` },
+    muteHttpExceptions: true, payload: JSON.stringify(datos),
+  })
+  if (r.getResponseCode() !== 200 && r.getResponseCode() !== 204) return `error HTTP ${r.getResponseCode()}: ${r.getContentText().slice(0, 200)}`
+  const texto = r.getContentText()
+  return texto === '' ? null : JSON.parse(texto)
 }
 
 // ===== barrido.js =====
@@ -2374,10 +2795,12 @@ function barrer() {
   const subidas = subirOrdenes(hojas.ordenes, inicio)
   const envios = subirEnvios(hojas.enviados, inicio)
   const avisos = subirAvisos(hojas.avisos, inicio)
-  // Al final, el calendario (spec 015): con lo que la base ya sabe después de esta corrida.
+  // Al final, el calendario (spec 015): con lo que la base ya sabe después de esta corrida. Y las
+  // facturas para mandar (spec 016): arma los borradores que estén listos y mira los que ya están.
   const calendario = sincronizarCalendarioSinCortar(inicio)
+  const facturas = armarFacturasSinCortar(inicio)
   console.log(`Avisos nuevos: ${nuevosAvisos.guardados}. Envíos nuevos: ${nuevosEnvios.guardados}. ` +
-    `Mails de órdenes nuevos: ${nuevasOrdenes.guardados + paraConfirmar.guardados}. ${subidas} ${envios} ${avisos} ${calendario}` +
+    `Mails de órdenes nuevos: ${nuevasOrdenes.guardados + paraConfirmar.guardados}. ${subidas} ${envios} ${avisos} ${calendario} ${facturas}` +
     (nuevosAvisos.cortado || nuevosEnvios.cortado || nuevasOrdenes.cortado || paraConfirmar.cortado ? ' Quedan más: la próxima corrida sigue.' : ' Al día.'))
 }
 

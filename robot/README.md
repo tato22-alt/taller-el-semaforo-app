@@ -73,8 +73,9 @@ como esa cuenta y sólo ve lo que esa cuenta ve.
      es tuya. **Configuración avanzada → Ir a … (no seguro) → Permitir.**
    - Fijate qué pide: *ver tus mensajes de correo* (no enviar), *archivos de Drive que creó esta
      app*, *esta planilla*, *conectarse a un servicio externo* (es la API de Drive, para leer
-     los PDF) y, desde el 2026-10-27, *tus calendarios* (ver abajo, la versión de esa fecha). Si
-     pide **enviar** o **administrar** correo, pará: algo no se pegó bien.
+     los PDF), desde el 2026-10-27, *tus calendarios*, y desde el 2026-10-31, *administrar
+     borradores y enviar correos* (ver abajo, las versiones de esas fechas). Si pide **administrar
+     todo tu correo** o **borrar** correos, pará: algo no se pegó bien.
 6. Abajo aparece el registro. Cada corrida dura hasta 4 minutos y medio. Si termina con
    *"Quedan más"*, tocá **Ejecutar** otra vez, hasta que diga **"Al día."**
 7. Para que siga solo: a la izquierda, el reloj (**Activadores**) → **Agregar activador** →
@@ -316,13 +317,19 @@ Para instalarla, desde la compu, con la cuenta del taller:
      mucho, pero Apps Script no tiene un permiso más chico que deje crear un calendario. El robot sólo
      toca los eventos que marcó él, y **nunca invita a nadie** (un invitado recibiría un mail): un test
      lo verifica. **Permitir.**
-   - Si además pide **enviar** correo, pará: algo no se pegó bien.
-   - El registro dice cuántos eventos creó. La primera vez son unos 200: si dice *"quedan"*, ejecutalo
-     otra vez. Después sigue solo con el activador de cada hora.
-3. **Compartirlo.** En Google Calendar, en la compu: a la izquierda, en *Mis calendarios*, los tres
-   puntos de **El Semáforo** → *Configuración y uso compartido* → *Compartir con personas específicas* →
-   *Agregar personas*. Van los mails de los tres, con el permiso *Realizar cambios en eventos*, así
-   cada uno puede agregar los suyos.
+   - Si además pide **borrar** o **administrar todo** tu correo, pará: algo no se pegó bien. (Desde la
+     versión del 2026-10-31 pide *administrar borradores y enviar correos*: eso sí está bien, ver abajo.)
+   - El registro dice cuántos eventos creó. La primera vez son unos 200, y Google no deja crear tantos
+     de golpe: el robot va de a uno por segundo, y si Google igual frena, el registro dice *"quedan N,
+     siguen solos en la próxima corrida"*. **No hace falta volver a ejecutarlo:** el activador de cada
+     hora lo completa solo, sin repetir nada. (Arreglado el 2026-10-28: la primera versión se cortaba
+     con *"Has creado o eliminado demasiados calendarios o eventos…"*.)
+3. **Que lo vean los otros dos.** El calendario se llena solo, pero está en la cuenta del taller: lo ve
+   quien tiene esa cuenta en el Google Calendar del celular. Quien la tiene no hace nada más. Quien usa
+   su propio Gmail lo tiene que recibir compartido, una vez: en Google Calendar, en la compu, a la
+   izquierda, en *Mis calendarios*, los tres puntos de **El Semáforo** → *Configuración y uso
+   compartido* → *Compartir con personas específicas* → *Agregar personas*. Va su mail, con el permiso
+   *Realizar cambios en eventos*, así puede agregar los suyos.
 4. **Cada uno pone su aviso**, una sola vez: en Google, el aviso es de cada persona, no del evento.
    - Primero, aceptar el calendario: llega un mail de Google.
    - Después, en Google Calendar → *Configuración* → **El Semáforo** → *Notificaciones de eventos de
@@ -341,6 +348,37 @@ Cómo se sabe que anda:
 - **Enseguida:** en El Semáforo aparecen los vencimientos de las órdenes sin factura.
 - **Con un turno en Hoy:** a la hora, el turno está en su día. Si se cambia el día, el evento se mueve.
   Si se deshace, desaparece.
+
+## La versión del 2026-10-31: la factura lista para mandar (spec 016)
+
+En la tarjeta de cada orden, en la app, se suben la factura (el PDF de ARCA) y la orden firmada (bajada
+del WhatsApp). A la hora, el robot deja el **borrador en Gmail**, en la cuenta del taller:
+- **Para:** la casilla de facturación de la compañía (la de su ficha o, si no tiene, la más usada en el año);
+- **Asunto:** "factura n°3285 siniestro n°900000001" (o el que pida la compañía en su ficha, como Allianz);
+- **Texto:** "Buenos días, adjunto factura A y conformidad de trabajos realizados." (desde las 13, "Buenas tardes");
+- **Adjuntos:** la factura y la orden firmada, y lo demás que se haya subido.
+
+Antes de armarlo, le pregunta a la base si la factura cierra con la orden (el CUIT, el siniestro, que la
+orden no esté vencida ni facturada). Si algo no cierra, no lo arma, y la tarjeta dice qué y deja "Armar
+igual". **Lo manda una persona**, desde Gmail: el robot sólo arma el borrador. Cuando ve el mail enviado,
+la tarjeta dice "Mandada" y la factura se vincula sola con su orden.
+
+Para instalarla, desde la compu, con la cuenta del taller:
+
+1. En el editor de Apps Script, pegá **los dos archivos**: el `appsscript.json` nuevo y el `robot.gs`
+   nuevo. Guardá.
+2. Arriba, elegí la función **`armarFacturas`** y tocá **Ejecutar**.
+   - Google pide un permiso nuevo: **administrar borradores y enviar correos**. Suena a mucho, pero es el
+     único que deja crear borradores: Google no tiene uno que deje crearlos sin dejar mandar. El robot
+     **no manda nunca** (lo garantiza un test: en su código no hay ninguna llamada que mande, que borre ni
+     que cambie un mail). **Permitir.**
+   - Si pide **administrar todo tu correo** o **borrar** correos, pará: algo no se pegó bien.
+   - El registro dice "Facturas para mandar: nada nuevo." mientras nadie haya subido nada. Después sigue
+     solo, con el activador de cada hora.
+
+Cómo se sabe que anda: en una orden de Sancor o de Cooperación, subir la factura y la orden firmada desde
+la app. A la hora (o tocando **Ejecutar** en `barrer`), en Gmail → **Borradores** está el mail armado. La
+tarjeta dice "Borrador listo". Se manda desde Gmail, y a la hora siguiente la tarjeta dice "Mandada".
 
 ## Lo que esta planilla NO es
 

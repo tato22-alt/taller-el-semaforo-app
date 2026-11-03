@@ -10,40 +10,52 @@ import { describe, expect, it } from 'vitest'
 const CARPETA = import.meta.dirname
 
 type Fecha = { marca: string; fecha: string; titulo: string; descripcion: string }
-type Plan = { crear: Fecha[]; cambiar: { id: string; fecha: Fecha }[]; borrar: string[] }
+type Plan = { crear: Fecha[]; marcar: { id: string; marca: string }[]; cambiar: { id: string; fecha: Fecha }[]; borrar: string[] }
+type SinMarca = { id: string; fecha: string; titulo: string; descripcion: string }
 
 const { planDelCalendario } = runInNewContext(
   readFileSync(join(CARPETA, 'lectores', 'calendario.js'), 'utf8') + '\n;({ planDelCalendario })',
   {},
-) as { planDelCalendario: (fechas: Fecha[], eventos: (Fecha & { id: string })[]) => Plan }
+) as { planDelCalendario: (fechas: Fecha[], eventos: (Fecha & { id: string })[], sinMarca?: SinMarca[]) => Plan }
 
 /* El resultado sale de otro contexto de vm: se pasa por JSON para compararlo con objetos de acá. */
-const plan = (fechas: Fecha[], eventos: (Fecha & { id: string })[]) => JSON.parse(JSON.stringify(planDelCalendario(fechas, eventos))) as Plan
+const plan = (fechas: Fecha[], eventos: (Fecha & { id: string })[], sinMarca: SinMarca[] = []) =>
+  JSON.parse(JSON.stringify(planDelCalendario(fechas, eventos, sinMarca))) as Plan
 
 const turno: Fecha = { marca: 'turno-12', fecha: '2026-11-03', titulo: 'Turno · Ford Ka AA000AA · Juan', descripcion: 'Tel. 1' }
 const vence: Fecha = { marca: 'vence-40', fecha: '2027-01-15', titulo: 'Vence la orden · Compañía · siniestro 1', descripcion: 'd' }
 
 describe('qué hacer para que el calendario diga lo que dice la base', () => {
   it('crea lo que falta y no toca lo que ya está igual', () => {
-    expect(plan([turno, vence], [{ ...turno, id: 'e1' }])).toEqual({ crear: [vence], cambiar: [], borrar: [] })
+    expect(plan([turno, vence], [{ ...turno, id: 'e1' }])).toEqual({ crear: [vence], marcar: [], cambiar: [], borrar: [] })
   })
 
   it('un turno que pasó a otro día se cambia, no se borra y se crea', () => {
     const otroDia = { ...turno, fecha: '2026-11-05' }
-    expect(plan([otroDia], [{ ...turno, id: 'e1' }])).toEqual({ crear: [], cambiar: [{ id: 'e1', fecha: otroDia }], borrar: [] })
+    expect(plan([otroDia], [{ ...turno, id: 'e1' }])).toEqual({ crear: [], marcar: [], cambiar: [{ id: 'e1', fecha: otroDia }], borrar: [] })
   })
 
   it('lo que la base ya no da se borra: un turno deshecho, una orden que se facturó', () => {
-    expect(plan([vence], [{ ...turno, id: 'e1' }, { ...vence, id: 'e2' }])).toEqual({ crear: [], cambiar: [], borrar: ['e1'] })
+    expect(plan([vence], [{ ...turno, id: 'e1' }, { ...vence, id: 'e2' }])).toEqual({ crear: [], marcar: [], cambiar: [], borrar: ['e1'] })
   })
 
   it('si quedó un evento repetido, se borra el segundo; si la base repite una marca, se crea uno', () => {
-    expect(plan([turno], [{ ...turno, id: 'e1' }, { ...turno, id: 'e2' }])).toEqual({ crear: [], cambiar: [], borrar: ['e2'] })
-    expect(plan([turno, { ...turno, titulo: 'otro' }], [])).toEqual({ crear: [turno], cambiar: [], borrar: [] })
+    expect(plan([turno], [{ ...turno, id: 'e1' }, { ...turno, id: 'e2' }])).toEqual({ crear: [], marcar: [], cambiar: [], borrar: ['e2'] })
+    expect(plan([turno, { ...turno, titulo: 'otro' }], [])).toEqual({ crear: [turno], marcar: [], cambiar: [], borrar: [] })
   })
 
   it('sin fechas en la base, borra los suyos (y sólo los suyos: los demás ni le llegan)', () => {
-    expect(plan([], [{ ...turno, id: 'e1' }])).toEqual({ crear: [], cambiar: [], borrar: ['e1'] })
+    expect(plan([], [{ ...turno, id: 'e1' }])).toEqual({ crear: [], marcar: [], cambiar: [], borrar: ['e1'] })
+  })
+
+  it('a un evento sin marca idéntico a lo que tiene que crear (Google cortó antes de la marca) le pone la marca', () => {
+    const cortado = { id: 'p1', fecha: turno.fecha, titulo: turno.titulo, descripcion: turno.descripcion }
+    expect(plan([turno, vence], [], [cortado])).toEqual({ crear: [vence], marcar: [{ id: 'p1', marca: 'turno-12' }], cambiar: [], borrar: [] })
+    // Lo de una persona no se parece en todo: no se toca, aunque caiga el mismo día o con el mismo título.
+    const deUnaPersona = [{ ...cortado, descripcion: 'Llamar antes' }, { ...cortado, fecha: '2026-11-04' }]
+    expect(plan([turno], [], deUnaPersona)).toEqual({ crear: [turno], marcar: [], cambiar: [], borrar: [] })
+    // Si ya tiene su evento con marca, el que no la tiene queda como está.
+    expect(plan([turno], [{ ...turno, id: 'e1' }], [cortado])).toEqual({ crear: [], marcar: [], cambiar: [], borrar: [] })
   })
 })
 
@@ -62,16 +74,29 @@ type Evento = {
 }
 
 /** Un Google Calendar falso: guarda los eventos en una lista y anota lo que se le pide. */
-function googleFalso(o: { fechas: Fecha[]; eventos?: Evento[]; calendarioExiste?: boolean; respuesta?: number }) {
+function googleFalso(o: {
+  fechas: Fecha[]; eventos?: Evento[]; calendarioExiste?: boolean; respuesta?: number
+  /** Cuántos eventos deja crear antes de cortar, como Google; y si corta al crear o al marcar. */
+  cortaDespuesDe?: number; cortaAlMarcar?: boolean
+}) {
   const eventos = o.eventos ?? []
   const llamadas: string[] = []
   let creados = 0
+  let pausas = 0
+  let marcas = 0
+  const freno = () => new Error('Has creado o eliminado demasiados calendarios o eventos de calendario en poco tiempo. Inténtalo de nuevo más tarde.')
+  const corta = (hechos: number) => o.cortaDespuesDe !== undefined && hechos >= o.cortaDespuesDe
   const aTexto = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
   // Sin addGuest ni nada que invite: si el robot lo llamara, el test reventaría.
   const comoGoogle = (e: Evento) => ({
     getId: () => e.id,
     getTag: (k: string) => (k === 'semaforo' ? e.marca : null),
-    setTag: (k: string, v: string) => { llamadas.push(`marca ${e.id} ${k}=${v}`); e.marca = v },
+    setTag: (k: string, v: string) => {
+      if (o.cortaAlMarcar && corta(marcas)) throw freno()
+      marcas++
+      llamadas.push(`marca ${e.id} ${k}=${v}`)
+      e.marca = v
+    },
     isAllDayEvent: () => e.todoElDia,
     getAllDayStartDate: () => new Date(`${e.fecha}T00:00:00`),
     getTitle: () => e.titulo,
@@ -86,6 +111,7 @@ function googleFalso(o: { fechas: Fecha[]; eventos?: Evento[]; calendarioExiste?
     getEvents: (desde: Date, hasta: Date) =>
       eventos.filter((e) => !e.borrado && e.fecha >= aTexto(new Date(desde.getTime() - 86400000)) && e.fecha < aTexto(hasta)).map(comoGoogle),
     createAllDayEvent: (titulo: string, d: Date, opciones: { description: string }) => {
+      if (!o.cortaAlMarcar && corta(creados)) throw freno()
       const e: Evento = { id: `nuevo-${++creados}`, titulo, fecha: aTexto(d), descripcion: opciones.description, marca: null, borrado: false, todoElDia: true }
       eventos.push(e)
       llamadas.push(`crea ${e.id} ${e.fecha}`)
@@ -105,13 +131,13 @@ function googleFalso(o: { fechas: Fecha[]; eventos?: Evento[]; calendarioExiste?
       },
     },
     PropertiesService: { getScriptProperties: () => ({ getProperty: (k: string) => (k === 'SUPABASE_URL' ? 'https://base.example' : 'x') }) },
-    Utilities: { formatDate: (d: Date) => aTexto(d) },
+    Utilities: { formatDate: (d: Date) => aTexto(d), sleep: () => { pausas++ } },
   }
   const { sincronizarCalendario, sincronizarCalendarioSinCortar } = runInNewContext(
     readFileSync(join(CARPETA, 'robot.gs'), 'utf8') + '\n;({ sincronizarCalendario, sincronizarCalendarioSinCortar })',
     contexto,
   ) as { sincronizarCalendario: () => string; sincronizarCalendarioSinCortar: (inicio: number) => string }
-  return { sincronizarCalendario, sincronizarCalendarioSinCortar, eventos, llamadas }
+  return { sincronizarCalendario, sincronizarCalendarioSinCortar, eventos, llamadas, pausas: () => pausas }
 }
 
 const evento = (id: string, f: Partial<Evento>): Evento =>
@@ -163,6 +189,36 @@ describe('el robot deja el calendario igual a la base', () => {
     ) as { sincronizarCalendarioSinCortar: (inicio: number) => string }
     expect(sinPermiso.sincronizarCalendarioSinCortar(Date.now())).toBe('Calendario sin actualizar: Se necesita autorización para CalendarApp')
     expect(roto.llamadas).toEqual([])
+  })
+
+  it('va despacio, y si Google corta no falla: deja lo que falta para la próxima corrida, sin repetir nada', () => {
+    const fechas = [1, 2, 3, 4, 5].map((n) => ({ ...turno, marca: `turno-${n}`, fecha: dia(n), titulo: `Turno ${n}` }))
+    const g = googleFalso({ fechas, cortaDespuesDe: 2 })
+    expect(g.sincronizarCalendario()).toBe(
+      'Calendario: 2 eventos nuevos, 0 cambiados y 0 borrados; quedan 3, siguen solos en la próxima corrida (Google pidió esperar: hay un límite de eventos seguidos).')
+    expect(g.pausas()).toBe(2)
+    const despues = googleFalso({ fechas, eventos: g.eventos })
+    expect(despues.sincronizarCalendario()).toBe('Calendario: 3 eventos nuevos, 0 cambiados y 0 borrados.')
+    expect(despues.eventos.filter((e) => !e.borrado).map((e) => e.marca)).toEqual(['turno-1', 'turno-2', 'turno-3', 'turno-4', 'turno-5'])
+  })
+
+  it('si Google corta entre crear el evento y ponerle la marca, lo borra; y si quedó uno sin marca, se la pone', () => {
+    const fechas = [1, 2].map((n) => ({ ...turno, marca: `turno-${n}`, fecha: dia(n), titulo: `Turno ${n}` }))
+    const g = googleFalso({ fechas, cortaDespuesDe: 1, cortaAlMarcar: true })
+    expect(g.sincronizarCalendario()).toMatch(/^Calendario: 1 eventos nuevos.*quedan 1, siguen solos/)
+    expect(g.eventos.filter((e) => !e.borrado).map((e) => e.marca)).toEqual(['turno-1'])
+    // El que quedó sin marca de una corrida anterior (antes de este arreglo): se le pone, no se crea otro.
+    const sinMarca = evento('cortado', { fecha: dia(2), titulo: 'Turno 2', descripcion: turno.descripcion })
+    const otra = googleFalso({ fechas, eventos: [...g.eventos, sinMarca] })
+    expect(otra.sincronizarCalendario()).toBe('Calendario: 0 eventos nuevos, 1 cambiados y 0 borrados.')
+    expect(otra.llamadas).toEqual(['pide fn_robot_fechas_calendario', 'marca cortado semaforo=turno-2'])
+  })
+
+  it('un error que no es el límite de Google no se tapa: queda en el registro', () => {
+    const g = googleFalso({ fechas: [{ ...turno, fecha: dia(3) }], eventos: [evento('roto', { marca: 'turno-12', fecha: dia(3), titulo: 'viejo' })] })
+    const roto = g.eventos[0]
+    if (roto) Object.defineProperty(roto, 'titulo', { get: () => 'viejo', set: () => { throw new Error('Evento no encontrado') } })
+    expect(g.sincronizarCalendarioSinCortar(Date.now())).toBe('Calendario sin actualizar: Evento no encontrado')
   })
 
   it('nunca invita a nadie: en el código no hay invitados (R1)', () => {

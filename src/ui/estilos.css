@@ -259,6 +259,18 @@ details summary { cursor: pointer; color: var(--acento); margin-bottom: 0.5rem; 
 .orden .acciones button:not(.enlace) { padding: 0.4rem 0.8rem; border: 0; border-radius: 6px; background: var(--acento); color: #fff; font: inherit; cursor: pointer; }
 .orden .acciones button:disabled { opacity: 0.6; cursor: default; }
 
+/* Mandar la factura (spec 016): los archivos de la orden y en qué anda el borrador. */
+.mandar { display: grid; gap: 0.25rem; margin-top: 0.4rem; padding-top: 0.4rem; border-top: 1px dashed var(--borde); }
+.mandar-estado { font-weight: 600; }
+.mandar-no_cierra .mandar-estado { color: #dc2626; }
+.mandar-borrador_listo .mandar-estado, .mandar-mandada .mandar-estado { color: #15803d; }
+.mandar-archivos { margin: 0; padding-left: 1.1rem; }
+.mandar-archivos li { margin: 0.1rem 0; }
+.mandar-archivos .enlace { margin-left: 0.6rem; }
+.subir { display: inline-block; padding: 0.35rem 0.7rem; border: 1px solid var(--acento); border-radius: 6px; color: var(--acento); cursor: pointer; }
+.subir input { display: none; }
+.subir.deshabilitado { opacity: 0.6; cursor: default; }
+
 /* --- Hoy (spec 011 de semaforo-base) ------------------------------------ */
 
 .hoy { display: grid; gap: 1.25rem; }
