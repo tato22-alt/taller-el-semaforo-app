@@ -27,6 +27,7 @@ function lectores() {
     { dominio: 'sancristobal.com.ar', asunto: /aviso de pago/i, leer: leerSanCristobal },
     { dominio: 'sancorseguros.com', asunto: /comprobante de pago/i, leer: leerSancor },
     { dominio: 'galiciaseguros.com.ar', asunto: /informaci[oó]n de pago/i, leer: leerGalicia },
+    { dominio: 'triunfoseguros.com', asunto: /notificaci[oó]n de pago/i, leer: leerTriunfo },
     // "Acceso a Caja de Ahorro…" es un cambio de clave, no un pago.
     { dominio: 'cobranzas.com', asunto: /novedad de caja de ahorro/i, leer: leerLaCaja },
   ]

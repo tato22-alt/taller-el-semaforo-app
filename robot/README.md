@@ -342,7 +342,10 @@ Para instalarla, desde la compu, con la cuenta del taller:
 **En la misma versión, una casilla nueva: Triunfo** (`triunfonet_erp@triunfoseguros.com`). Manda
 "Notificación de Pago" con la orden de pago y el certificado de retención en PDF. El robot la suma sola
 a la pestaña *remitentes*, y desde ahí guarda sus mails con el texto de los PDF. Quedan como *sin lector*
-hasta que exista el suyo, que se escribe mirando esos textos.
+hasta que exista el suyo, que se escribe mirando esos textos. **El lector de Triunfo está desde el 2026-11-05**
+(`lectores/triunfo.js`): lee la orden de pago, la factura con su siniestro y la retención de Ganancias
+con su certificado, y cierra al centavo en los cuatro avisos que había. Después de pegar el robot,
+correr `releer` una vez para que los lea.
 
 Cómo se sabe que anda:
 - **Enseguida:** en El Semáforo aparecen los vencimientos de las órdenes sin factura.
