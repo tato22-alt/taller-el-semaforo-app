@@ -348,3 +348,32 @@ details summary { cursor: pointer; color: var(--acento); margin-bottom: 0.5rem; 
 .reclamo { display: grid; gap: 0.4rem; }
 .reclamo button { justify-self: start; padding: 0.55rem 0.9rem; border: 0; border-radius: 6px; background: var(--acento); color: #fff; font: inherit; cursor: pointer; }
 .reclamo textarea { width: 100%; font: inherit; font-size: 0.85rem; border: 1px solid var(--borde); border-radius: 6px; padding: 0.4rem; }
+
+/* --- La plata del taller y la plata de los particulares (spec 013 de semaforo-base) --- */
+
+.plata { display: grid; gap: 1.25rem; }
+.plata h2 { margin: 0; font-size: 1.1rem; }
+.plata h3 { margin: 0 0 0.5rem; font-size: 1rem; }
+.plata section { display: grid; gap: 0.5rem; }
+.plata p { margin: 0.2rem 0; }
+.plata select { padding: 0.4rem; border: 1px solid var(--borde); border-radius: 6px; font: inherit; background: var(--papel); color: var(--tinta); max-width: 100%; }
+.plata button { padding: 0.55rem 0.9rem; border: 0; border-radius: 6px; background: var(--acento); color: #fff; font: inherit; cursor: pointer; }
+.plata button:disabled { opacity: 0.6; cursor: default; }
+/* Cada renglón: qué es a la izquierda, cuánto a la derecha. */
+.plata-renglones, .plata-proveedores { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.5rem; }
+.plata-renglones li, .plata-proveedores li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.2rem 0.75rem; align-items: baseline; }
+.plata-renglones li > :first-child, .plata-proveedores li > :first-child { flex: 1 1 12rem; min-width: 0; }
+.plata-aparte { font-size: 0.9rem; padding-left: 0.75rem; }
+.plata-proveedores { font-size: 0.9rem; margin-top: 0.5rem; }
+.plata-rubro summary { display: flex; justify-content: space-between; gap: 0.75rem; cursor: pointer; }
+
+/* En Hoy: la pregunta de la plata y quién debe. */
+.plata-pregunta { border-left: 4px solid #7c3aed; }
+.plata-deuda { border-left: 4px solid #dc2626; }
+.auto .acciones button[aria-pressed='true'] { outline: 3px solid var(--tinta); outline-offset: 1px; }
+.plata-formulario { display: grid; gap: 0.6rem; margin-top: 0.6rem; }
+.anotar-deuda[open] { gap: 0.6rem; }
+.anotar-deuda .buscar-presupuesto { display: flex; gap: 0.5rem; }
+.anotar-deuda .buscar-presupuesto input { flex: 1; min-width: 0; padding: 0.4rem; border: 1px solid var(--borde); border-radius: 6px; font: inherit; background: var(--papel); color: var(--tinta); }
+.anotar-deuda .buscar-presupuesto button, .boton { padding: 0.55rem 0.9rem; border: 0; border-radius: 6px; background: var(--acento); color: #fff; font: inherit; cursor: pointer; }
+.boton:disabled { opacity: 0.6; cursor: default; }

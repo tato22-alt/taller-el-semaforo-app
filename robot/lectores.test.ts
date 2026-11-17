@@ -584,6 +584,47 @@ describe('Galicia / SURA (cuerpo del mail)', () => {
   })
 })
 
+describe('Triunfo (PDF de la orden de pago y del certificado)', () => {
+  const TRIUNFO = 'triunfonet_erp@triunfoseguros.com'
+  const ASUNTO = 'Notificación de Pago'
+  // Como sale el texto real: el certificado primero, después la orden, con renglones partidos y la
+  // factura del cuadro de abajo cortada (sus dos últimas cifras pegadas a la denuncia).
+  const pdf = (o: { transferido?: string; facturas?: string[]; cuadro?: string } = {}) => [
+    'TRIUNFO COOPERATIVA DE SEGUROS Calle Falsa 123 ', 'M5500AAX Mendoza ', 'Página: 1 ', 'Fecha: 30.10.2026 ',
+    'TALLER DE PRUEBA S.R.L CALLE 123 ', 'Nº de certificado: ', '0001-00000123 ', 'GCIAS: Responsable Inscripto ',
+    'A-0002-00003285 7100000001 2026 20.10.2026  ',
+    '999 Gcias.: locaciones de obras, s 100.000,00 2.420,00   100.000,00 2.420,00 ARS',
+    'Este certificado es para el pago interno número 7100000001, pagado el 30.10.2026, y se incluirá en la declaración mensual 10 de 2026. ',
+    'Firma', '', '----- siguiente PDF -----', '',
+    'TALLER DE PRUEBA S.R.L ', 'TRIUNFO COOPERATIVA DE SEGUROS LTD Calle Falsa 123 ', 'Orden de Pago ', 'Número ', 'Fecha Documento ',
+    '0001-00012345 ', '30.10.2026 ', 'N doc.int. ', 'Fecha contabilización ', '7100000001 ', '30.10.2026 ', '',
+    ...(o.facturas ?? ['7100000001 ', '0002A00003285Factura siniestros ', '20.10.2026 121.000,00 1,0000 ARS 121.000,00  Total Comprobantes: 121.000,00  ']),
+    'Descripción ', '\tBanco ', '\tImporte', '',
+    `RET. IMP. A LAS GCIAS. 7100000002 30.10.2026 ARS2.420,00  TRANSF/DEBITO BANCO `,
+    `PRUEBA CBU:****1234530.10.2026 ARS${o.transferido ?? '118.580,00'}  Total Conceptos: 121.000,00  `,
+    ' Doc/Ref ', '\tDenuncia ', '\tSiniestro ', '',
+    o.cuadro ?? '7100000001/0002A000032 ', '85123456789 900000001 PEREZ JUAN ', '.................................   ', 'Firma',
+  ].join('\r\n')
+
+  it('lee la orden, la factura con su siniestro y la retención con su certificado, y cierra', () => {
+    const r = leer({ remitente: TRIUNFO, asunto: ASUNTO, textoPdf: pdf() })
+    expect(r).toMatchObject({ estado: 'leido', lector: 'triunfo', op: '0001-00012345', fechaPago: '2026-10-30', neto: '118580.00' })
+    expect(r.lineas).toEqual([{ factura: { texto: 'A 0002-00003285', puntoVenta: 2, numero: 3285 }, siniestro: '900000001', bruto: '121000.00', neto: '118580.00' }])
+    expect(impuestos(r)).toEqual([['ganancias', '2420.00', '0001-00000123']])
+    expect(r.control.resultado).toBe('cierra')
+  })
+
+  it('si lo transferido no es el bruto menos lo retenido, no cierra', () => {
+    expect(leer({ remitente: TRIUNFO, asunto: ASUNTO, textoPdf: pdf({ transferido: '118.000,00' }) }).estado).toBe('no_cierra')
+  })
+
+  it('una orden sin "Factura siniestros" la mira una persona', () => {
+    const r = leer({ remitente: TRIUNFO, asunto: ASUNTO, textoPdf: pdf({ facturas: ['7100000001 ', '0002A00000012Nota de crédito ', '20.10.2026 1.000,00 1,0000 ARS 1.000,00  '] }) })
+    expect(r).toMatchObject({ estado: 'no_entendido', lector: 'triunfo' })
+    expect(r.motivo).toMatch(/Factura siniestros/)
+  })
+})
+
 describe('La Caja (aviso de cobranzas.com)', () => {
   it('el mail de acceso al portal no es un pago', () => {
     expect(leer({ remitente: 'no-reply@cobranzas.com', asunto: 'Acceso a Caja de Ahorro y Seguro S.A.', cuerpo: 'Para ingresar…' }).estado).toBe('sin_lector')

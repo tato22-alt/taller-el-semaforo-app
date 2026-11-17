@@ -12,6 +12,16 @@ import { clasificar } from './respuesta'
  *  No se devuelve el token: la interfaz no tiene nada que hacer con él. */
 export type Sesion = {
   readonly email: string
+  /** Ve la plata del taller (spec 013 de semaforo-base, RF-1314). Sirve para mostrar o no la pantalla:
+   *  lo que protege los datos es la base, que lee el mismo permiso del token. */
+  readonly vePlata: boolean
+}
+
+/** Lo que se mira del usuario de la sesión. app_metadata no lo puede editar el usuario. */
+type Usuario = { readonly email?: string | undefined; readonly app_metadata?: Readonly<Record<string, unknown>> | undefined }
+
+function sesionDe(usuario: Usuario): Sesion {
+  return { email: usuario.email ?? 'sin correo', vePlata: usuario.app_metadata?.['ve_plata'] === true }
 }
 
 /** Quién está adentro, o null si no hay nadie.
@@ -30,7 +40,7 @@ export async function sesionActual(
   const usuario = data.session?.user
   if (usuario === undefined) return bien(null)
 
-  return bien({ email: usuario.email ?? 'sin correo' })
+  return bien(sesionDe(usuario))
 }
 
 export async function iniciarSesion(
@@ -52,7 +62,7 @@ export async function iniciarSesion(
     return mal({ tipo: 'base', detalle: 'La base aceptó el ingreso pero no devolvió sesión.' })
   }
 
-  return bien({ email: usuario.email ?? 'sin correo' })
+  return bien(sesionDe(usuario))
 }
 
 export async function cerrarSesion(base: ClienteBase | null = null): Promise<Resultado<null>> {
@@ -75,7 +85,7 @@ export function alCambiarLaSesion(
 
   const { data } = resuelto.dato.auth.onAuthStateChange((_evento, sesion) => {
     const usuario = sesion?.user
-    avisar(usuario === undefined ? null : { email: usuario.email ?? 'sin correo' })
+    avisar(usuario === undefined ? null : sesionDe(usuario))
   })
   return () => data.subscription.unsubscribe()
 }

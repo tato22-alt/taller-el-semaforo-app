@@ -1,0 +1,29 @@
+# Corre los tests y compila en cada Pull Request, antes de mergear.
+#
+# El deploy (pages.yml) ya corre los tests, pero sobre `main`: un test roto se veía recién
+# después de mergear. Esto lo muestra en el PR.
+
+name: Pruebas
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  pruebas:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      # Compila con una dirección de mentira: acá sólo importa que compile.
+      - run: npm run build
+        env:
+          VITE_SUPABASE_URL: http://prueba.invalid
+          VITE_SUPABASE_ANON_KEY: prueba

@@ -3,7 +3,8 @@
  * Arriba, lo que la app pregunta (RF-1108): dar turno, recordar el turno, ¿vino?, ¿lo retiró?. Cada
  * pregunta trae el mensaje que corresponde, armado para abrir WhatsApp; lo manda la persona (R1).
  * Después, qué autos hay en el taller (RF-1102), los turnos de la semana y, plegados, los que no
- * volvieron. Un auto que todavía no tiene hitos se busca por patente. La pantalla pinta y llama: qué
+ * volvieron. Desde la spec 013, además: la plata de cada auto que salió y quién quedó debiendo
+ * (ui/PlataEnHoy.tsx). Un auto que todavía no tiene hitos se busca por patente. La pantalla pinta y llama: qué
  * pregunta, qué botón y qué texto lo decide dominio/hitos.ts y dominio/mensajes.ts. */
 
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
@@ -15,6 +16,7 @@ import {
 import { etiquetaDeMensaje, mensajeDe, textoDelMensaje } from '../dominio/mensajes'
 import { textoDeFallo, type Fallo, type Resultado } from '../dominio/resultado'
 import { linkDeWhatsApp } from '../dominio/telefono'
+import { LoQueDeben, PreguntasDeLaPlata, usarPlata } from './PlataEnHoy'
 
 type Hacer = (accion: () => Promise<Resultado<null>>) => Promise<void>
 
@@ -22,6 +24,9 @@ export function Hoy() {
   const [autos, setAutos] = useState<readonly Auto[] | Fallo | null>(null)
   const [fallo, setFallo] = useState<Fallo | null>(null)
   const [ocupado, setOcupado] = useState(false)
+  // Cada toque anotado da una vuelta: la plata (spec 013) se vuelve a leer, porque un «Salió» trae su pregunta.
+  const [vuelta, setVuelta] = useState(0)
+  const plata = usarPlata(vuelta)
 
   const cargar = useCallback(() => {
     void leerAutos().then((r) => setAutos(r.ok ? r.dato : r.fallo))
@@ -36,6 +41,7 @@ export function Hoy() {
     if (!r.ok) setFallo(r.fallo)
     setOcupado(false)
     cargar()
+    setVuelta((v) => v + 1)
   }
 
   if (autos === null) return <p className="apagado">Buscando los autos…</p>
@@ -51,6 +57,7 @@ export function Hoy() {
       <h2>Hoy</h2>
       {fallo !== null && <p className="error">{textoDeFallo(fallo)}</p>}
       <Buscar autos={autos} ocupado={ocupado} hacer={hacer} />
+      <PreguntasDeLaPlata estado={plata} />
 
       <section>
         <h3>Para hacer hoy ({preguntas.length})</h3>
@@ -79,6 +86,8 @@ export function Hoy() {
           {proximosTurnos.map((a) => tarjeta(a))}
         </section>
       )}
+
+      <LoQueDeben estado={plata} />
 
       {noVolvieron.length > 0 && (
         <details>

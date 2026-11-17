@@ -19,6 +19,8 @@ export type Fallo =
   | { readonly tipo: 'sin_configurar'; readonly detalle: string }
   | { readonly tipo: 'red'; readonly detalle: string }
   | { readonly tipo: 'base'; readonly detalle: string }
+  /** No es una falla: es algo que no se puede hacer, y `detalle` le dice a la persona por qué. */
+  | { readonly tipo: 'regla'; readonly detalle: string }
 
 export const bien = <T>(dato: T): Resultado<T> => ({ ok: true, dato })
 export const mal = <T>(fallo: Fallo): Resultado<T> => ({ ok: false, fallo })
@@ -34,5 +36,7 @@ export function textoDeFallo(fallo: Fallo): string {
       return 'No se pudo conectar. Revisá internet y probá de nuevo.'
     case 'base':
       return 'La base rechazó la consulta. Avisá que pasó esto.'
+    case 'regla':
+      return fallo.detalle
   }
 }

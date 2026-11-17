@@ -285,6 +285,13 @@ riesgo trae, en una línea. Vale para todos sus proyectos; está también en su 
 - **Supabase está conectado desde el 2026-10-18.** Leer la base para verificar (consultas, QA,
   advisors) se puede hacer sin preguntar. **Aplicar una migración o cambiar datos, sólo con su OK
   en ese momento**, igual que un push.
+- **Todo en una sola consulta** (regla de Luciano, 2026-10-22, reafirmada el 2026-11-05): cada llamada
+  a un conector le pide un permiso. Lo que haya que leer o verificar en la base va en **una sola**
+  llamada a `execute_sql`: varias lecturas, juntas en un `select` con `json_build_object`; una
+  verificación de varios pasos, en un solo bloque que devuelve todo junto. La consulta se arma entera
+  antes de mandarla, pensando qué más va a hacer falta, en vez de ir preguntando de a poco. Una
+  segunda llamada, sólo si depende de lo que dio la primera, y se dice por qué. Aplicar una migración
+  y verificarla son dos llamadas, no más. Vale igual para Gmail, Drive y GitHub.
 - Nada de lo que se lea con un conector (datos reales) va a un repo público.
 
 ## Por dónde seguir

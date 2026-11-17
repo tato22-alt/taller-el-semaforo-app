@@ -8,6 +8,7 @@ import { Ordenes } from './ui/Ordenes'
 import { Hoy } from './ui/Hoy'
 import { Retenciones } from './ui/Retenciones'
 import { Cobranzas } from './ui/Cobranzas'
+import { LaPlata } from './ui/LaPlata'
 import { Login } from './ui/Login'
 import { cerrarSesion } from './datos/sesion'
 import { textoDeFallo } from './dominio/resultado'
@@ -24,8 +25,10 @@ export function App() {
           <nav className="navegacion">
             {ruta.pantalla !== 'hoy' && <a href="#/hoy">Hoy</a>}
             {ruta.pantalla !== 'cobranzas' && <a href="#/cobranzas">Cobranzas</a>}
+            {/* Sólo para quien ve la plata (spec 013). Esconder el link no protege nada: lo hace la base. */}
+            {estado.sesion.vePlata && ruta.pantalla !== 'plata' && <a href="#/plata">La plata</a>}
             {ruta.pantalla !== 'tablero' && <a href="#/">Tablero</a>}
-            {ruta.pantalla !== 'importar' && <a href="#/importar">Importar facturas</a>}
+            {ruta.pantalla !== 'importar' && <a href="#/importar">Importar de ARCA</a>}
             {ruta.pantalla !== 'revisar' && <a href="#/revisar">Revisar</a>}
             {ruta.pantalla !== 'ordenes' && <a href="#/ordenes">Órdenes de trabajo</a>}
             {ruta.pantalla !== 'retenciones' && <a href="#/retenciones">Retenciones</a>}
@@ -59,12 +62,13 @@ export function App() {
         {estado.fase === 'adentro' && ruta.pantalla === 'ficha' && (
           <Ficha idTrabajo={ruta.idTrabajo} />
         )}
-        {estado.fase === 'adentro' && ruta.pantalla === 'importar' && <Importar />}
+        {estado.fase === 'adentro' && ruta.pantalla === 'importar' && <Importar vePlata={estado.sesion.vePlata} />}
         {estado.fase === 'adentro' && ruta.pantalla === 'revisar' && <Revisar />}
         {estado.fase === 'adentro' && ruta.pantalla === 'ordenes' && <Ordenes />}
         {estado.fase === 'adentro' && ruta.pantalla === 'hoy' && <Hoy />}
         {estado.fase === 'adentro' && ruta.pantalla === 'retenciones' && <Retenciones />}
         {estado.fase === 'adentro' && ruta.pantalla === 'cobranzas' && <Cobranzas />}
+        {estado.fase === 'adentro' && ruta.pantalla === 'plata' && <LaPlata vePlata={estado.sesion.vePlata} />}
       </main>
     </div>
   )
