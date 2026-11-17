@@ -45,7 +45,7 @@ describe('órdenes de Orion', () => {
       tipo: 'orden', plataforma: 'orion', compania: 'Sancor', siniestro: '2000000001',
       patente: 'AB123CD', vehiculo: 'FORD KA 15 S 4P', perito: 'JUAN PEREZINVENTADO', peritoMail: null,
       monto: '150000.00', franquicia: null,
-      repuestos: 'Los repuestos los entrega Autopartes Ejemplo en 5 días', referencia: null, nota: null, aConfirmar: false, lector: 'ordenes v8',
+      repuestos: 'Los repuestos los entrega Autopartes Ejemplo en 5 días', referencia: null, nota: null, aConfirmar: false, lector: 'ordenes v9',
     })
   })
 
@@ -102,6 +102,35 @@ describe('órdenes de Orion', () => {
   })
 })
 
+describe('el monto de una orden de Orion (el cuadro "Total Peritado" del PDF)', () => {
+  const orden = (textoPdf: string) => leer({
+    remitente: 'sistemas@mg.sistema-orion.com', asunto: 'Orden De Trabajo SANCOR-SEGUROS-900000001CHEVROLET-CRUZE-AB123CD-PERITO INVENTADO', textoPdf,
+  })
+  // Los tres órdenes en que puede salir el texto del mismo cuadro, según cómo se pase el PDF a texto.
+  const EN_COLUMNAS = 'Paragolpes Tras.\nTotal (Sin IVA)        $   1000632\nIVA      $   210133\nDepreciación   $        0\nDeducción Franquicia     $        0\nPorcentaje Deducc.:\nTotal Peritado      $   1210765\nPeritado por:   PERITO INVENTADO\n  Página 2 de 3\nFactura a nombre de …'
+  const DE_CORRIDO = 'Total (Sin IVA)\n\n$\n\n1000632\n\nIVA\n\n$\n\n210133\n\nDepreciación\n\n$\n\n0\n\nDeducción Franquicia\n\n$\n\n0\n\n$\n\n1210765\n\nPorcentaje Deducc.:\n\nTotal Peritado\n\nPeritado por:\n\nPERITO INVENTADO\n\nPágina 2 de 3'
+  const CON_FRANQUICIA = 'Total (Sin IVA) $ 1000000 IVA $ 210000 Depreciación $ 10000 Deducción Franquicia $ 200000 Porcentaje Deducc.: Total Peritado $ 1000000 Página 2 de 3'
+
+  it('lee el total peritado, salga el texto en columnas o de corrido', () => {
+    expect(orden(EN_COLUMNAS)?.['monto']).toBe('1210765')
+    expect(orden(DE_CORRIDO)?.['monto']).toBe('1210765')
+  })
+
+  it('con depreciación y franquicia, el total es lo que queda', () => {
+    expect(orden(CON_FRANQUICIA)?.['monto']).toBe('1000000')
+  })
+
+  it('si la cuenta no cierra, o falta el cuadro, deja el monto vacío', () => {
+    expect(orden(EN_COLUMNAS.replace('1210765', '1310765'))?.['monto']).toBeNull()
+    expect(orden('Total (Sin IVA) $ 1000632 IVA $ 210133')?.['monto']).toBeNull()
+    expect(orden('Orden de Trabajo sin importes')?.['monto']).toBeNull()
+  })
+
+  it('no confunde un importe de más abajo en la hoja con el total', () => {
+    expect(orden(EN_COLUMNAS + ' Franquicia a cargo del asegurado $ 999')?.['monto']).toBe('1210765')
+  })
+})
+
 describe('órdenes de La Mercantil', () => {
   it('saca siniestro, patente, perito y su mail', () => {
     expect(leer({
@@ -111,7 +140,7 @@ describe('órdenes de La Mercantil', () => {
     })).toEqual({
       tipo: 'orden', plataforma: 'mercantil', compania: 'Mercantil Andina', siniestro: '900000000001',
       patente: 'AB123CD', vehiculo: null, perito: 'PEREZ JUAN', peritoMail: 'perito.inventado@ejemplo.com',
-      monto: null, franquicia: null, repuestos: null, referencia: 'Tasación 123456', nota: null, aConfirmar: false, lector: 'ordenes v8',
+      monto: null, franquicia: null, repuestos: null, referencia: 'Tasación 123456', nota: null, aConfirmar: false, lector: 'ordenes v9',
     })
   })
 
@@ -125,7 +154,7 @@ describe('órdenes de La Mercantil', () => {
     expect(r).toEqual({
       tipo: 'orden', plataforma: 'mercantil', compania: 'Mercantil Andina', siniestro: '900000000002',
       patente: 'AC456BD', vehiculo: null, perito: null, peritoMail: null,
-      monto: null, franquicia: null, repuestos: null, referencia: null, nota: null, aConfirmar: false, lector: 'ordenes v8',
+      monto: null, franquicia: null, repuestos: null, referencia: null, nota: null, aConfirmar: false, lector: 'ordenes v9',
     })
     expect(JSON.stringify(r)).not.toContain('ASEGURADO')
   })
@@ -166,7 +195,7 @@ describe('órdenes de Nación (sistema Valua)', () => {
     })).toEqual({
       tipo: 'orden', plataforma: 'nacion', compania: 'Nación', siniestro: '4500123', patente: 'AB123CD',
       vehiculo: null, perito: null, peritoMail: null, monto: '100000.00',
-      franquicia: 'El asegurado abona franquicia', repuestos: null, referencia: null, nota: null, aConfirmar: false, lector: 'ordenes v8',
+      franquicia: 'El asegurado abona franquicia', repuestos: null, referencia: null, nota: null, aConfirmar: false, lector: 'ordenes v9',
     })
   })
 
@@ -194,7 +223,7 @@ describe('órdenes de Cooperación', () => {
     })).toEqual({
       tipo: 'orden', plataforma: 'cooperacion', compania: 'Cooperación', siniestro: '123456/1', patente: 'AB123CD',
       vehiculo: null, perito: null, peritoMail: null, monto: null,
-      franquicia: null, repuestos: 'Los repuestos los provee la compañía', referencia: null, nota: null, aConfirmar: false, lector: 'ordenes v8',
+      franquicia: null, repuestos: 'Los repuestos los provee la compañía', referencia: null, nota: null, aConfirmar: false, lector: 'ordenes v9',
     })
   })
 
@@ -227,7 +256,7 @@ describe('órdenes de personas: para confirmar (RF-1014)', () => {
     })).toEqual({
       tipo: 'orden', plataforma: 'otra', compania: 'LPS', siniestro: '555001', patente: 'AB123CD',
       vehiculo: null, perito: null, peritoMail: null, monto: null,
-      franquicia: 'El asegurado abona franquicia en el taller', repuestos: null, referencia: null, nota: null, aConfirmar: true, lector: 'ordenes v8',
+      franquicia: 'El asegurado abona franquicia en el taller', repuestos: null, referencia: null, nota: null, aConfirmar: true, lector: 'ordenes v9',
     })
   })
 
@@ -456,7 +485,7 @@ describe('el barrido guarda las órdenes en su pestaña', () => {
       adjuntos: ['informeOrdenTrabajo.pdf'],
     }, 'Total: $ 200.000,00')
     expect(r.filas).toEqual([['msg-1', '2026-01-02 10:00', 'orion', 'orden', 'Zurich ex QBE', '77', 'AB123CD', 'TOYOTA ETIOS',
-      'PERITO INVENTADO', '', '200000.00', '', 'repuesto envía Autopartes Ejemplo en 3 días', 'drive-1', 'ordenes v8', '', '', '',
+      'PERITO INVENTADO', '', '200000.00', '', 'repuesto envía Autopartes Ejemplo en 3 días', 'drive-1', 'ordenes v9', '', '', '',
       ORION, 'Orden De Trabajo ZAASA-77TOYOTA-ETIOS-AB123CD-PERITO-INVENTADO', 'informeOrdenTrabajo.pdf', '']])
   })
 
@@ -466,7 +495,7 @@ describe('el barrido guarda las órdenes en su pestaña', () => {
     expect(r.subidos).toEqual([])
     // Nada se pierde: aunque no sea una orden, queda de quién es, el asunto, los adjuntos y la versión
     // del lector, para encontrarla y releerla si el lector se equivocó.
-    expect(r.filas).toEqual([['msg-1', '2026-01-02 10:00', '', 'otro', '', '', '', '', '', '', '', '', '', '', 'ordenes v8', '', '', '',
+    expect(r.filas).toEqual([['msg-1', '2026-01-02 10:00', '', 'otro', '', '', '', '', '', '', '', '', '', '', 'ordenes v9', '', '', '',
       'Pagos <pagos@lps.com.ar>', 'Orden de Pago Número: 00001', 'OrdenDePago.pdf\nretenciones.pdf', '']])
   })
 
@@ -487,7 +516,7 @@ describe('el barrido guarda las órdenes en su pestaña', () => {
     expect(r.bajados).toEqual(['adjunto-ord rep 555002.pdf'])
     expect(r.subidos).toEqual(['2026-01-02 ord rep 555002.pdf'])
     expect(r.filas).toEqual([['msg-1', '2026-01-02 10:00', 'otra', 'orden', 'LPS', '555002', 'AB123CD', '', '', '', '', '', '', 'drive-1',
-      'ordenes v8', '', '', 'sí', 'Analista Inventada <analista@lps.com.ar>', 'Orden de reparación - Siniestro 555002 - AB123CD',
+      'ordenes v9', '', '', 'sí', 'Analista Inventada <analista@lps.com.ar>', 'Orden de reparación - Siniestro 555002 - AB123CD',
       'ord rep 555002.pdf', '']])
   })
 })
@@ -738,7 +767,7 @@ describe('órdenes de Zurich por Grant', () => {
     })).toEqual({
       tipo: 'orden', plataforma: 'grant', compania: 'Zurich ex QBE', siniestro: '0001-AUT1-60-00001', patente: null, vehiculo: null,
       perito: null, peritoMail: null, monto: null, franquicia: null, repuestos: null, referencia: 'Grant 900001',
-      nota: 'Adjudicación de Grant: si ya está la orden de Orion de este siniestro, es la misma.', aConfirmar: true, lector: 'ordenes v8',
+      nota: 'Adjudicación de Grant: si ya está la orden de Orion de este siniestro, es la misma.', aConfirmar: true, lector: 'ordenes v9',
     })
     expect(leer({ remitente: GRANT, asunto: 'Zurich Seguros: Orden 900002 - Siniestro 90000001' })).toMatchObject({ compania: 'Zurich', siniestro: '90000001' })
   })
@@ -751,7 +780,7 @@ describe('órdenes de Zurich por Grant', () => {
 describe('el robot sube las órdenes a la base', () => {
   type Fila = string[]
   const fila = (id: string, fecha: string, tipo: string, base = '', aConfirmar = ''): Fila =>
-    [id, fecha, 'orion', tipo, 'Sancor', '111', 'AB123CD', 'FORD KA', 'PERITO INVENTADO', '', '1000.50', 'franquicia en taller', '', '', 'ordenes v8', base, '', aConfirmar]
+    [id, fecha, 'orion', tipo, 'Sancor', '111', 'AB123CD', 'FORD KA', 'PERITO INVENTADO', '', '1000.50', 'franquicia en taller', '', '', 'ordenes v9', base, '', aConfirmar]
 
   function correr(filas: Fila[], props: Record<string, string>, contesta: (cuerpo: Record<string, unknown>) => string, inicio = Date.now()) {
     const llamadas: { url: string; cuerpo: Record<string, unknown> }[] = []
@@ -867,5 +896,69 @@ describe('el robot sube los envíos de factura a la base (spec 012)', () => {
     const r = correr([fila('e1', '2026-01-01 10:00', 'envio', '1001', '1')], {}, () => 'vinculada')
     expect(r.llamadas).toHaveLength(0)
     expect(r.mensaje).toContain('faltan las propiedades')
+  })
+})
+
+/* ------------------------------------------------------------------------------------------- */
+/* Completar el monto de las órdenes que entraron sin él (PENDIENTES 2.2)                        */
+/* ------------------------------------------------------------------------------------------- */
+
+describe('completarMontos: el monto de las órdenes que ya estaban', () => {
+  const CUADRO = 'Total (Sin IVA) $ 1000 IVA $ 210 Depreciación $ 0 Deducción Franquicia $ 0 Total Peritado $ 1210 Página 2 de 3'
+  /** Una fila de la pestaña "ordenes": id, fecha, plataforma, tipo, …, monto (col. 11), …, Drive (col. 14). */
+  const fila = (id: string, tipo: string, monto: string, drive: string) => [id, '2026-01-02', 'orion', tipo, 'Sancor', '9', '', '', '', '', monto, '', '', drive, 'ordenes v8', 'cargada']
+
+  function completar(filas: unknown[][], pdfs: Record<string, string>, contesta = 'completado') {
+    const escritos: string[] = []
+    const aLaBase: string[] = []
+    const pedidos: string[] = []
+    const hoja = {
+      getDataRange: () => ({ getValues: () => [['títulos'], ...filas] }),
+      getRange: (f: number, c: number) => ({ setValue: (v: unknown) => { escritos.push(`fila ${f} col ${c} = ${String(v)}`) } }),
+      getLastRow: () => 1,
+    }
+    let ultimoPdf = ''
+    const contexto = {
+      SpreadsheetApp: { getActiveSpreadsheet: () => ({ getSheetByName: () => hoja, insertSheet: () => hoja }) },
+      Drive: { Files: { create: () => ({ id: 'ocr' }), remove: () => undefined } },
+      UrlFetchApp: { fetch: (url: string, o: { payload?: string }) => {
+        if (url.includes('/auth/v1/')) return { getResponseCode: () => 200, getContentText: () => JSON.stringify({ access_token: 't' }) }
+        if (url.includes('fn_robot_completa_monto')) { aLaBase.push(o.payload ?? ''); return { getResponseCode: () => 200, getContentText: () => JSON.stringify(contesta) } }
+        const pdf = /files\/([^?/]+)\?alt=media/.exec(url)
+        if (pdf) { pedidos.push(pdf[1] ?? ''); ultimoPdf = pdfs[pdf[1] ?? ''] ?? ''; return { getResponseCode: () => (pdf[1] ?? '') in pdfs ? 200 : 404, getBlob: () => ({}) } }
+        return { getResponseCode: () => 200, getContentText: () => ultimoPdf }   // el texto del PDF, ya convertido
+      } },
+      ScriptApp: { getOAuthToken: () => 'x' },
+      PropertiesService: { getScriptProperties: () => ({ getProperty: (k: string) => (k === 'montos_desde_fila' ? null : 'valor'), setProperty: () => undefined, deleteProperty: () => undefined }) },
+      console: { log: () => undefined },
+    }
+    const codigo = ROBOT + '\n;prepararHojas = () => ({ ordenes: __hoja }); entrarALaBase = () => ({ url: "http://base", clave: "k", token: "t" }); completarMontos()'
+    runInNewContext(codigo, { ...contexto, __hoja: hoja })
+    return { escritos, aLaBase, pedidos }
+  }
+
+  it('lee el PDF que ya está en Drive, anota el monto en la planilla y se lo pasa a la base', () => {
+    const r = completar([fila('m1', 'orden', '', 'pdf-1')], { 'pdf-1': CUADRO })
+    expect(r.pedidos).toEqual(['pdf-1'])
+    expect(r.escritos).toEqual(['fila 2 col 11 = 1210'])
+    expect(r.aLaBase).toEqual(['{"p_gmail_message_id":"m1","p_monto":"1210"}'])
+  })
+
+  it('no toca las que ya tienen monto, las anulaciones ni las que no tienen PDF', () => {
+    const r = completar([fila('m1', 'orden', '500.00', 'pdf-1'), fila('m2', 'anulacion', '', 'pdf-2'), fila('m3', 'orden', '', ''), fila('m4', 'otro', '', 'pdf-4')], { 'pdf-1': CUADRO, 'pdf-2': CUADRO, 'pdf-4': CUADRO })
+    expect(r.pedidos).toEqual([])
+    expect(r.aLaBase).toEqual([])
+  })
+
+  it('si el PDF no dice el monto claro, la orden queda como estaba', () => {
+    const r = completar([fila('m1', 'orden', '', 'pdf-1')], { 'pdf-1': 'Orden sin cuadro de importes' })
+    expect(r.escritos).toEqual([])
+    expect(r.aLaBase).toEqual([])
+  })
+
+  it('con dos PDF, usa el primero que dice el monto', () => {
+    const r = completar([fila('m1', 'orden', '', 'fotos\npdf-2')], { fotos: 'sin importes', 'pdf-2': CUADRO })
+    expect(r.pedidos).toEqual(['fotos', 'pdf-2'])
+    expect(r.aLaBase).toHaveLength(1)
   })
 })
