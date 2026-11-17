@@ -9,7 +9,12 @@
  * hasta que se aplique la M7 de semaforo-base (20261025130000_imputacion.sql): `imputacion`,
  * `vw_revisar_candidatas` y las columnas nuevas de `vw_revisar` se sumaron a mano, con la forma del
  * generador. Todo lo demás es lo que da el generador. Apenas se aplique la M7, se regenera el archivo
- * entero y gana el generado. */
+ * entero y gana el generado.
+ *
+ * OTRA EXCEPCIÓN, hasta que se aplique la migración de la spec 013 (20261109120000_la_plata_del_taller.sql):
+ * también se sumaron a mano `proveedor`, `compra`, `deuda_particular`, `cobro_particular`, la `letra` de
+ * `tipo_comprobante` y las vistas `vw_plata_al_salir`, `vw_deudas_particulares`, `vw_cobros_particulares`,
+ * `vw_compras`, `vw_compras_mes`, `vw_ventas`, `vw_plata_mes` y `vw_te_deben`. */
 
 export type Json =
   | string
@@ -318,6 +323,36 @@ export type Database = {
         }
         Relationships: []
       }
+      cobro_particular: {
+        Row: {
+          creado_en: string
+          creado_por: string | null
+          fecha: string
+          id_cobro: number
+          id_deuda: number | null
+          id_salida: number | null
+          monto: number
+        }
+        Insert: {
+          creado_en?: string
+          creado_por?: string | null
+          fecha?: string
+          id_cobro?: never
+          id_deuda?: number | null
+          id_salida?: number | null
+          monto: number
+        }
+        Update: {
+          creado_en?: string
+          creado_por?: string | null
+          fecha?: string
+          id_cobro?: never
+          id_deuda?: number | null
+          id_salida?: number | null
+          monto?: number
+        }
+        Relationships: []
+      }
       compania: {
         Row: {
           alias: string[]
@@ -388,6 +423,54 @@ export type Database = {
             referencedColumns: ["cuit"]
           },
         ]
+      }
+      compra: {
+        Row: {
+          creado_en: string
+          cuit_emisor: string
+          fecha_emision: string
+          id_compra: number
+          id_importacion: number
+          iva: number
+          moneda: string
+          neto_gravado: number
+          numero: number
+          punto_venta: number
+          tipo_cambio: number
+          tipo_codigo: number
+          total: number
+        }
+        Insert: {
+          creado_en?: string
+          cuit_emisor: string
+          fecha_emision: string
+          id_compra?: never
+          id_importacion: number
+          iva: number
+          moneda: string
+          neto_gravado: number
+          numero: number
+          punto_venta: number
+          tipo_cambio?: number
+          tipo_codigo: number
+          total: number
+        }
+        Update: {
+          creado_en?: string
+          cuit_emisor?: string
+          fecha_emision?: string
+          id_compra?: never
+          id_importacion?: number
+          iva?: number
+          moneda?: string
+          neto_gravado?: number
+          numero?: number
+          punto_venta?: number
+          tipo_cambio?: number
+          tipo_codigo?: number
+          total?: number
+        }
+        Relationships: []
       }
       comprobante: {
         Row: {
@@ -555,6 +638,45 @@ export type Database = {
             referencedColumns: ["id_comprobante"]
           },
         ]
+      }
+      deuda_particular: {
+        Row: {
+          creado_en: string
+          creado_por: string | null
+          detalle: string | null
+          deudor: string
+          fecha: string
+          id_deuda: number
+          id_salida: number | null
+          id_trabajo: number | null
+          monto: number
+          telefono: string | null
+        }
+        Insert: {
+          creado_en?: string
+          creado_por?: string | null
+          detalle?: string | null
+          deudor: string
+          fecha?: string
+          id_deuda?: never
+          id_salida?: number | null
+          id_trabajo?: number | null
+          monto: number
+          telefono?: string | null
+        }
+        Update: {
+          creado_en?: string
+          creado_por?: string | null
+          detalle?: string | null
+          deudor?: string
+          fecha?: string
+          id_deuda?: never
+          id_salida?: number | null
+          id_trabajo?: number | null
+          monto?: number
+          telefono?: string | null
+        }
+        Relationships: []
       }
       envio_factura: {
         Row: {
@@ -1106,6 +1228,27 @@ export type Database = {
           },
         ]
       }
+      proveedor: {
+        Row: {
+          creado_en: string
+          cuit: string
+          nombre: string
+          rubro: string | null
+        }
+        Insert: {
+          creado_en?: string
+          cuit: string
+          nombre: string
+          rubro?: string | null
+        }
+        Update: {
+          creado_en?: string
+          cuit?: string
+          nombre?: string
+          rubro?: string | null
+        }
+        Relationships: []
+      }
       regla_facturacion: {
         Row: {
           condicion: string
@@ -1149,16 +1292,19 @@ export type Database = {
         Row: {
           clase: string
           codigo: number
+          letra: string | null
           nombre: string
         }
         Insert: {
           clase: string
           codigo: number
+          letra?: string | null
           nombre: string
         }
         Update: {
           clase?: string
           codigo?: number
+          letra?: string | null
           nombre?: string
         }
         Relationships: []
@@ -1451,6 +1597,84 @@ export type Database = {
         }
         Relationships: []
       }
+      vw_cobros_particulares: {
+        Row: {
+          cuando: string | null
+          detalle: string | null
+          fecha: string | null
+          id_cobro: number | null
+          id_deuda: number | null
+          id_salida: number | null
+          id_trabajo: number | null
+          mes: string | null
+          monto: number | null
+          numero_presupuesto: number | null
+          patente: string | null
+          quien: string | null
+          se_puede_deshacer: boolean | null
+          vehiculo: string | null
+        }
+        Relationships: []
+      }
+      vw_compras: {
+        Row: {
+          clase: string | null
+          cuit: string | null
+          fecha_emision: string | null
+          id_compra: number | null
+          iva: number | null
+          iva_credito: number | null
+          letra: string | null
+          mes: string | null
+          moneda: string | null
+          neto_gravado: number | null
+          numero: number | null
+          proveedor: string | null
+          punto_venta: number | null
+          rubro: string | null
+          tipo: string | null
+          tipo_codigo: number | null
+          total: number | null
+        }
+        Relationships: []
+      }
+      vw_compras_mes: {
+        Row: {
+          comprado: number | null
+          comprobantes: number | null
+          cuit: string | null
+          en_el_anio: number | null
+          fila: string | null
+          iva_credito: number | null
+          mes: string | null
+          mes_anterior: number | null
+          proveedor: string | null
+          rubro: string | null
+        }
+        Relationships: []
+      }
+      vw_deudas_particulares: {
+        Row: {
+          detalle: string | null
+          deudor: string | null
+          dias: number | null
+          fecha: string | null
+          id_deuda: number | null
+          id_salida: number | null
+          id_trabajo: number | null
+          monto: number | null
+          numero_presupuesto: number | null
+          pagado: number | null
+          pagos: number | null
+          patente: string | null
+          saldo: number | null
+          se_puede_deshacer: boolean | null
+          telefono: string | null
+          ultimo_pago: string | null
+          vehiculo: string | null
+        }
+        Relationships: []
+      }
       vw_factura_contra_autorizado: {
         Row: {
           autorizado: number | null
@@ -1625,6 +1849,42 @@ export type Database = {
         }
         Relationships: []
       }
+      vw_plata_al_salir: {
+        Row: {
+          cliente: string | null
+          cobrado: number | null
+          contestada: boolean | null
+          dias: number | null
+          id_salida: number | null
+          id_trabajo: number | null
+          numero_presupuesto: number | null
+          patente: string | null
+          quedo_debiendo: number | null
+          salio: string | null
+          telefono: string | null
+          total_presupuesto: number | null
+          vehiculo: string | null
+        }
+        Relationships: []
+      }
+      vw_plata_mes: {
+        Row: {
+          cobrado_companias: number | null
+          cobrado_particulares: number | null
+          comprado: number | null
+          comprobantes_compras: number | null
+          comprobantes_ventas: number | null
+          facturado: number | null
+          iva_compras: number | null
+          iva_estimado: number | null
+          iva_ventas: number | null
+          mes: string | null
+          pagado_sin_importe: number | null
+          retenciones: number | null
+          retenciones_iva: number | null
+        }
+        Relationships: []
+      }
       vw_presupuestos: {
         Row: {
           cantidad_conceptos: number | null
@@ -1723,6 +1983,34 @@ export type Database = {
           numero: number | null
           orden: number | null
           punto_venta: number | null
+          total: number | null
+        }
+        Relationships: []
+      }
+      vw_te_deben: {
+        Row: {
+          cuantas: number | null
+          desde: string | null
+          monto: number | null
+          quien: string | null
+        }
+        Relationships: []
+      }
+      vw_ventas: {
+        Row: {
+          clase: string | null
+          cuit_receptor: string | null
+          fecha_emision: string | null
+          id_comprobante: number | null
+          iva: number | null
+          letra: string | null
+          mes: string | null
+          neto_gravado: number | null
+          numero: number | null
+          punto_venta: number | null
+          receptor: string | null
+          tipo: string | null
+          tipo_codigo: number | null
           total: number | null
         }
         Relationships: []

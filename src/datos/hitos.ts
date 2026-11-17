@@ -113,9 +113,14 @@ export async function deshacerHito(idHito: number, base: ClienteBase | null = nu
   const cliente = await clienteConSesion(base)
   if (!cliente.ok) return cliente
   const r = await cliente.dato.from('hito_trabajo').delete().eq('id_hito', idHito).select('id_hito')
-  if (r.error !== null) return mal(clasificar(r.error))
+  if (r.error !== null) {
+    // Spec 013: un «Salió» con la plata ya anotada no se borra (la base lo frena con su clave foránea).
+    return r.error.code === '23503'
+      ? mal({ tipo: 'regla', detalle: 'Ya se anotó la plata de esa salida: primero deshacé eso, abajo, en «Anotado esta semana».' })
+      : mal(clasificar(r.error))
+  }
   if ((r.data as unknown as readonly unknown[]).length === 0) {
-    return mal({ tipo: 'base', detalle: 'No se deshizo: el toque tiene más de una semana, o ya no estaba.' })
+    return mal({ tipo: 'regla', detalle: 'No se deshizo: el toque tiene más de una semana, o ya no estaba.' })
   }
   return bien(null)
 }

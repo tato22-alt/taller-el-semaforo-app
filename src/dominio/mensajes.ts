@@ -92,3 +92,10 @@ function elAuto(vehiculo: string | null, patente: string | null): string {
   const que = vehiculo !== null && vehiculo.trim() !== '' ? vehiculo.trim() : 'auto'
   return patente !== null && patente.trim() !== '' ? `tu ${que} (${patente.trim()})` : `tu ${que}`
 }
+
+/** El recordatorio a quien quedó debiendo (spec 013 de semaforo-base, RF-1308). `saldo` llega ya
+ *  escrito ("$80.000") y `auto`, como se nombra el auto ("Ford Ka (AB123CD)"). Lo manda una persona. */
+export function recordatorioDeDeuda(d: { readonly deudor: string | null; readonly auto: string | null; readonly saldo: string }): string {
+  const delAuto = d.auto !== null && d.auto.trim() !== '' ? ` del arreglo de tu ${d.auto.trim()}` : ''
+  return `${saludo(d.deudor)}, te escribimos de ${TALLER}. Te recordamos que quedó un saldo de ${d.saldo}${delAuto}. ¿Cuándo podés pasar a cancelarlo? ¡Gracias!`
+}
