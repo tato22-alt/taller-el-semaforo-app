@@ -142,3 +142,62 @@ describe('aDecimal', () => {
     expect(aDecimal('abc')).toBeNull()
   })
 })
+
+/* El archivo de Recibidos (spec 013 de semaforo-base). Mismos títulos, con el emisor en vez del
+ * receptor. Datos inventados. */
+import { claseDeArchivo, leerRecibidos, recibidoPorOtro } from './arca'
+
+const TITULOS_RECIBIDOS = TITULOS
+  .replace('"Tipo Doc. Receptor";"Nro. Doc. Receptor";"Denominación Receptor"', '"Tipo Doc. Emisor";"Nro. Doc. Emisor";"Denominación Emisor";"Nro. Doc. Receptor"')
+
+function compra(o: { tipo?: string; pv?: string; nro?: string; cuit?: string; nombre?: string; receptor?: string; moneda?: string; cambio?: string; total?: string } = {}): string {
+  return [
+    '2025-03-10', o.tipo ?? '1', o.pv ?? '5', o.nro ?? '77', o.nro ?? '77', '12345678901234', '80', o.cuit ?? '30000000002',
+    o.nombre ?? 'REPUESTOS INVENTADOS S.A.', o.receptor ?? '30000000009', o.cambio ?? '1,00', o.moneda ?? '$',
+    '', '', '', '', '', '', '', '210,00', '1000,00', '', '', '1000,00', '0,00', '0,00', '0,00', '210,00', o.total ?? '1210,00',
+  ].join(';')
+}
+const TIPOS_COMPRAS = new Set([1, 3, 6, 11])
+const recibidos = (...r: string[]) => leerRecibidos([TITULOS_RECIBIDOS, ...r].join('\r\n'), TIPOS_COMPRAS)
+
+describe('el archivo de Recibidos', () => {
+  it('se reconoce por sus títulos, y el de Emitidos también', () => {
+    expect(claseDeArchivo([TITULOS_RECIBIDOS, compra()].join('\n'))).toBe('recibidos')
+    expect(claseDeArchivo([TITULOS, renglon({})].join('\n'))).toBe('emitidos')
+    expect(claseDeArchivo('"Fecha";"Otra cosa"\n1;2')).toBeNull()
+    expect(claseDeArchivo('')).toBeNull()
+  })
+
+  it('lee una compra con su proveedor y quién la recibió', () => {
+    const r = recibidos(compra())
+    expect(r.ok && r.filas[0]).toEqual({
+      renglon: 2, fechaEmision: '2025-03-10', tipoCodigo: 1, puntoVenta: 5, numero: 77, cuitEmisor: '30000000002',
+      emisorNombre: 'REPUESTOS INVENTADOS S.A.', cuitReceptor: '30000000009', moneda: 'PES', tipoCambio: '1.00',
+      netoGravado: '1000.00', iva: '210.00', total: '1210.00',
+    })
+  })
+
+  it('acepta punto de venta 0 y una factura C; rechaza la que no trae CUIT o es de un tipo desconocido', () => {
+    const r = recibidos(compra({ pv: '0', tipo: '11' }), compra({ cuit: '123' }), compra({ tipo: '99' }))
+    expect(r.ok && r.filas.length).toBe(1)
+    expect(r.ok && r.errores.map((e) => e.renglon)).toEqual([3, 4])
+  })
+
+  it('en otra moneda sin tipo de cambio no adivina; en pesos, vale 1', () => {
+    const r = recibidos(compra({ moneda: 'DOL', cambio: '' }), compra({ moneda: 'DOL', cambio: '950,50', nro: '78' }), compra({ cambio: '', nro: '79' }))
+    expect(r.ok && r.errores[0]?.motivo).toContain('sin tipo de cambio')
+    expect(r.ok && r.filas.map((f) => f.tipoCambio)).toEqual(['950.50', '1'])
+  })
+
+  it('un archivo de Emitidos no se lee como Recibidos, ni al revés', () => {
+    expect(leerRecibidos([TITULOS, renglon({})].join('\n'), TIPOS_COMPRAS).ok).toBe(false)
+    expect(leerMisComprobantes([TITULOS_RECIBIDOS, compra()].join('\n'), TIPOS).ok).toBe(false)
+  })
+
+  it('avisa si las compras son de otro CUIT que el del taller', () => {
+    const r = recibidos(compra(), compra({ receptor: '20111111112', nro: '80' }))
+    expect(r.ok && recibidoPorOtro(r.filas, '30000000009')).toBe('20111111112')
+    expect(r.ok && recibidoPorOtro(r.filas.slice(0, 1), '30000000009')).toBeNull()
+    expect(r.ok && recibidoPorOtro(r.filas, null)).toBeNull()
+  })
+})
