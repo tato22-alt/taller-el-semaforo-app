@@ -59,7 +59,7 @@
  * una orden, no cuenta para los avisos ni para lo autorizado. `nota` es lo que tiene que saber quien la
  * confirma y no entra en otro campo (por ejemplo, que el mail trae más de una orden). */
 
-const VERSION_ORDENES = 8
+const VERSION_ORDENES = 9
 
 /* Las casillas de Orion: la de hoy y las dos que usó hasta fines de 2025. */
 const REMITENTES_ORION = ['sistemas@mg.sistema-orion.com', 'sistema.orion@cesvi.com.ar', 'sistemas@mg.cesvi.com.ar']
@@ -365,10 +365,46 @@ function leerOrdenCooperacion(mail) {
  * @returns {string | null}
  */
 function montoDelPdf(texto) {
+  const deOrion = montoDeOrion(texto)
+  if (deOrion !== null) return deOrion
   const totales = [...texto.matchAll(/total(?:\s+(?:general|orden|autorizado|a pagar))?\s*:?\s*\$?\s*([\d.,]+\d)/gi)]
     .map((m) => aImporte(m[1] ?? ''))
     .filter((m) => m !== null)
   return totales.length > 0 ? (totales[totales.length - 1] ?? null) : null
+}
+
+/**
+ * El "Total Peritado" de una orden de Orion (Sistema de Peritación ORION CESVICOM). El cuadro del PDF es:
+ *
+ *   Total (Sin IVA)        $ 1000632
+ *   IVA                    $  210133
+ *   Depreciación           $       0
+ *   Deducción Franquicia   $       0
+ *   Total Peritado         $ 1210765
+ *
+ * en pesos enteros. Al pasar el PDF a texto, los rótulos y los importes pueden quedar en otro orden
+ * (el total, antes o después de su rótulo), pero los importes salen siempre en el orden del cuadro.
+ * Por eso no se busca "el número que sigue a Total Peritado": se toman los importes del cuadro y se
+ * controla la cuenta, sin IVA + IVA − depreciación − franquicia = total. Si no cierra, null: mejor
+ * vacío que un monto equivocado.
+ * @param {string} texto
+ * @returns {string | null}
+ */
+function montoDeOrion(texto) {
+  const t = texto.replace(/\s+/g, ' ')
+  const desde = t.search(/Total \(Sin IVA\)/i)
+  if (desde < 0 || !/Total Peritado/i.test(t)) return null
+  // El cuadro termina en el pie de la página ("Página 2 de 3") o, si no está, poco después.
+  const cuadro = t.slice(desde, desde + 400).split(/P[aá]gina \d/i)[0] ?? ''
+  const importes = [...cuadro.matchAll(/\$ ?(\d[\d.,]*)/g)].map((m) => aImporte(m[1] ?? ''))
+  if (importes.length < 3 || importes.some((i) => i === null)) return null
+  const centavos = importes.map((i) => Math.round(Number(i) * 100))
+  const total = centavos[centavos.length - 1] ?? 0
+  const sinIva = centavos[0] ?? 0
+  const iva = centavos[1] ?? 0
+  const descuentos = centavos.slice(2, -1).reduce((a, b) => a + b, 0)
+  if (total <= 0 || Math.abs(sinIva + iva - descuentos - total) > 100) return null
+  return importes[importes.length - 1] ?? null
 }
 
 /**

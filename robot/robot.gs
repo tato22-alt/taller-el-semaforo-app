@@ -1484,7 +1484,7 @@ function companiaDelDominio(direccion, dominios) {
  * una orden, no cuenta para los avisos ni para lo autorizado. `nota` es lo que tiene que saber quien la
  * confirma y no entra en otro campo (por ejemplo, que el mail trae más de una orden). */
 
-const VERSION_ORDENES = 8
+const VERSION_ORDENES = 9
 
 /* Las casillas de Orion: la de hoy y las dos que usó hasta fines de 2025. */
 const REMITENTES_ORION = ['sistemas@mg.sistema-orion.com', 'sistema.orion@cesvi.com.ar', 'sistemas@mg.cesvi.com.ar']
@@ -1790,10 +1790,46 @@ function leerOrdenCooperacion(mail) {
  * @returns {string | null}
  */
 function montoDelPdf(texto) {
+  const deOrion = montoDeOrion(texto)
+  if (deOrion !== null) return deOrion
   const totales = [...texto.matchAll(/total(?:\s+(?:general|orden|autorizado|a pagar))?\s*:?\s*\$?\s*([\d.,]+\d)/gi)]
     .map((m) => aImporte(m[1] ?? ''))
     .filter((m) => m !== null)
   return totales.length > 0 ? (totales[totales.length - 1] ?? null) : null
+}
+
+/**
+ * El "Total Peritado" de una orden de Orion (Sistema de Peritación ORION CESVICOM). El cuadro del PDF es:
+ *
+ *   Total (Sin IVA)        $ 1000632
+ *   IVA                    $  210133
+ *   Depreciación           $       0
+ *   Deducción Franquicia   $       0
+ *   Total Peritado         $ 1210765
+ *
+ * en pesos enteros. Al pasar el PDF a texto, los rótulos y los importes pueden quedar en otro orden
+ * (el total, antes o después de su rótulo), pero los importes salen siempre en el orden del cuadro.
+ * Por eso no se busca "el número que sigue a Total Peritado": se toman los importes del cuadro y se
+ * controla la cuenta, sin IVA + IVA − depreciación − franquicia = total. Si no cierra, null: mejor
+ * vacío que un monto equivocado.
+ * @param {string} texto
+ * @returns {string | null}
+ */
+function montoDeOrion(texto) {
+  const t = texto.replace(/\s+/g, ' ')
+  const desde = t.search(/Total \(Sin IVA\)/i)
+  if (desde < 0 || !/Total Peritado/i.test(t)) return null
+  // El cuadro termina en el pie de la página ("Página 2 de 3") o, si no está, poco después.
+  const cuadro = t.slice(desde, desde + 400).split(/P[aá]gina \d/i)[0] ?? ''
+  const importes = [...cuadro.matchAll(/\$ ?(\d[\d.,]*)/g)].map((m) => aImporte(m[1] ?? ''))
+  if (importes.length < 3 || importes.some((i) => i === null)) return null
+  const centavos = importes.map((i) => Math.round(Number(i) * 100))
+  const total = centavos[centavos.length - 1] ?? 0
+  const sinIva = centavos[0] ?? 0
+  const iva = centavos[1] ?? 0
+  const descuentos = centavos.slice(2, -1).reduce((a, b) => a + b, 0)
+  if (total <= 0 || Math.abs(sinIva + iva - descuentos - total) > 100) return null
+  return importes[importes.length - 1] ?? null
 }
 
 /**
@@ -3043,6 +3079,72 @@ function releerOrdenesOtro() {
   else props.deleteProperty('releer_desde_fila')
   console.log(`Releídos ${releidas} mails: ${ahoraEntran} ahora pueden entrar a la base. ` +
     (corte ? `Quedan más (${corte}): esperá un minuto y ejecutá releerOrdenesOtro de nuevo, sigue desde la fila ${i + 2}.` : 'Terminó.'))
+}
+
+/**
+ * Completa el monto de las órdenes que entraron sin él (PENDIENTES 2.2). El lector de antes no sabía
+ * leer el cuadro "Total Peritado" de Orion: las órdenes quedaron en la planilla y en la base sin monto.
+ * Esto vuelve a leer el PDF que ya está en Drive (no pide nada a Gmail), anota el monto en la planilla
+ * y se lo pasa a la base, que lo pone sólo si la orden no tenía ninguno. Se corre a mano, una vez,
+ * después de pegar el robot nuevo. Si se acaba el tiempo, se vuelve a correr y sigue donde quedó.
+ */
+function completarMontos() {
+  const inicio = Date.now()
+  const hojas = prepararHojas()
+  const filas = hojas.ordenes.getDataRange().getValues().slice(1)
+  const sesion = entrarALaBase()
+  if (typeof sesion === 'string') { console.log(`Montos sin completar: ${sesion}.`); return }
+  const props = PropertiesService.getScriptProperties()
+  let i = Number(props.getProperty('montos_desde_fila') || 0)
+  let miradas = 0
+  let completadas = 0
+  let corte = false
+  for (; i < filas.length; i++) {
+    const f = filas[i] ?? []
+    if (!faltaElMonto(f)) continue
+    if (Date.now() - inicio > LIMITE_MS) { corte = true; break }
+    miradas++
+    const monto = montoDeLosPdf(String(f[13]).split('\n').filter((d) => d !== ''))
+    if (monto === null) continue
+    hojas.ordenes.getRange(i + 2, 11).setValue(monto)
+    const r = UrlFetchApp.fetch(`${sesion.url}/rest/v1/rpc/fn_robot_completa_monto`, {
+      method: 'post', contentType: 'application/json', headers: { apikey: sesion.clave, Authorization: `Bearer ${sesion.token}` },
+      muteHttpExceptions: true,
+      // El monto viaja como texto: no pasa por un float.
+      payload: JSON.stringify({ p_gmail_message_id: String(f[0]), p_monto: monto }),
+    })
+    if (r.getResponseCode() === 200 && JSON.parse(r.getContentText()) === 'completado') completadas++
+  }
+  if (corte) props.setProperty('montos_desde_fila', String(i))
+  else props.deleteProperty('montos_desde_fila')
+  console.log(`Miré ${miradas} órdenes sin monto: ${completadas} quedaron con su monto en la base. ` +
+    (corte ? `Se acabó el tiempo: ejecutá completarMontos de nuevo, sigue desde la fila ${i + 2}.` : 'Terminó.'))
+}
+
+/**
+ * ¿Es una orden sin monto, con su PDF en Drive?
+ * @param {readonly unknown[]} f
+ */
+function faltaElMonto(f) {
+  return String(f[3]) === 'orden' && String(f[10] ?? '') === '' && String(f[13] ?? '') !== ''
+}
+
+/**
+ * El monto que dicen los PDF de una orden, que ya están en Drive. Null si ninguno lo dice claro.
+ * @param {readonly string[]} idsDrive
+ * @returns {string | null}
+ */
+function montoDeLosPdf(idsDrive) {
+  for (const id of idsDrive) {
+    const r = UrlFetchApp.fetch(`https://www.googleapis.com/drive/v3/files/${id}?alt=media`, {
+      headers: { Authorization: `Bearer ${ScriptApp.getOAuthToken()}` },
+      muteHttpExceptions: true,
+    })
+    if (r.getResponseCode() !== 200) continue
+    const monto = montoDelPdf(textoDePdf(r.getBlob()))
+    if (monto !== null) return monto
+  }
+  return null
 }
 
 /**

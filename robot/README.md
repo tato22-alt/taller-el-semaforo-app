@@ -390,3 +390,12 @@ tarjeta dice "Borrador listo". Se manda desde Gmail, y a la hora siguiente la ta
   escribiendo dos semanas para comparar, y después deja de usarse.
 - **No va al repo.** Tiene datos reales (montos, números de factura, CBU enmascarados). El repo
   es público: acá sólo hay código y mails inventados para los tests.
+
+## El monto de las órdenes (2026-11-17)
+
+El lector de órdenes (v9) lee el cuadro "Total Peritado" del PDF de Orion. Las órdenes nuevas entran con su
+monto. Para las que ya estaban cargadas sin monto: después de pegar este `robot.gs`, y con la migración
+`20261117120000_robot_completa_monto.sql` de `semaforo-base` aplicada, correr **`completarMontos`** una vez.
+Relee los PDF que ya están en Drive (no le pide nada a Gmail), anota el monto en la pestaña "ordenes" y se
+lo pasa a la base, que lo pone sólo si la orden no tenía ninguno. Si se acaba el tiempo, se corre de nuevo y
+sigue donde quedó.

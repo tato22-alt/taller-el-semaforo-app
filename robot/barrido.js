@@ -287,6 +287,72 @@ function releerOrdenesOtro() {
 }
 
 /**
+ * Completa el monto de las órdenes que entraron sin él (PENDIENTES 2.2). El lector de antes no sabía
+ * leer el cuadro "Total Peritado" de Orion: las órdenes quedaron en la planilla y en la base sin monto.
+ * Esto vuelve a leer el PDF que ya está en Drive (no pide nada a Gmail), anota el monto en la planilla
+ * y se lo pasa a la base, que lo pone sólo si la orden no tenía ninguno. Se corre a mano, una vez,
+ * después de pegar el robot nuevo. Si se acaba el tiempo, se vuelve a correr y sigue donde quedó.
+ */
+function completarMontos() {
+  const inicio = Date.now()
+  const hojas = prepararHojas()
+  const filas = hojas.ordenes.getDataRange().getValues().slice(1)
+  const sesion = entrarALaBase()
+  if (typeof sesion === 'string') { console.log(`Montos sin completar: ${sesion}.`); return }
+  const props = PropertiesService.getScriptProperties()
+  let i = Number(props.getProperty('montos_desde_fila') || 0)
+  let miradas = 0
+  let completadas = 0
+  let corte = false
+  for (; i < filas.length; i++) {
+    const f = filas[i] ?? []
+    if (!faltaElMonto(f)) continue
+    if (Date.now() - inicio > LIMITE_MS) { corte = true; break }
+    miradas++
+    const monto = montoDeLosPdf(String(f[13]).split('\n').filter((d) => d !== ''))
+    if (monto === null) continue
+    hojas.ordenes.getRange(i + 2, 11).setValue(monto)
+    const r = UrlFetchApp.fetch(`${sesion.url}/rest/v1/rpc/fn_robot_completa_monto`, {
+      method: 'post', contentType: 'application/json', headers: { apikey: sesion.clave, Authorization: `Bearer ${sesion.token}` },
+      muteHttpExceptions: true,
+      // El monto viaja como texto: no pasa por un float.
+      payload: JSON.stringify({ p_gmail_message_id: String(f[0]), p_monto: monto }),
+    })
+    if (r.getResponseCode() === 200 && JSON.parse(r.getContentText()) === 'completado') completadas++
+  }
+  if (corte) props.setProperty('montos_desde_fila', String(i))
+  else props.deleteProperty('montos_desde_fila')
+  console.log(`Miré ${miradas} órdenes sin monto: ${completadas} quedaron con su monto en la base. ` +
+    (corte ? `Se acabó el tiempo: ejecutá completarMontos de nuevo, sigue desde la fila ${i + 2}.` : 'Terminó.'))
+}
+
+/**
+ * ¿Es una orden sin monto, con su PDF en Drive?
+ * @param {readonly unknown[]} f
+ */
+function faltaElMonto(f) {
+  return String(f[3]) === 'orden' && String(f[10] ?? '') === '' && String(f[13] ?? '') !== ''
+}
+
+/**
+ * El monto que dicen los PDF de una orden, que ya están en Drive. Null si ninguno lo dice claro.
+ * @param {readonly string[]} idsDrive
+ * @returns {string | null}
+ */
+function montoDeLosPdf(idsDrive) {
+  for (const id of idsDrive) {
+    const r = UrlFetchApp.fetch(`https://www.googleapis.com/drive/v3/files/${id}?alt=media`, {
+      headers: { Authorization: `Bearer ${ScriptApp.getOAuthToken()}` },
+      muteHttpExceptions: true,
+    })
+    if (r.getResponseCode() !== 200) continue
+    const monto = montoDelPdf(textoDePdf(r.getBlob()))
+    if (monto !== null) return monto
+  }
+  return null
+}
+
+/**
  * ¿La fila no puede entrar a la base así como está? Una 'otro', o una orden sin compañía o sin siniestro
  * que no es para confirmar (la base la rechaza). Lo que la base ya cargó no se toca.
  * @param {readonly unknown[]} f
